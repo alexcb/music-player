@@ -61,9 +61,36 @@ int main(int argc, char *argv[])
 	format.matrix = 0;
 	dev = ao_open_live(driver, &format, NULL);
 
+	mpg123_id3v1 *v1;
+	mpg123_id3v2 *v2;
+	char *icy_meta;
+
 	/* decode and play */
-	while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK)
+	while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
+
+		int meta = mpg123_meta_check(mh);
+		if( meta & MPG123_NEW_ID3 ) {
+			if( mpg123_id3(mh, &v1, &v2) == MPG123_OK ) {
+				printf("got meta\n");
+				if( v1 != NULL ) {
+					printf("title: %s\n", v1->title);
+					printf("artist: %s\n", v1->artist);
+				}
+				if( v2 != NULL ) {
+					printf("title: %s\n", v2->title->p);
+					printf("artist: %s\n", v2->artist->p);
+				}
+			}
+		}
+		if( meta & MPG123_NEW_ICY ) {
+			if( mpg123_icy(mh, &icy_meta) == MPG123_OK ) {
+				printf("got ICY: %s\n", icy_meta);
+
+			}
+		}
+
 		ao_play(dev, buffer, done);
+	}
 
 	/* clean up */
 	free(buffer);
