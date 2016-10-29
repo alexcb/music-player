@@ -41,7 +41,7 @@
 #include <ctype.h>
 #include "true.h"
 
-#define SIZE_MAX 1024
+#define SIZE_MAX 1024 * 64
 
 void httpdata_init(struct httpdata *e)
 {
