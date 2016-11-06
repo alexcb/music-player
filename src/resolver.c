@@ -121,19 +121,19 @@ int split_url(mpg123_string *url, mpg123_string *auth, mpg123_string *host, mpg1
 }
 
 /* Switch between blocking and non-blocking mode. */
-static void nonblock(int sock)
-{
-	int flags = fcntl(sock, F_GETFL);
-	flags |= O_NONBLOCK;
-	fcntl(sock, F_SETFL, flags);
-}
+//static void nonblock(int sock)
+//{
+//	int flags = fcntl(sock, F_GETFL);
+//	flags |= O_NONBLOCK;
+//	fcntl(sock, F_SETFL, flags);
+//}
 
-static void block(int sock)
-{
-	int flags = fcntl(sock, F_GETFL);
-	flags &= ~O_NONBLOCK;
-	fcntl(sock, F_SETFL, flags);
-}
+//static void block(int sock)
+//{
+//	int flags = fcntl(sock, F_GETFL);
+//	flags &= ~O_NONBLOCK;
+//	fcntl(sock, F_SETFL, flags);
+//}
 
 /* If we want a timeout, connect non-blocking and wait for that long... */
 static int timeout_connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen)

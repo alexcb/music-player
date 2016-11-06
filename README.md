@@ -8,3 +8,7 @@ gcc -std=gnu99 *.c -lcurl -lao -lmpg123
 or 
 
 ./a.out http://stream
+
+dependencies:
+ libao-dev
+ libmpg123-dev

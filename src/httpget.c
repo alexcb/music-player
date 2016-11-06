@@ -438,6 +438,8 @@ int http_open(char* url, struct httpdata *hd)
 	mpg123_init_string(&request_url);
 	mpg123_init_string(&httpauth1);
 
+	(void)oom;
+
 	if(!translate_url(url, &purl)){ oom=1; goto exit; }
 
 	/* Don't confuse the different auth strings... */

@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		ao_play(dev, buffer, done);
+		ao_play(dev, (char *) buffer, done);
 	}
 
 	/* clean up */
