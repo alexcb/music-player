@@ -1,6 +1,6 @@
 CC=gcc
 CCFLAGS=-g -Wall -pedantic -std=gnu11 -Wall -Werror -I./src
-LDFLAGS=-lao -lmpg123
+LDFLAGS=-lao -lmpg123 -lwiringPi
 
 TARGET=my123
 
