@@ -414,7 +414,7 @@ static int resolve_redirect(mpg123_string *response, mpg123_string *request_url,
 	return TRUE;
 }
 
-int http_open(char* url, struct httpdata *hd)
+int http_open( const char* url, struct httpdata *hd )
 {
 	mpg123_string purl, host, port, path;
 	mpg123_string request, response, request_url;
