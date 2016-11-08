@@ -331,8 +331,8 @@ break;
 					strcpy(playlist[playlist_items], line);
 					printf("queueing %s\n", playlist[playlist_items]);
 					if( playlist_items > 1024 ) {
-						printf("too many songs in playlist");
-						exit(3);
+						printf("too many songs in playlist\n");
+						break;
 					}
 					playlist_items++;
 				}
