@@ -180,7 +180,7 @@ void setupLCDPins(LCDState *lcd_state)
 	delay(100);
 	digitalWrite( PIN_LCD_RST, 1 );
 
-	init_lcd( lcd_state, 0, PIN_LCD_DC, PIN_LCD_RST, PIN_LED );
+	init_lcd( lcd_state, SPIDEV0, PIN_LCD_DC, PIN_LCD_RST, PIN_LED );
 	set_contrast( lcd_state, CONTRAST );
 }
 
