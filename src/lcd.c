@@ -1,6 +1,5 @@
 #include "lcd.h"
 #include <wiringPi.h>
-//#include <wiringPiSPI.h>
 #include <unistd.h>
 #include <sys/stat.h> 
 #include <sys/ioctl.h>
