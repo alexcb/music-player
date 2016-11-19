@@ -32,29 +32,29 @@
 
 #define BITS 8
 
-typedef struct Playlist
-{
-	const char *name;
-	const char *url;
-} Playlist;
-Playlist playlists[] = {
-	{
-		"kexp",
-		"http://live-mp3-128.kexp.org:80/kexp128.mp3"
-	},
-	{
-		"kcrw",
-		"http://kcrw.streamguys1.com/kcrw_192k_mp3_e24_internet_radio"
-	},
-	{
-		"witr",
-		"http://streaming.witr.rit.edu:8000/witr-undrgnd-mp3-192"
-	},
-	{
-		"mp3 list",
-		"/home/alex/foo.m3u"
-	}
-};
+//typedef struct Playlist
+//{
+//	const char *name;
+//	const char *url;
+//} Playlist;
+//Playlist playlists[] = {
+//	{
+//		"kexp",
+//		"http://live-mp3-128.kexp.org:80/kexp128.mp3"
+//	},
+//	{
+//		"kcrw",
+//		"http://kcrw.streamguys1.com/kcrw_192k_mp3_e24_internet_radio"
+//	},
+//	{
+//		"witr",
+//		"http://streaming.witr.rit.edu:8000/witr-undrgnd-mp3-192"
+//	},
+//	{
+//		"mp3 list",
+//		"/home/alex/foo.m3u"
+//	}
+//};
 
 // can be changed in interupt handlers, must be volitile
 volatile int playing_playlist = 0;
@@ -238,16 +238,42 @@ static int web_handler(void *cls,
 	return ret;
 }
 
+int start_http_server()
+{
+	struct MHD_Daemon *d = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION,
+			80,
+			NULL,
+			NULL,
+			&web_handler,
+			NULL,
+			MHD_OPTION_END);
+
+	if( d == NULL ) {
+		return 1;
+	}
+
+	printf("busy looping\n");
+	for(;;) { printf("sleep\n"); }
+}
+
 
 int main(int argc, char *argv[])
 {
+	printf("starting\n");
 	Player player;
 	int res = start_player( &player );
 	if( !res ) {
 		printf("failed to start player\n");
 		return 1;
 	}
-	sleep(100);
+	printf("running server\n");
+	res = start_http_server();
+	if( !res ) {
+		printf("failed to start http server\n");
+		return 2;
+	}
+
+	printf("done\n");
 	return 0;
 
 //	mpg123_handle *mh;

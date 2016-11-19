@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "playlist.h"
 #include "httpget.h"
 
 typedef struct Player
@@ -24,7 +25,12 @@ typedef struct Player
 
 	struct httpdata hd;
 
+	Playlist *playlist;
+
+
 } Player;
 
 
 int start_player( Player *player );
+
+int set_playlist( Player *player, Playlist *playlist );
