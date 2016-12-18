@@ -2,6 +2,7 @@
 #include <mpg123.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdbool.h>
 
 #include "playlist.h"
 #include "httpget.h"
@@ -26,6 +27,15 @@ typedef struct Player
 	struct httpdata hd;
 
 	Playlist *playlist;
+
+	// when true play, when false, pause / stop
+	bool playing;
+
+	// set to true when player should
+	// query playlist for which file to play (used when changing tracks)
+	bool restart;
+
+
 
 
 } Player;

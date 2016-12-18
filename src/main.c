@@ -211,26 +211,16 @@ void parseICY( const char *icy_meta, const char *playlist_name, char *text_buf )
 	s[len+1] = '\0';
 }
 
-
-static int web_handler(void *cls,
-                struct MHD_Connection * connection,
-                const char *url,
-                const char *method, const char *version,
-                const char *upload_data, size_t *upload_data_size,
-                void **con_cls)
+static int web_handler_albums(
+		Player *player,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const char *upload_data,
+		size_t *upload_data_size,
+		void **con_cls)
 {
-	static int old_connection_marker;
-	int new_connection = (NULL == *con_cls);
-
-	if (new_connection)
-	{
-		/* new connection with POST */
-		*con_cls = &old_connection_marker;
-		printf("got new connection\n");
-		return MHD_YES;
-	}
-	printf("resume connection\n");
-
 	struct MHD_Response *response = MHD_create_response_from_buffer(5, "hello", MHD_RESPMEM_PERSISTENT);
 
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -238,37 +228,118 @@ static int web_handler(void *cls,
 	return ret;
 }
 
-int start_http_server()
+static int web_handler(
+		void *cls,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const char *upload_data,
+		size_t *upload_data_size,
+		void **con_cls)
 {
-	struct MHD_Daemon *d = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION,
+	Player *player = (Player*) cls;
+
+	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/albums") == 0 ) {
+		return web_handler_albums( player, connection, url, method, version, upload_data, upload_data_size, con_cls );
+	}
+
+	return MHD_NO;
+
+//	if( strcmp(url, "albums") == 0 ) {
+//		
+//	}
+//	Player *player = (Player*) cls;
+//	static int old_connection_marker;
+//	int new_connection = (NULL == *con_cls);
+//
+//	if (new_connection)
+//	{
+//		/* new connection with POST */
+//		*con_cls = &old_connection_marker;
+//		printf("got new connection: %s\n", url);
+//		return MHD_YES;
+//	}
+//
+//
+//	const char *value = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "q" );
+//
+//	if( value == NULL ) {
+//		value = "NOTHING";
+//	}
+//	printf("resume connection: %s\n", value);
+//
+//	player->playing = !player->playing;
+//
+//	struct MHD_Response *response = MHD_create_response_from_buffer(5, "hello", MHD_RESPMEM_PERSISTENT);
+//
+//	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+//	MHD_destroy_response(response);
+//	return ret;
+}
+
+int start_http_server( Player *player )
+{
+	struct MHD_Daemon *d = MHD_start_daemon(
+			MHD_USE_SELECT_INTERNALLY,
 			80,
 			NULL,
 			NULL,
 			&web_handler,
-			NULL,
+			(void*) player,
 			MHD_OPTION_END);
 
 	if( d == NULL ) {
 		return 1;
 	}
 
+
 	printf("busy looping\n");
-	for(;;) { printf("sleep\n"); }
+	//for(;;) { sleep(10); printf("busy loop sleep\n"); }
+	for(;;) { sleep(10); }
 }
 
+int load_albums( AlbumList *album_list, const char *path )
+{
+	DIR *d = opendir(".");
+	if( d == NULL ) {
+		return 1;
+	}
+
+	struct dirent *dir;
+	while( (dir = readdir(d)) != NULL) {
+		printf( "got %s\n", dir->d_name );
+	}
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
+	int res;
+
+	AlbumList album_list;
+	res = album_list_init( &album_list );
+	if( res ) {
+		printf("failed to init album list\n");
+		return 1;
+	}
+	res = load_albums( &album_list, "/media/nugget_share/music/alex-beet/" );
+	if( res ) {
+		printf("failed to load album list\n");
+		return 1;
+	}
+
+
 	printf("starting\n");
 	Player player;
-	int res = start_player( &player );
-	if( !res ) {
+	res = start_player( &player );
+	if( res ) {
 		printf("failed to start player\n");
 		return 1;
 	}
 	printf("running server\n");
-	res = start_http_server();
-	if( !res ) {
+	res = start_http_server( &player );
+	if( res ) {
 		printf("failed to start http server\n");
 		return 2;
 	}

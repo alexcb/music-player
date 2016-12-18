@@ -15,6 +15,7 @@ typedef struct Playlist
 	pthread_mutex_t lock;
 } Playlist;
 
-int playlist_new( const char *name, Playlist **playlist );
+int playlist_new( Playlist **playlist, const char *name );
 int playlist_add_file( Playlist *playlist, const char *path );
-int playlist_get_current_fd( Playlist *playlist, int *fd );
+int playlist_open_current_fd( Playlist *playlist, int *fd );
+int playlist_next( Playlist *playlist );
