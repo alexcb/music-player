@@ -1,5 +1,4 @@
-#ifndef _ROTARY_H
-#define _ROTARY_H
+#pragma once
 
 typedef struct RotaryState
 {
@@ -10,5 +9,3 @@ typedef struct RotaryState
 
 void initRotaryState(RotaryState *state, int pin1, int pin2);
 int updateRotary(RotaryState *state, int pin1, int pin2);
-
-#endif //_ROTARY_H

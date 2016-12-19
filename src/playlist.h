@@ -1,8 +1,10 @@
+#pragma once
+
 #include <pthread.h>
 
 typedef struct PlaylistItem
 {
-	const char *path;
+	char *path;
 	struct PlaylistItem *next;
 } PlaylistItem;
 
@@ -16,6 +18,7 @@ typedef struct Playlist
 } Playlist;
 
 int playlist_new( Playlist **playlist, const char *name );
+int playlist_clear( Playlist *playlist );
 int playlist_add_file( Playlist *playlist, const char *path );
-int playlist_open_current_fd( Playlist *playlist, int *fd );
+int playlist_open_fd( Playlist *playlist, int *fd );
 int playlist_next( Playlist *playlist );

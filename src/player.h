@@ -1,10 +1,12 @@
+#pragma once
+
 #include <ao/ao.h>
 #include <mpg123.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
 
-#include "playlist.h"
+#include "playlist_manager.h"
 #include "httpget.h"
 
 typedef struct Player
@@ -26,7 +28,7 @@ typedef struct Player
 
 	struct httpdata hd;
 
-	Playlist *playlist;
+	PlaylistManager *playlist_manager;
 
 	// when true play, when false, pause / stop
 	bool playing;
@@ -43,4 +45,3 @@ typedef struct Player
 
 int start_player( Player *player );
 
-int set_playlist( Player *player, Playlist *playlist );

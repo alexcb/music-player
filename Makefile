@@ -1,6 +1,6 @@
 CC=gcc
 CCFLAGS=-g -std=gnu11 -I./src
-LDFLAGS=-lao -lmpg123 -lwiringPi -lmicrohttpd -lpthread -lm
+LDFLAGS=-lao -lmpg123 -lwiringPi -lmicrohttpd -lpthread -lm -ljson-c
 
 TARGET=my123
 

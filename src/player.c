@@ -39,26 +39,26 @@ int start_player( Player *player )
 	player->playing = true;
 	player->restart = false;
 
-	player->playlist = NULL;
-	res = playlist_new( &player->playlist, "test playlist" );
-	if( res ) {
-		goto error;
-	}
+	//player->playlist = NULL;
+	//res = playlist_new( &player->playlist, "test playlist" );
+	//if( res ) {
+	//	goto error;
+	//}
 
-	res = playlist_add_file( player->playlist, "/home/alex/test1.mp3" );
-	if( res ) {
-		goto error;
-	}
+	//res = playlist_add_file( player->playlist, "/home/alex/test1.mp3" );
+	//if( res ) {
+	//	goto error;
+	//}
 
-	res = playlist_add_file( player->playlist, "/home/alex/test2.mp3" );
-	if( res ) {
-		goto error;
-	}
+	//res = playlist_add_file( player->playlist, "/home/alex/test2.mp3" );
+	//if( res ) {
+	//	goto error;
+	//}
 
-	res = playlist_add_file( player->playlist, "/home/alex/test3.mp3" );
-	if( res ) {
-		goto error;
-	}
+	//res = playlist_add_file( player->playlist, "/home/alex/test3.mp3" );
+	//if( res ) {
+	//	goto error;
+	//}
 
 	printf("about to create thread\n");
 	res = pthread_create( &player->thread, NULL, (void *) &player_thread_run, (void *) player);
@@ -76,10 +76,11 @@ error:
 	return 1;
 }
 
-int set_playlist( Player *player, Playlist *playlist )
-{
-	player->playlist = playlist;
-}
+//int set_playlist( Player *player, Playlist *playlist )
+//{
+//	player->playlist = playlist;
+//	player->restart = true;
+//}
 
 void play_tone( Player *player )
 {
@@ -123,14 +124,13 @@ void player_thread_run( void *data )
 			sleep(1);
 			continue;
 		}
-		if( player->playlist == NULL ) {
-			printf("no playlist\n");
-			sleep(1);
-			continue;
-		}
-		//TODO the play tone works, but the play logic below causes a segfault
+		//if( player->playlist == NULL ) {
+		//	printf("no playlist\n");
+		//	sleep(1);
+		//	continue;
+		//}
 		int fd;
-		res = playlist_open_current_fd( player->playlist, &fd );
+		res = playlist_manager_open_fd( player->playlist_manager, &fd );
 		if( res ) {
 			printf("no fd returned\n");
 			sleep(1);
@@ -157,6 +157,11 @@ void player_thread_run( void *data )
 				usleep(100);
 				continue;
 			}
+			if( player->restart ) {
+				usleep(100);
+				player->restart = false;
+				break;
+			}
 			res = mpg123_read( player->mh, buffer, buffer_size, &decoded_size);
 			switch( res ) {
 				case MPG123_OK:
@@ -174,19 +179,6 @@ void player_thread_run( void *data )
 			}
 		}
 		close( fd );
-
-		if( !player->playing ) {
-			continue;
-		}
-
-		assert( done );
-
-		res = playlist_next( player->playlist );
-		if( res ) {
-			printf("failed setting next\n");
-			sleep(1);
-			continue;
-		}
 	}
 
 //

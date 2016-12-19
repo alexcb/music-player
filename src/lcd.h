@@ -1,3 +1,5 @@
+#pragma once
+
 #include "stdint.h"
 
 #define SPIDEV0 "/dev/spidev0.0"
