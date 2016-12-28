@@ -158,7 +158,7 @@ void player_thread_run( void *data )
 				continue;
 			}
 			if( player->restart ) {
-				usleep(100);
+				//usleep(100);
 				player->restart = false;
 				break;
 			}

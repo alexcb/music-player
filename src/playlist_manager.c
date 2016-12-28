@@ -1,6 +1,8 @@
 #include "playlist_manager.h"
 
 #include "string_utils.h"
+#include "errors.h"
+#include "log.h"
 
 #include <dirent.h> 
 #include <string.h>
@@ -47,6 +49,7 @@ int load_quick_album_recursive( PlaylistManager *manager, const char *path )
 	char p[1024];
 	struct dirent *ent;
 
+	LOG_DEBUG("path=s loading album", path);
 	DIR *d = opendir( path );
 	if( d == NULL ) {
 		return 1;
@@ -87,8 +90,15 @@ int load_quick_album( PlaylistManager *manager, const char *path )
 	}
 
 	res = load_quick_album_recursive( manager, path );
+	if( res ) {
+    	pthread_mutex_unlock( &manager->lock );
+		return res;
+	}
+
+	LOG_DEBUG("sorting album");
+	playlist_sort_by_path( manager->playlists[0] );
     pthread_mutex_unlock( &manager->lock );
-	return res;
+	return OK;
 }
 
 int playlist_manager_open_fd( PlaylistManager *manager, int *fd )

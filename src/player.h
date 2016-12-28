@@ -31,11 +31,11 @@ typedef struct Player
 	PlaylistManager *playlist_manager;
 
 	// when true play, when false, pause / stop
-	bool playing;
+	volatile bool playing;
 
 	// set to true when player should
 	// query playlist for which file to play (used when changing tracks)
-	bool restart;
+	volatile bool restart;
 
 
 

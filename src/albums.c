@@ -1,5 +1,8 @@
 #include "albums.h"
 
+#include "errors.h"
+#include "cmp.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -70,11 +73,11 @@ int album_cmp( const void *a, const void *b )
 	const Album *aa = (const Album*) a;
 	const Album *bb = (const Album*) b;
 
-	int res = strcmp( aa->artist, bb->artist );
+	int res = stricmp( aa->artist, bb->artist );
 	if( res != 0 ) {
 		return res;
 	}
-	return strcmp( aa->name, bb->name );
+	return stricmp( aa->name, bb->name );
 }
 
 int album_list_sort( AlbumList *album_list )

@@ -8,59 +8,67 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
-
-
+#include <assert.h>
 
 
 int playlist_new( Playlist **playlist, const char *name )
 {
 	*playlist = (Playlist*) malloc(sizeof(Playlist));
 	if( *playlist == NULL ) {
-		return PLAYLIST_OUT_OF_MEMORY;
+		return OUT_OF_MEMORY;
 	}
 
 	(*playlist)->name = strdup( name );
 	if( (*playlist)->name == NULL ) {
 		free( *playlist );
-		return PLAYLIST_OUT_OF_MEMORY;
+		return OUT_OF_MEMORY;
 	}
 
     if (pthread_mutex_init(&(*playlist)->lock, NULL) != 0) {
 		free( (*playlist)->name );
 		free( *playlist );
-		return PLAYLIST_MUTEX;
+		return MUTEX_ERROR;
 	}
 
-	(*playlist)->last = (*playlist)->root = (*playlist)->current = NULL;
+	(*playlist)->len = 0;
+	(*playlist)->cap = 128;
+	(*playlist)->current = 0;
+	(*playlist)->list = (PlaylistItem*) malloc(sizeof(PlaylistItem) * (*playlist)->cap);
+	if( (*playlist)->list == NULL ) {
+		return OUT_OF_MEMORY;
+	}
+
 	return OK;
+}
+
+int playlist_grow( Playlist *playlist )
+{
+	if( playlist->len == playlist->cap ) {
+		size_t new_cap = playlist->cap * 2;
+		PlaylistItem *new_list = (PlaylistItem*) realloc(playlist->list, sizeof(PlaylistItem) * new_cap);
+		if( new_list == NULL ) {
+			return OUT_OF_MEMORY;
+		}
+		playlist->list = new_list;
+		playlist->cap = new_cap;
+	}
+	return 0;
 }
 
 int playlist_add_file( Playlist *playlist, const char *path )
 {
 	int res;
-	PlaylistItem *item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
-	if( !item ) {
-		return PLAYLIST_OUT_OF_MEMORY;
-	}
-	item->next = NULL;
-	item->path = strdup( path );
-	if( !item->path ) {
-		free( item );
-		return PLAYLIST_OUT_OF_MEMORY;
-	}
-
-    res = pthread_mutex_lock( &playlist->lock );
+	res = playlist_grow( playlist );
 	if( res ) {
 		return res;
 	}
-	if( playlist->last ) {
-		playlist->last->next = item;
-		playlist->last = item;
-	} else {
-		playlist->current = playlist->last = playlist->root = item;
+	PlaylistItem *item = &playlist->list[playlist->len];
+	item->path = strdup( path );
+	if( !item->path ) {
+		return OUT_OF_MEMORY;
 	}
 
-    pthread_mutex_unlock( &playlist->lock );
+	playlist->len++;
 	return OK;
 }
 
@@ -83,81 +91,78 @@ int open_stream( const char *url, int *fd )
 int playlist_open_fd( Playlist *playlist, int *fd )
 {
 	int res;
-    res = pthread_mutex_lock( &playlist->lock );
-	if( res ) {
-		return res;
-	}
-
-	if( playlist->current == NULL ) {
-		printf("no current playlist file\n");
-    	pthread_mutex_unlock( &playlist->lock );
+	if( playlist->len == 0 ) {
 		return 1;
 	}
+	assert( playlist->current < playlist->len );
+
+	PlaylistItem *current = &playlist->list[playlist->current];
 	
-	printf("opening %s\n", playlist->current->path);
-	if( strstr(playlist->current->path, "http://") ) {
-		res = open_stream( playlist->current->path, fd );
+	printf("opening %s\n", current->path);
+	if( strstr(current->path, "http://") ) {
+		res = open_stream( current->path, fd );
 	} else {
-		res = open_file( playlist->current->path, fd );
+		res = open_file( current->path, fd );
 	}
 
-	if( playlist->current->next == NULL ) {
-		playlist->current = playlist->root;
-	} else {
-		playlist->current = playlist->current->next;
+	playlist->current++;
+	if( playlist->current > playlist->len ) {
+		playlist->current = 0;
 	}
 
-    pthread_mutex_unlock( &playlist->lock );
 	return res;
 }
 
 int playlist_next( Playlist *playlist )
 {
-    int res = pthread_mutex_lock( &playlist->lock );
-	if( res ) {
-		return res;
-	}
+    //int res = pthread_mutex_lock( &playlist->lock );
+	//if( res ) {
+	//	return res;
+	//}
 
-	if( playlist->root == NULL ) {
-		printf("playlist is empty\n");
-    	pthread_mutex_unlock( &playlist->lock );
-		return 1;
-	}
+	//if( playlist->root == NULL ) {
+	//	printf("playlist is empty\n");
+    //	pthread_mutex_unlock( &playlist->lock );
+	//	return 1;
+	//}
 
-	if( playlist->current == NULL ) {
-		printf("no current playlist file -- this should be set when playlist is loaded\n");
-    	pthread_mutex_unlock( &playlist->lock );
-		return 1;
-	}
+	//if( playlist->current == NULL ) {
+	//	printf("no current playlist file -- this should be set when playlist is loaded\n");
+    //	pthread_mutex_unlock( &playlist->lock );
+	//	return 1;
+	//}
 
-	if( playlist->current->next == NULL ) {
-		playlist->current = playlist->root;
-    	pthread_mutex_unlock( &playlist->lock );
-		return 0;
-	}
+	//if( playlist->current->next == NULL ) {
+	//	playlist->current = playlist->root;
+    //	pthread_mutex_unlock( &playlist->lock );
+	//	return 0;
+	//}
 
-	playlist->current = playlist->current->next;
-    pthread_mutex_unlock( &playlist->lock );
+	//playlist->current = playlist->current->next;
+    //pthread_mutex_unlock( &playlist->lock );
 	return 0;
 }
 
 int playlist_clear( Playlist *playlist )
 {
-    int res = pthread_mutex_lock( &playlist->lock );
-	if( res ) {
-		return res;
+	for( int i = 0; i < playlist->len; i++ ) {
+		free( playlist->list[i].path );
 	}
 
-	PlaylistItem *p = playlist->root;
-	while( p != NULL ) {
-		free( p->path );
-		PlaylistItem *next = p->next;
-		free( p );
-		p = next;
-	}
+	playlist->len = 0;
+	playlist->current = 0;
 
-	playlist->last = playlist->root = playlist->current = NULL;
-
-	pthread_mutex_unlock( &playlist->lock );
 	return 0;
+}
+
+int playlist_item_cmp( const void *a, const void *b )
+{
+	const PlaylistItem *aa = (const PlaylistItem*) a;
+	const PlaylistItem *bb = (const PlaylistItem*) b;
+	return strcmp( aa->path, bb->path );
+}
+
+void playlist_sort_by_path( Playlist *playlist )
+{
+	qsort( playlist->list, playlist->len, sizeof(PlaylistItem), playlist_item_cmp);
 }

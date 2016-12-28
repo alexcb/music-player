@@ -19,6 +19,8 @@
 #include "albums.h"
 #include "playlist_manager.h"
 #include "string_utils.h"
+#include "log.h"
+#include "errors.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -75,10 +77,12 @@ typedef struct MyData {
 //};
 
 // can be changed in interupt handlers, must be volitile
-volatile int playing_playlist = 0;
-volatile int selected_playlist = 3;
-volatile int num_playlists = 4;
-volatile int playing = 0;
+volatile int rotation_switch = 0;
+volatile int play_switch = 0;
+
+pthread_t gpio_input_thread;
+pthread_cond_t gpio_input_changed_cond;
+
 
 RotaryState rotary_state;
 
@@ -88,18 +92,20 @@ void rotaryIntHandler()
 	int pin2 = digitalRead( PIN_ROTARY_2 );
 	int res = updateRotary(&rotary_state, pin1, pin2);
 	if( res > 0 ) {
-		selected_playlist = (selected_playlist + 1) % num_playlists;
-		printf( "clockwise\n" );
+		//LOG_DEBUG( "clockwise" );
+		rotation_switch = 1;
+		pthread_cond_signal( &gpio_input_changed_cond );
 	} else if( res < 0 ) {
-		selected_playlist = (selected_playlist + num_playlists - 1) % num_playlists;
-		printf( "counter-clockwise\n" );
+		//LOG_DEBUG( "counter-clockwise" );
+		rotation_switch = -1;
+		pthread_cond_signal( &gpio_input_changed_cond );
 	}
 }
 
 void switchIntHandler()
 {
-	playing = digitalRead( PIN_SWITCH );
-	printf( "switch: %d\n", playing);
+	play_switch = digitalRead( PIN_SWITCH );
+	pthread_cond_signal( &gpio_input_changed_cond );
 }
 
 
@@ -125,11 +131,8 @@ void addLCDPixel(char *buffer, int x, int y)
 		int lcd_offset = lcd_pos / 8;
 		unsigned char lcd_mask = 1 << (lcd_pos % 8);
 
-		if( lcd_offset < 504 ) {
-			img_buffer[lcd_offset] = img_buffer[lcd_offset] | lcd_mask;
-		} else {
-			printf("OVERFLOW\n");
-		}
+		assert( lcd_offset < 504 );
+		img_buffer[lcd_offset] = img_buffer[lcd_offset] | lcd_mask;
 	}
 }
 
@@ -372,6 +375,8 @@ static int web_handler_albums_play(
 			if( 0 <= i && i < data->album_list->len ) {
 				// TODO error handling
 				load_quick_album( data->playlist_manager, data->album_list->list[i].path );
+				// TODO need for a mutex here?
+				data->player->restart = true;
 			}
 		}
 	}
@@ -462,7 +467,7 @@ int start_http_server( MyData *data )
 	}
 
 
-	printf("busy looping\n");
+	LOG_DEBUG("busy looping");
 	//for(;;) { sleep(10); printf("busy loop sleep\n"); }
 	for(;;) { sleep(10); }
 }
@@ -475,7 +480,7 @@ int load_albums( AlbumList *album_list, const char *path )
 
 	DIR *artist_dir = opendir(path);
 	if( artist_dir == NULL ) {
-		LOG_ERROR("path=%s err=%s opendir failed", path, strerror(errno));
+		LOG_ERROR("path=s err=s opendir failed", path, strerror(errno));
 		return FILESYSTEM_ERROR;
 	}
 
@@ -485,10 +490,10 @@ int load_albums( AlbumList *album_list, const char *path )
 		}
 		
 		sprintf(artist_path, "%s/%s", path, artist_dirent->d_name);
-		printf("opening dir %s\n", artist_path);
+		LOG_DEBUG("path=s opening dir", artist_path);
 		DIR *album_dir = opendir(artist_path);
 		if( artist_dir == NULL ) {
-			LOG_ERROR("path=%s err=%s opendir failed", artist_path, strerror(errno));
+			LOG_ERROR("path=s err=s opendir failed", artist_path, strerror(errno));
 			return FILESYSTEM_ERROR;
 		}
 
@@ -510,6 +515,27 @@ int load_albums( AlbumList *album_list, const char *path )
 	return album_list_sort( album_list );
 }
 
+void* gpio_input_thread_run( void *p )
+{
+	int res;
+	MyData *data = (MyData*) p;
+	pthread_mutex_t mutex;
+	pthread_mutex_init( &mutex, NULL );
+	pthread_mutex_lock( &mutex );
+	LOG_DEBUG("gpio_input_thread_run started");
+	for(;;) {
+		res = pthread_cond_wait( &gpio_input_changed_cond, &mutex );
+		if( res ) {
+			LOG_ERROR("pthread returned error");
+			return NULL;
+		}
+		LOG_DEBUG("process GPIO input");
+
+		data->player->playing = play_switch;
+	}
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	int res;
@@ -517,24 +543,68 @@ int main(int argc, char *argv[])
 	AlbumList album_list;
 	res = album_list_init( &album_list );
 	if( res ) {
-		printf("failed to init album list\n");
+		LOG_ERROR("failed to init album list");
 		return 1;
 	}
-	res = load_albums( &album_list, "/media/nugget_share/music/alex-beet/" );
+	res = load_albums( &album_list, "/media/nugget_share/music/alex-beet" );
 	if( res ) {
-		printf("failed to load album list\n");
+		LOG_ERROR("failed to load album list");
 		return 1;
 	}
 
 	PlaylistManager playlist_manager;
 	playlist_manager_init( &playlist_manager );
 
+	load_quick_album( &playlist_manager, album_list.list[500].path );
 
-	printf("starting\n");
+	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
+	if( res ) {
+		LOG_ERROR("failed to init gpio_input_changed_cond");
+		return 1;
+	}
+
+	if( wiringPiSetup() == -1 ) {
+		LOG_ERROR("failed to setup wiringPi");
+		return 1;
+	}
+
+	// rotary encoders
+
+	// See https://pinout.xyz/ for pinouts
+	//
+	// The following pins have a physical pull up resistor
+	// we can't configure it via software, but in our case
+	// we want a pull up resistor anyway as the rotary switch
+	// will be connected to ground when the switch is closed
+	pinMode( PIN_ROTARY_1, INPUT );
+	pinMode( PIN_ROTARY_2, INPUT );
+
+	// on/off switch
+	pinMode( PIN_SWITCH, INPUT );
+	pullUpDnControl( PIN_SWITCH, PUD_UP );
+
+	int pin1 = digitalRead( PIN_ROTARY_1 );
+	int pin2 = digitalRead( PIN_ROTARY_2 );
+	initRotaryState( &rotary_state, pin1, pin2 );
+
+	wiringPiISR( PIN_ROTARY_1, INT_EDGE_BOTH, rotaryIntHandler);
+	wiringPiISR( PIN_ROTARY_2, INT_EDGE_BOTH, rotaryIntHandler);
+	wiringPiISR( PIN_SWITCH, INT_EDGE_BOTH, switchIntHandler);
+
+	// get initial switch pos
+	switchIntHandler();
+
+	LCDState lcd_state;
+
+	setupLCDPins(&lcd_state);
+
+
+	LOG_DEBUG("starting");
 	Player player;
+	player.playlist_manager = &playlist_manager;
 	res = start_player( &player );
 	if( res ) {
-		printf("failed to start player\n");
+		LOG_ERROR("failed to start player");
 		return 1;
 	}
 
@@ -544,14 +614,20 @@ int main(int argc, char *argv[])
 		&playlist_manager
 	};
 
-	printf("running server\n");
+	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) &my_data );
+	if( res ) {
+		LOG_ERROR("failed to create input thread");
+		return 1;
+	}
+
+	LOG_DEBUG("running server");
 	res = start_http_server( &my_data );
 	if( res ) {
-		printf("failed to start http server\n");
+		LOG_ERROR("failed to start http server");
 		return 2;
 	}
 
-	printf("done\n");
+	LOG_DEBUG("done");
 	return 0;
 
 //	mpg123_handle *mh;
