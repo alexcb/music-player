@@ -1,4 +1,6 @@
 #include "player.h"
+#include "icy.h"
+#include "log.h"
 
 #include <string.h>
 #include <math.h>
@@ -39,28 +41,6 @@ int start_player( Player *player )
 	player->playing = true;
 	player->restart = false;
 
-	//player->playlist = NULL;
-	//res = playlist_new( &player->playlist, "test playlist" );
-	//if( res ) {
-	//	goto error;
-	//}
-
-	//res = playlist_add_file( player->playlist, "/home/alex/test1.mp3" );
-	//if( res ) {
-	//	goto error;
-	//}
-
-	//res = playlist_add_file( player->playlist, "/home/alex/test2.mp3" );
-	//if( res ) {
-	//	goto error;
-	//}
-
-	//res = playlist_add_file( player->playlist, "/home/alex/test3.mp3" );
-	//if( res ) {
-	//	goto error;
-	//}
-
-	printf("about to create thread\n");
 	res = pthread_create( &player->thread, NULL, (void *) &player_thread_run, (void *) player);
 	if( res ) {
 		goto error;
@@ -72,72 +52,42 @@ error:
 	//free( player->buffer );
 	//mpg123_exit();
 	//ao_shutdown();
-	printf("failed starting player\n");
 	return 1;
-}
-
-//int set_playlist( Player *player, Playlist *playlist )
-//{
-//	player->playlist = playlist;
-//	player->restart = true;
-//}
-
-void play_tone( Player *player )
-{
-	size_t bufsize = player->format.rate * player->format.channels;
-	short *buf = (short*) malloc(bufsize * sizeof(short));
-	float a = 0.0;
-	float b = 0.0;
-	float t = (M_PI*2) *  400.0 / player->format.rate;
-	float t2 = (M_PI*2) * 312.0 / player->format.rate;
-	int i;
-	for (i = 0; i < player->format.rate; ++i) {
-		buf[i] = SHRT_MAX * (sin(a)/2.0 + sin(b)/2.0);
-		a += t;
-		b += t2;
-		while (a >= M_PI * 2)
-			a -= M_PI * 2;
-		while (b >= M_PI * 2)
-			b -= M_PI * 2;
-	}
-
-	for ( ;; ) {
-		if (ao_play(player->dev, (char*) buf, bufsize) == -1) {
-			break;
-			//errx(1, "ao_play");
-		}
-	}
 }
 
 void get_text( Player *player ) {
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
 	char *icy_meta;
+	int res;
 
 	int meta = mpg123_meta_check( player->mh );
 	if( meta & MPG123_NEW_ID3 ) {
 		if( mpg123_id3( player->mh, &v1, &v2) == MPG123_OK ) {
-			//printf("got meta\n");
-			if( v1 != NULL ) {
-				printf("v1 title: %s\n", v1->title);
-				printf("v1 artist: %s\n", v1->artist);
-				//sprintf(text_buf, "%s: %s - %s", playlist_name, v1->artist, v1->title);
-				//printf("v1 text: %s\n", text_buf);
-				//writeText(&lcd_state, text_buf);
-			}
 			if( v2 != NULL ) {
-				printf("v2 title: %s\n", v2->title->p);
-				printf("v2 artist: %s\n", v2->artist->p);
-				//sprintf(text_buf, "%s: %s - %s", playlist_name, v2->artist->p, v2->title->p);
-				//printf("v2 text: %s\n", text_buf);
-				//writeText(&lcd_state, text_buf);
+				for( int i = 0; i < player->num_metadata_observers; i++ ) {
+					player->metadata_observers[i]( "unknown", v2->artist->p, v2->title->p );
+				}
+			} else if( v1 != NULL ) {
+				for( int i = 0; i < player->num_metadata_observers; i++ ) {
+					player->metadata_observers[i]( "unknown", v1->artist, v1->title );
+				}
 			}
 		}
 	}
 	if( meta & MPG123_NEW_ICY ) {
 		if( mpg123_icy( player->mh, &icy_meta) == MPG123_OK ) {
 			printf("got ICY: %s\n", icy_meta);
-			//parseICY(icy_meta, playlist_name, text_buf);
+			char *station;
+			res = parse_icy( icy_meta, &station );
+			if( res ) {
+				LOG_ERROR( "icymeta=s failed to decode icy", icy_meta );
+			} else {
+				for( int i = 0; i < player->num_metadata_observers; i++ ) {
+					player->metadata_observers[i]( station, "", "" );
+				}
+				free( station );
+			}
 			//writeText(&lcd_state, text_buf);
 		}
 	}
@@ -174,8 +124,8 @@ void player_thread_run( void *data )
 		printf("opening %d\n", fd);
 
 		if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0 )) {
-			printf("unable to set icy interval\n");
-			return 1;
+			LOG_ERROR( "unable to set icy interval" );
+			return;
 		}
 
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {

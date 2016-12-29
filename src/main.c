@@ -51,6 +51,8 @@ typedef struct MyData {
 	PlaylistManager *playlist_manager;
 } MyData;
 
+void update_metadata_lcd(const char *playlist_name, const char *artist, const char *title);
+void update_metadata_web_clients(const char *playlist_name, const char *artist, const char *title);
 
 //typedef struct Playlist
 //{
@@ -544,6 +546,7 @@ void* gpio_input_thread_run( void *p )
 	return NULL;
 }
 
+
 int main(int argc, char *argv[])
 {
 	int res;
@@ -610,6 +613,9 @@ int main(int argc, char *argv[])
 	LOG_DEBUG("starting");
 	Player player;
 	player.playlist_manager = &playlist_manager;
+	player.num_metadata_observers = 2;
+	player.metadata_observers[0] = &update_metadata_lcd;
+	player.metadata_observers[1] = &update_metadata_web_clients;
 	res = start_player( &player );
 	if( res ) {
 		LOG_ERROR("failed to start player");
@@ -637,6 +643,18 @@ int main(int argc, char *argv[])
 
 	LOG_DEBUG("done");
 	return 0;
+}
+
+void update_metadata_lcd(const char *playlist_name, const char *artist, const char *title)
+{
+	LOG_DEBUG("update_metadata_lcd");
+}
+
+void update_metadata_web_clients(const char *playlist_name, const char *artist, const char *title)
+{
+	LOG_DEBUG("update_metadata_web_clients");
+}
+
 
 //	mpg123_handle *mh;
 //	unsigned char *buffer;
@@ -845,4 +863,4 @@ int main(int argc, char *argv[])
 //	ao_shutdown();
 //
 //	return 0;
-}
+//}

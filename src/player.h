@@ -9,6 +9,8 @@
 #include "playlist_manager.h"
 #include "httpget.h"
 
+typedef void (*MetadataObserver)(const char *playlist_name, const char *artist, const char *title);
+
 typedef struct Player
 {
 	int driver;
@@ -30,16 +32,15 @@ typedef struct Player
 
 	PlaylistManager *playlist_manager;
 
+	int num_metadata_observers;
+	MetadataObserver metadata_observers[2];
+
 	// when true play, when false, pause / stop
 	volatile bool playing;
 
 	// set to true when player should
 	// query playlist for which file to play (used when changing tracks)
 	volatile bool restart;
-
-
-
-
 } Player;
 
 
