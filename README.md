@@ -26,3 +26,8 @@ config settings:
   sudo amixer cset numid=1 400
 
 Notes about amixer, one can call `sudo amixer cget numid=<any ID here>` to get a description and current value of audio settings
+
+
+
+watch -n 0.2 '(git status | grep modified) && gitfixupandpush'
+

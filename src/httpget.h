@@ -1,3 +1,5 @@
+#pragma once
+
 /*
 	httpget: HTTP input routines (the header)
 
@@ -10,8 +12,6 @@
 	In httpget.c are the MIME class lists, which may be appended to to support more bogus MIME types.
 */
 
-#ifndef _HTTPGET_H_
-#define _HTTPGET_H_
 #include "mpg123.h"
 
 /* Pulled in by mpg123app.h! */
@@ -60,5 +60,3 @@ extern unsigned long proxyip;
 /* takes url and content type string address, opens resource, returns fd for data, allocates and sets content type */
 extern int http_open( const char* url, struct httpdata *hd );
 extern char *httpauth;
-
-#endif

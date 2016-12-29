@@ -1,3 +1,5 @@
+#pragma once
+
 /*
 	resolver.c: TCP network stuff, for IPv4 and IPv6
 
@@ -5,9 +7,6 @@
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written Thomas Orgis (based on httpget.c)
 */
-
-#ifndef MPG123_RESOLVER_H
-#define MPG123_RESOLVER_H
 
 /*
 	Split an URL into parts of user:password, hostname, port, path on host.
@@ -22,4 +21,3 @@ int split_url(mpg123_string *url, mpg123_string *auth, mpg123_string *host, mpg1
 */
 int open_connection(mpg123_string *host, mpg123_string *port);
 
-#endif

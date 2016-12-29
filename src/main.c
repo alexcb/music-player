@@ -5,11 +5,27 @@
 #include <assert.h>
 #include <font8x8_basic.h>
 #include <unistd.h>
+#include <time.h>
+
+#include <dirent.h> 
 
 
 #include "httpget.h"
 #include "lcd.h"
 #include "rotary.h"
+#include "player.h"
+#include "albums.h"
+#include "playlist_manager.h"
+#include "string_utils.h"
+#include "log.h"
+#include "errors.h"
+#include "my_data.h"
+#include "web.h"
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 #define PIN_ROTARY_1 8
 #define PIN_ROTARY_2 9
@@ -29,35 +45,39 @@
 
 #define BITS 8
 
-typedef struct Playlist
-{
-	const char *name;
-	const char *url;
-} Playlist;
-Playlist playlists[] = {
-	{
-		"kexp",
-		"http://live-mp3-128.kexp.org:80/kexp128.mp3"
-	},
-	{
-		"kcrw",
-		"http://kcrw.streamguys1.com/kcrw_192k_mp3_e24_internet_radio"
-	},
-	{
-		"witr",
-		"http://streaming.witr.rit.edu:8000/witr-undrgnd-mp3-192"
-	},
-	{
-		"mp3 list",
-		"/home/alex/foo.m3u"
-	}
-};
+void update_metadata_lcd(bool playing, const char *playlist_name, const char *artist, const char *title, void *data);
+
+//typedef struct Playlist
+//{
+//	const char *name;
+//	const char *url;
+//} Playlist;
+//Playlist playlists[] = {
+//	{
+//		"kexp",
+//		"http://live-mp3-128.kexp.org:80/kexp128.mp3"
+//	},
+//	{
+//		"kcrw",
+//		"http://kcrw.streamguys1.com/kcrw_192k_mp3_e24_internet_radio"
+//	},
+//	{
+//		"witr",
+//		"http://streaming.witr.rit.edu:8000/witr-undrgnd-mp3-192"
+//	},
+//	{
+//		"mp3 list",
+//		"/home/alex/foo.m3u"
+//	}
+//};
 
 // can be changed in interupt handlers, must be volitile
-volatile int playing_playlist = 0;
-volatile int selected_playlist = 3;
-volatile int num_playlists = 4;
-volatile int playing = 0;
+volatile int rotation_switch = 0;
+volatile int play_switch = 0;
+
+pthread_t gpio_input_thread;
+pthread_cond_t gpio_input_changed_cond;
+
 
 RotaryState rotary_state;
 
@@ -67,18 +87,20 @@ void rotaryIntHandler()
 	int pin2 = digitalRead( PIN_ROTARY_2 );
 	int res = updateRotary(&rotary_state, pin1, pin2);
 	if( res > 0 ) {
-		selected_playlist = (selected_playlist + 1) % num_playlists;
-		printf( "clockwise\n" );
+		//LOG_DEBUG( "clockwise" );
+		rotation_switch = 1;
+		pthread_cond_signal( &gpio_input_changed_cond );
 	} else if( res < 0 ) {
-		selected_playlist = (selected_playlist + num_playlists - 1) % num_playlists;
-		printf( "counter-clockwise\n" );
+		//LOG_DEBUG( "counter-clockwise" );
+		rotation_switch = -1;
+		pthread_cond_signal( &gpio_input_changed_cond );
 	}
 }
 
 void switchIntHandler()
 {
-	playing = digitalRead( PIN_SWITCH );
-	printf( "switch: %d\n", playing);
+	play_switch = digitalRead( PIN_SWITCH );
+	pthread_cond_signal( &gpio_input_changed_cond );
 }
 
 
@@ -104,11 +126,8 @@ void addLCDPixel(char *buffer, int x, int y)
 		int lcd_offset = lcd_pos / 8;
 		unsigned char lcd_mask = 1 << (lcd_pos % 8);
 
-		if( lcd_offset < 504 ) {
-			img_buffer[lcd_offset] = img_buffer[lcd_offset] | lcd_mask;
-		} else {
-printf("OVERFLOW\n");
-	}
+		assert( lcd_offset < 504 );
+		img_buffer[lcd_offset] = img_buffer[lcd_offset] | lcd_mask;
 	}
 }
 
@@ -180,53 +199,115 @@ void setupLCDPins(LCDState *lcd_state)
 	delay(100);
 	digitalWrite( PIN_LCD_RST, 1 );
 
-	init_lcd( lcd_state, 0, PIN_LCD_DC, PIN_LCD_RST, PIN_LED );
+	init_lcd( lcd_state, SPIDEV0, PIN_LCD_DC, PIN_LCD_RST, PIN_LED );
 	set_contrast( lcd_state, CONTRAST );
 }
 
-void parseICY( const char *icy_meta, const char *playlist_name, char *text_buf )
+
+int load_albums( AlbumList *album_list, const char *path )
 {
-	const char *streamTitlePrefix = "StreamTitle='";
-	char *p = strstr(icy_meta, streamTitlePrefix);
-	if( !p ) {
-		snprintf(text_buf, 1024, "%s: UNKNOWN", playlist_name);
-		return;
+	int res;
+	char artist_path[1024];
+	struct dirent *artist_dirent, *album_dirent;
+
+	DIR *artist_dir = opendir(path);
+	if( artist_dir == NULL ) {
+		LOG_ERROR("path=s err=s opendir failed", path, strerror(errno));
+		return FILESYSTEM_ERROR;
 	}
-	p += strlen(streamTitlePrefix);
 
-	char *q = strstr(icy_meta, "';");
-	if( !q ) {
-		snprintf(text_buf, 1024, "%s: %s", playlist_name, p);
-		return;
+	while( (artist_dirent = readdir(artist_dir)) != NULL) {
+		if( artist_dirent->d_type != DT_DIR || strcmp(artist_dirent->d_name, ".") == 0 || strcmp(artist_dirent->d_name, "..") == 0 ) {
+			continue;
+		}
+		
+		sprintf(artist_path, "%s/%s", path, artist_dirent->d_name);
+		LOG_DEBUG("path=s opening dir", artist_path);
+		DIR *album_dir = opendir(artist_path);
+		if( artist_dir == NULL ) {
+			LOG_ERROR("path=s err=s opendir failed", artist_path, strerror(errno));
+			return FILESYSTEM_ERROR;
+		}
+
+		while( (album_dirent = readdir( album_dir )) != NULL) {
+			if( album_dirent->d_type != DT_DIR || strcmp(album_dirent->d_name, ".") == 0 || strcmp(album_dirent->d_name, "..") == 0 ) {
+				continue;
+			}
+			sprintf(artist_path, "%s/%s/%s", path, artist_dirent->d_name, album_dirent->d_name);
+			res = album_list_add( album_list, artist_dirent->d_name, album_dirent->d_name, artist_path );
+			if( res ) {
+				return res;
+			}
+			
+		}
+		closedir( album_dir );
 	}
-	size_t len = q - p;
+	closedir( artist_dir );
 
-	snprintf(text_buf, 1024, "%s: ", playlist_name);
+	return album_list_sort( album_list );
+}
 
-	char *s = text_buf + strlen(text_buf);
-	memcpy(s, p, len);
-	s[len+1] = '\0';
+void* gpio_input_thread_run( void *p )
+{
+	int res;
+	MyData *data = (MyData*) p;
+	pthread_mutex_t mutex;
+	pthread_mutex_init( &mutex, NULL );
+	pthread_mutex_lock( &mutex );
+	LOG_DEBUG("gpio_input_thread_run started");
+	for(;;) {
+		res = pthread_cond_wait( &gpio_input_changed_cond, &mutex );
+		if( res ) {
+			LOG_ERROR("pthread returned error");
+			return NULL;
+		}
+		LOG_DEBUG("process GPIO input");
+
+		data->player->playing = play_switch;
+		if( rotation_switch > 0 ) {
+			playlist_manager_next( data->playlist_manager );
+			data->player->restart = true;
+		} else if( rotation_switch < 0 ) {
+			playlist_manager_prev( data->playlist_manager );
+			data->player->restart = true;
+		}
+		rotation_switch = 0;
+	}
+	return NULL;
 }
 
 
 int main(int argc, char *argv[])
 {
-	mpg123_handle *mh;
-	unsigned char *buffer;
-	int copied = 0;
-	size_t buffer_size;
-	size_t done;
-	int err;
+	int res;
 
-	int driver;
-	ao_device *dev;
+	AlbumList album_list;
+	res = album_list_init( &album_list );
+	if( res ) {
+		LOG_ERROR("failed to init album list");
+		return 1;
+	}
+	res = load_albums( &album_list, "/media/nugget_share/music/alex-beet" );
+	if( res ) {
+		LOG_ERROR("failed to load album list");
+		return 1;
+	}
 
-	ao_sample_format format;
-	int channels, encoding;
-	long rate;
+	PlaylistManager playlist_manager;
+	playlist_manager_init( &playlist_manager );
+
+	srand(time(NULL));
+	int x = rand() % album_list.len;
+	load_quick_album( &playlist_manager, album_list.list[x].path );
+
+	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
+	if( res ) {
+		LOG_ERROR("failed to init gpio_input_changed_cond");
+		return 1;
+	}
 
 	if( wiringPiSetup() == -1 ) {
-		printf("failed setting up wiringPi\n");
+		LOG_ERROR("failed to setup wiringPi");
 		return 1;
 	}
 
@@ -251,7 +332,6 @@ int main(int argc, char *argv[])
 
 	wiringPiISR( PIN_ROTARY_1, INT_EDGE_BOTH, rotaryIntHandler);
 	wiringPiISR( PIN_ROTARY_2, INT_EDGE_BOTH, rotaryIntHandler);
-
 	wiringPiISR( PIN_SWITCH, INT_EDGE_BOTH, switchIntHandler);
 
 	// get initial switch pos
@@ -261,155 +341,266 @@ int main(int argc, char *argv[])
 
 	setupLCDPins(&lcd_state);
 
-	/* initializations */
-	ao_initialize();
-	driver = ao_default_driver_id();
-	mpg123_init();
+	writeText(&lcd_state, "Play me the hits");
 
+	LOG_DEBUG("starting");
+	Player player;
+	player.playlist_manager = &playlist_manager;
+	player.num_metadata_observers = 2;
+	player.metadata_observers[0] = &update_metadata_lcd;
+	player.metadata_observers_data[0] = (void *) &lcd_state;
+	player.metadata_observers[1] = &update_metadata_web_clients;
+	player.metadata_observers_data[1] = NULL;
 
-	char playlist[1024][1024];
-	int playlist_items = 0;
-	int current_playlist_item;
-	int is_playlist_loaded = 0;
-	int pause_screen_cleared = 0;
-	while( 1 ) {
-		if( playing == 0 ) {
-			if( !pause_screen_cleared ) {
-				writeText(&lcd_state, "");
-				pause_screen_cleared = 1;
-			}
-
-			usleep(10000);
-			continue;
-		} else {
-			pause_screen_cleared = 0;
-		}
-		httpdata_reset(&hd);
-
-		// TODO re-use as much as possible
-		mh = mpg123_new(NULL, &err);
-		buffer_size = mpg123_outblock(mh);
-		buffer = (unsigned char*) malloc(buffer_size * sizeof(unsigned char));
-
-		const char *url = playlists[selected_playlist].url;
-		const char *playlist_name = playlists[selected_playlist].name;
-		playing_playlist = selected_playlist;
-
-
-		sprintf(text_buf, "loading: %s", playlist_name);
-		writeText(&lcd_state, text_buf);
-
-		int fd = -1;
-
-		if( strstr(url, "http://") ) {
-			fd = http_open(url, &hd);
-			printf("setting icy %ld\n", hd.icy_interval);
-			if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, hd.icy_interval, 0)) {
-				printf("unable to set icy interval\n");
-				return 1;
-			}
-			if(mpg123_open_fd(mh, fd) != MPG123_OK) {
-				printf("error\n");
-				return 1;
-			}
-		} else {
-			if( !is_playlist_loaded ) {
-				playlist_items = 0;
-				current_playlist_item = 0;
-				FILE *fp = fopen(url, "r");
-				size_t len = 1024;
-				char *line = NULL;
-				while( getline(&line, &len, fp) != -1 ) {
-					for( int i = strlen(line) - 1; i >= 0; i-- ) {
-						if( line[i] == '\n' || line[i] == ' ' || line[i] == '\r' )
-						{
-							line[i] = '\0';
-						} else {
-break;
-}
-					}
-					strcpy(playlist[playlist_items], line);
-					printf("queueing %s\n", playlist[playlist_items]);
-					if( playlist_items > 1024 ) {
-						printf("too many songs in playlist\n");
-						break;
-					}
-					playlist_items++;
-				}
-				is_playlist_loaded = 1;
-				current_playlist_item = 0;
-			}
-			// TODO read playlist instead of treating it as a path to a mp3
-			/* open the file and get the decoding format */
-			printf("playing: %s\n", playlist[current_playlist_item]);
-			mpg123_open(mh, playlist[current_playlist_item]);
-			current_playlist_item = (current_playlist_item + 1) % playlist_items;
-		}
-		mpg123_getformat(mh, &rate, &channels, &encoding);
-
-		/* set the output format and open the output device */
-		format.bits = mpg123_encsize(encoding) * BITS;
-		format.rate = rate;
-		format.channels = channels;
-		format.byte_format = AO_FMT_NATIVE;
-		format.matrix = 0;
-		dev = ao_open_live(driver, &format, NULL);
-
-		mpg123_id3v1 *v1;
-		mpg123_id3v2 *v2;
-		char *icy_meta;
-
-		/* decode and play */
-		while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
-			int meta = mpg123_meta_check(mh);
-			if( meta & MPG123_NEW_ID3 ) {
-				if( mpg123_id3(mh, &v1, &v2) == MPG123_OK ) {
-					//printf("got meta\n");
-					if( v1 != NULL ) {
-						printf("v1 title: %s\n", v1->title);
-						printf("v1 artist: %s\n", v1->artist);
-						sprintf(text_buf, "%s: %s - %s", playlist_name, v1->artist, v1->title);
-						printf("v1 text: %s\n", text_buf);
-						writeText(&lcd_state, text_buf);
-					}
-					if( v2 != NULL ) {
-						printf("v2 title: %s\n", v2->title->p);
-						printf("v2 artist: %s\n", v2->artist->p);
-						sprintf(text_buf, "%s: %s - %s", playlist_name, v2->artist->p, v2->title->p);
-						printf("v2 text: %s\n", text_buf);
-						writeText(&lcd_state, text_buf);
-					}
-				}
-			}
-			if( meta & MPG123_NEW_ICY ) {
-				if( mpg123_icy(mh, &icy_meta) == MPG123_OK ) {
-					printf("got ICY: %s\n", icy_meta);
-					parseICY(icy_meta, playlist_name, text_buf);
-					writeText(&lcd_state, text_buf);
-
-				}
-			}
-
-			ao_play(dev, (char *) buffer, done);
-
-			if( !playing || selected_playlist != playing_playlist )
-				break;
-		}
-
-		mpg123_close(mh);
-		mpg123_delete(mh);
-		if( fd >= 0 ) {
-			close(fd);
-			fd = -1;
-		}
-
-		free(buffer);
-		ao_close(dev);
+	res = start_player( &player );
+	if( res ) {
+		LOG_ERROR("failed to start player");
+		return 1;
 	}
 
-	/* clean up */
-	mpg123_exit();
-	ao_shutdown();
+	MyData my_data = {
+		&player,
+		&album_list,
+		&playlist_manager
+	};
 
+	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) &my_data );
+	if( res ) {
+		LOG_ERROR("failed to create input thread");
+		return 1;
+	}
+
+	LOG_DEBUG("running server");
+	res = start_http_server( &my_data );
+	if( res ) {
+		LOG_ERROR("failed to start http server");
+		return 2;
+	}
+
+	LOG_DEBUG("done");
 	return 0;
 }
+
+void update_metadata_lcd(bool playing, const char *playlist_name, const char *artist, const char *title, void *data)
+{
+	LCDState *lcd_state = (LCDState*) data;
+	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_lcd", playlist_name, artist, title );
+	if( playing ) {
+		char buf[1024];
+		snprintf( buf, 1024, "%s %s-%s", playlist_name, artist, title );
+		writeText( lcd_state, buf );
+	} else {
+		writeText( lcd_state, "paused" );
+	}
+}
+
+
+
+//	mpg123_handle *mh;
+//	unsigned char *buffer;
+//	int copied = 0;
+//	size_t buffer_size;
+//	size_t done;
+//	int err;
+//
+//	struct MHD_Daemon *d = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION,
+//			80,
+//			NULL,
+//			NULL,
+//			&web_handler,
+//			NULL,
+//			MHD_OPTION_END);
+//	if( d == NULL ) {
+//		printf("failed setting up wiringPi\n");
+//		return 1;
+//	}
+//
+//	//int driver;
+//	//ao_device *dev;
+//
+//	//ao_sample_format format;
+//	//int channels, encoding;
+//	//long rate;
+//
+//	if( wiringPiSetup() == -1 ) {
+//		printf("failed setting up wiringPi\n");
+//		return 1;
+//	}
+//
+//	// rotary encoders
+//
+//	// See https://pinout.xyz/ for pinouts
+//	//
+//	// The following pins have a physical pull up resistor
+//	// we can't configure it via software, but in our case
+//	// we want a pull up resistor anyway as the rotary switch
+//	// will be connected to ground when the switch is closed
+//	pinMode( PIN_ROTARY_1, INPUT );
+//	pinMode( PIN_ROTARY_2, INPUT );
+//
+//	// on/off switch
+//	pinMode( PIN_SWITCH, INPUT );
+//	pullUpDnControl( PIN_SWITCH, PUD_UP );
+//
+//	int pin1 = digitalRead( PIN_ROTARY_1 );
+//	int pin2 = digitalRead( PIN_ROTARY_2 );
+//	initRotaryState( &rotary_state, pin1, pin2 );
+//
+//	wiringPiISR( PIN_ROTARY_1, INT_EDGE_BOTH, rotaryIntHandler);
+//	wiringPiISR( PIN_ROTARY_2, INT_EDGE_BOTH, rotaryIntHandler);
+//
+//	wiringPiISR( PIN_SWITCH, INT_EDGE_BOTH, switchIntHandler);
+//
+//	// get initial switch pos
+//	switchIntHandler();
+//
+//	LCDState lcd_state;
+//
+//	setupLCDPins(&lcd_state);
+//
+//	char playlist[1024][1024];
+//	int playlist_items = 0;
+//	int current_playlist_item;
+//	int is_playlist_loaded = 0;
+//	int pause_screen_cleared = 0;
+//	while( 1 ) {
+//		if( playing == 0 ) {
+//			if( !pause_screen_cleared ) {
+//				writeText(&lcd_state, "");
+//				pause_screen_cleared = 1;
+//			}
+//
+//			usleep(10000);
+//			continue;
+//		} else {
+//			pause_screen_cleared = 0;
+//		}
+//		httpdata_reset(&hd);
+//
+//		// TODO re-use as much as possible
+//		mh = mpg123_new(NULL, &err);
+//		buffer_size = mpg123_outblock(mh);
+//		buffer = (unsigned char*) malloc(buffer_size * sizeof(unsigned char));
+//
+//		const char *url = playlists[selected_playlist].url;
+//		const char *playlist_name = playlists[selected_playlist].name;
+//		playing_playlist = selected_playlist;
+//
+//
+//		sprintf(text_buf, "loading: %s", playlist_name);
+//		writeText(&lcd_state, text_buf);
+//
+//		int fd = -1;
+//
+//		if( strstr(url, "http://") ) {
+//			fd = http_open(url, &hd);
+//			printf("setting icy %ld\n", hd.icy_interval);
+//			if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, hd.icy_interval, 0)) {
+//				printf("unable to set icy interval\n");
+//				return 1;
+//			}
+//			if(mpg123_open_fd(mh, fd) != MPG123_OK) {
+//				printf("error\n");
+//				return 1;
+//			}
+//		} else {
+//			if( !is_playlist_loaded ) {
+//				playlist_items = 0;
+//				current_playlist_item = 0;
+//				FILE *fp = fopen(url, "r");
+//				size_t len = 1024;
+//				char *line = NULL;
+//				while( getline(&line, &len, fp) != -1 ) {
+//					for( int i = strlen(line) - 1; i >= 0; i-- ) {
+//						if( line[i] == '\n' || line[i] == ' ' || line[i] == '\r' )
+//						{
+//							line[i] = '\0';
+//						} else {
+//break;
+//}
+//					}
+//					strcpy(playlist[playlist_items], line);
+//					printf("queueing %s\n", playlist[playlist_items]);
+//					if( playlist_items > 1024 ) {
+//						printf("too many songs in playlist\n");
+//						break;
+//					}
+//					playlist_items++;
+//				}
+//				is_playlist_loaded = 1;
+//				current_playlist_item = 0;
+//			}
+//			// TODO read playlist instead of treating it as a path to a mp3
+//			/* open the file and get the decoding format */
+//			printf("playing: %s\n", playlist[current_playlist_item]);
+//			mpg123_open(mh, playlist[current_playlist_item]);
+//			current_playlist_item = (current_playlist_item + 1) % playlist_items;
+//		}
+//		mpg123_getformat(mh, &rate, &channels, &encoding);
+//
+//		/* set the output format and open the output device */
+//		format.bits = mpg123_encsize(encoding) * BITS;
+//		format.rate = rate;
+//		format.channels = channels;
+//		format.byte_format = AO_FMT_NATIVE;
+//		format.matrix = 0;
+//		dev = ao_open_live(driver, &format, NULL);
+//
+//		mpg123_id3v1 *v1;
+//		mpg123_id3v2 *v2;
+//		char *icy_meta;
+//
+//		/* decode and play */
+//		while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
+//			int meta = mpg123_meta_check(mh);
+//			if( meta & MPG123_NEW_ID3 ) {
+//				if( mpg123_id3(mh, &v1, &v2) == MPG123_OK ) {
+//					//printf("got meta\n");
+//					if( v1 != NULL ) {
+//						printf("v1 title: %s\n", v1->title);
+//						printf("v1 artist: %s\n", v1->artist);
+//						sprintf(text_buf, "%s: %s - %s", playlist_name, v1->artist, v1->title);
+//						printf("v1 text: %s\n", text_buf);
+//						writeText(&lcd_state, text_buf);
+//					}
+//					if( v2 != NULL ) {
+//						printf("v2 title: %s\n", v2->title->p);
+//						printf("v2 artist: %s\n", v2->artist->p);
+//						sprintf(text_buf, "%s: %s - %s", playlist_name, v2->artist->p, v2->title->p);
+//						printf("v2 text: %s\n", text_buf);
+//						writeText(&lcd_state, text_buf);
+//					}
+//				}
+//			}
+//			if( meta & MPG123_NEW_ICY ) {
+//				if( mpg123_icy(mh, &icy_meta) == MPG123_OK ) {
+//					printf("got ICY: %s\n", icy_meta);
+//					parseICY(icy_meta, playlist_name, text_buf);
+//					writeText(&lcd_state, text_buf);
+//
+//				}
+//			}
+//
+//			ao_play(dev, (char *) buffer, done);
+//
+//			if( !playing || selected_playlist != playing_playlist )
+//				break;
+//		}
+//
+//		mpg123_close(mh);
+//		mpg123_delete(mh);
+//		if( fd >= 0 ) {
+//			close(fd);
+//			fd = -1;
+//		}
+//
+//		free(buffer);
+//		ao_close(dev);
+//	}
+//
+//	/* clean up */
+//	mpg123_exit();
+//	ao_shutdown();
+//
+//	return 0;
+//}

@@ -1,0 +1,12 @@
+#pragma once
+
+#define MAX_ERROR_STR_SIZE 1024
+
+typedef enum {
+	OK = 0,
+	OUT_OF_MEMORY,
+	MUTEX_ERROR,
+	FILESYSTEM_ERROR,
+	ERROR_UNEXPECTED_CHAR,
+	ICY_PARSE_ERROR
+} errors;
