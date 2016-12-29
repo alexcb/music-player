@@ -9,7 +9,10 @@
 #include "playlist_manager.h"
 #include "httpget.h"
 
-typedef void (*MetadataObserver)(const char *playlist_name, const char *artist, const char *title);
+#define PLAYER_ARTIST_LEN 1024
+#define PLAYER_TITLE_LEN 1024
+
+typedef void (*MetadataObserver)(bool playing, const char *playlist_name, const char *artist, const char *title, void *data);
 
 typedef struct Player
 {
@@ -34,6 +37,10 @@ typedef struct Player
 
 	int num_metadata_observers;
 	MetadataObserver metadata_observers[2];
+	void* metadata_observers_data[2];
+
+	char artist[PLAYER_ARTIST_LEN];
+	char title[PLAYER_TITLE_LEN];
 
 	// when true play, when false, pause / stop
 	volatile bool playing;

@@ -1,3 +1,4 @@
+#define _GNU_SOURCE // to get the gnu version of basename
 #include "playlist_manager.h"
 
 #include "string_utils.h"
@@ -6,6 +7,7 @@
 
 #include <dirent.h> 
 #include <string.h>
+#include <unistd.h>
 
 int playlist_manager_init( PlaylistManager *manager )
 {
@@ -78,30 +80,31 @@ int load_quick_album_recursive( PlaylistManager *manager, const char *path )
 int load_quick_album( PlaylistManager *manager, const char *path )
 {
 	int res;
-    res = pthread_mutex_lock( &manager->lock );
+	res = pthread_mutex_lock( &manager->lock );
 	if( res ) {
 		return res;
 	}
 
 	res = playlist_clear( manager->playlists[0] );
 	if( res ) {
-    	pthread_mutex_unlock( &manager->lock );
+		pthread_mutex_unlock( &manager->lock );
 		return res;
 	}
 
 	res = load_quick_album_recursive( manager, path );
 	if( res ) {
-    	pthread_mutex_unlock( &manager->lock );
+		pthread_mutex_unlock( &manager->lock );
 		return res;
 	}
 
 	LOG_DEBUG("sorting album");
 	playlist_sort_by_path( manager->playlists[0] );
-    pthread_mutex_unlock( &manager->lock );
+	playlist_rename( manager->playlists[0], basename(path) );
+	pthread_mutex_unlock( &manager->lock );
 	return OK;
 }
 
-int playlist_manager_open_fd( PlaylistManager *manager, int *fd, long int *icy_interval )
+int playlist_manager_open_fd( PlaylistManager *manager, int *fd, long int *icy_interval, char **playlist )
 {
 	int res;
     res = pthread_mutex_lock( &manager->lock );
@@ -111,6 +114,14 @@ int playlist_manager_open_fd( PlaylistManager *manager, int *fd, long int *icy_i
 
 	if( 0 <= manager->current && manager->current < manager->len ) {
 		res = playlist_open_fd( manager->playlists[manager->current], fd, icy_interval );
+		if( res == OK ) {
+			*playlist = strdup(manager->playlists[manager->current]->name);
+			if( *playlist == NULL ) {
+				close( *fd );
+				pthread_mutex_unlock( &manager->lock );
+				return OUT_OF_MEMORY;
+			}
+		}
 	} else {
 		res = 1;
 	}

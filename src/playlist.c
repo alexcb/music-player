@@ -26,17 +26,22 @@ int playlist_new( Playlist **playlist, const char *name )
 		return OUT_OF_MEMORY;
 	}
 
-    if (pthread_mutex_init(&(*playlist)->lock, NULL) != 0) {
-		free( (*playlist)->name );
-		free( *playlist );
-		return MUTEX_ERROR;
-	}
-
 	(*playlist)->len = 0;
 	(*playlist)->cap = 128;
 	(*playlist)->current = 0;
 	(*playlist)->list = (PlaylistItem*) malloc(sizeof(PlaylistItem) * (*playlist)->cap);
 	if( (*playlist)->list == NULL ) {
+		return OUT_OF_MEMORY;
+	}
+
+	return OK;
+}
+
+int playlist_rename( Playlist *playlist, const char *name )
+{
+	free( playlist->name );
+	playlist->name = strdup( name );
+	if( playlist->name == NULL ) {
 		return OUT_OF_MEMORY;
 	}
 

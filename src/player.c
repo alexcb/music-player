@@ -16,6 +16,7 @@
 #include <ao/ao.h>
 
 
+
 #define BITS 8
 
 void player_thread_run( void *data );
@@ -55,7 +56,13 @@ error:
 	return 1;
 }
 
-void get_text( Player *player ) {
+void call_observers( Player *player, const char *playlist_name ) {
+	for( int i = 0; i < player->num_metadata_observers; i++ ) {
+		player->metadata_observers[i]( player->playing, playlist_name, player->artist, player->title, player->metadata_observers_data[i] );
+	}
+}
+
+bool get_text( Player *player ) {
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
 	char *icy_meta;
@@ -65,13 +72,13 @@ void get_text( Player *player ) {
 	if( meta & MPG123_NEW_ID3 ) {
 		if( mpg123_id3( player->mh, &v1, &v2) == MPG123_OK ) {
 			if( v2 != NULL ) {
-				for( int i = 0; i < player->num_metadata_observers; i++ ) {
-					player->metadata_observers[i]( "unknown", v2->artist->p, v2->title->p );
-				}
+				strncpy( player->artist, v2->artist->p, PLAYER_ARTIST_LEN );
+				strncpy( player->title, v2->title->p, PLAYER_TITLE_LEN );
+				return true;
 			} else if( v1 != NULL ) {
-				for( int i = 0; i < player->num_metadata_observers; i++ ) {
-					player->metadata_observers[i]( "unknown", v1->artist, v1->title );
-				}
+				strncpy( player->artist, v1->artist, PLAYER_ARTIST_LEN );
+				strncpy( player->title, v1->title, PLAYER_TITLE_LEN );
+				return true;
 			}
 		}
 	}
@@ -83,14 +90,14 @@ void get_text( Player *player ) {
 			if( res ) {
 				LOG_ERROR( "icymeta=s failed to decode icy", icy_meta );
 			} else {
-				for( int i = 0; i < player->num_metadata_observers; i++ ) {
-					player->metadata_observers[i]( station, "", "" );
-				}
+				strncpy( player->artist, station, PLAYER_ARTIST_LEN );
+				strncpy( player->title, "", PLAYER_TITLE_LEN );
 				free( station );
+				return true;
 			}
-			//writeText(&lcd_state, text_buf);
 		}
 	}
+	return false;
 }
 
 void player_thread_run( void *data )
@@ -115,7 +122,8 @@ void player_thread_run( void *data )
 		//}
 		int fd;
 		off_t icy_interval;
-		res = playlist_manager_open_fd( player->playlist_manager, &fd, &icy_interval );
+		char *playlist_name;
+		res = playlist_manager_open_fd( player->playlist_manager, &fd, &icy_interval, &playlist_name );
 		if( res ) {
 			printf("no fd returned\n");
 			sleep(1);
@@ -125,12 +133,15 @@ void player_thread_run( void *data )
 
 		if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0 )) {
 			LOG_ERROR( "unable to set icy interval" );
+			close( fd );
+			free( playlist_name );
 			return;
 		}
 
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
 			printf("failed to open\n");
 			close( fd );
+			free( playlist_name );
 			continue;
 		}
 
@@ -140,8 +151,14 @@ void player_thread_run( void *data )
 		size_t decoded_size;
 		printf("decoding\n");
 		bool done = false;
+		bool last_playing_state = !player->playing;
 		while( !done ) {
+			if( last_playing_state != player->playing ) {
+				call_observers( player, playlist_name );
+				last_playing_state = player->playing;
+			}
 			if( !player->playing ) {
+				// TODO pass along a pause state
 				// TODO might need to close off internet streams instead of pausing
 				// depending on what type of fd we are reading from
 				usleep(100);
@@ -156,7 +173,9 @@ void player_thread_run( void *data )
 			switch( res ) {
 				case MPG123_OK:
 					ao_play( player->dev, buffer, decoded_size );
-					get_text( player );
+					if( get_text( player ) ) {
+						call_observers( player, playlist_name );
+					}
 					continue;
 				case MPG123_NEW_FORMAT:
 					printf("TODO handle new format\n");
@@ -169,7 +188,10 @@ void player_thread_run( void *data )
 					break;
 			}
 		}
+		strncpy( player->artist, "", PLAYER_ARTIST_LEN );
+		strncpy( player->title, "", PLAYER_TITLE_LEN );
 		close( fd );
+		free( playlist_name );
 	}
 
 //

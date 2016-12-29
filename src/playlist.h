@@ -14,13 +14,10 @@ typedef struct Playlist
 	int cap;
 	int current;
 	PlaylistItem *list;
-	//PlaylistItem *root;
-	//PlaylistItem *last;
-	//PlaylistItem *current;
-	pthread_mutex_t lock;
 } Playlist;
 
 int playlist_new( Playlist **playlist, const char *name );
+int playlist_rename( Playlist *playlist, const char *name );
 int playlist_clear( Playlist *playlist );
 int playlist_add_file( Playlist *playlist, const char *path );
 int playlist_open_fd( Playlist *playlist, int *fd, long int *icy_interval );
