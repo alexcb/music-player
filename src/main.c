@@ -532,6 +532,14 @@ void* gpio_input_thread_run( void *p )
 		LOG_DEBUG("process GPIO input");
 
 		data->player->playing = play_switch;
+		if( rotation_switch > 0 ) {
+			playlist_manager_next( data->playlist_manager );
+			data->player->restart = true;
+		} else if( rotation_switch < 0 ) {
+			playlist_manager_prev( data->playlist_manager );
+			data->player->restart = true;
+		}
+		rotation_switch = 0;
 	}
 	return NULL;
 }

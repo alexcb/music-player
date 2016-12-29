@@ -1,6 +1,8 @@
 #include "playlist.h"
 
 #include "errors.h"
+#include "log.h"
+#include "httpget.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -74,7 +76,7 @@ int playlist_add_file( Playlist *playlist, const char *path )
 
 int open_file( const char *path, int *fd )
 {
-	printf( "opening path %s\n", path );
+	LOG_DEBUG( "path=s open_file", path );
 	*fd = open( path, O_RDONLY );
 	if( *fd < 0 ) {
 		return 1;
@@ -82,13 +84,29 @@ int open_file( const char *path, int *fd )
 	return 0;
 }
 
-int open_stream( const char *url, int *fd )
+
+// TODO does this need to be global? can it be in the player instead?
+struct httpdata hd;
+int open_stream( const char *url, int *fd, long int *icy_interval )
 {
-	return 1;
+	LOG_DEBUG( "url=s open_stream", url );
+	*fd = http_open(url, &hd);
+	*icy_interval = hd.icy_interval;
+	//printf("setting icy %ld\n", hd.icy_interval);
+	//if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, hd.icy_interval, 0)) {
+	//	printf("unable to set icy interval\n");
+	//	return 1;
+	//}
+	//if(mpg123_open_fd(mh, *fd) != MPG123_OK) {
+	//	printf("error\n");
+	//	return 1;
+	//}
+
+	return 0;
 }
 
 
-int playlist_open_fd( Playlist *playlist, int *fd )
+int playlist_open_fd( Playlist *playlist, int *fd, long int *icy_interval )
 {
 	int res;
 	if( playlist->len == 0 ) {
@@ -98,48 +116,23 @@ int playlist_open_fd( Playlist *playlist, int *fd )
 
 	PlaylistItem *current = &playlist->list[playlist->current];
 	
-	printf("opening %s\n", current->path);
 	if( strstr(current->path, "http://") ) {
-		res = open_stream( current->path, fd );
+		res = open_stream( current->path, fd, icy_interval );
 	} else {
 		res = open_file( current->path, fd );
+		*icy_interval = 0;
 	}
 
-	playlist->current++;
-	if( playlist->current > playlist->len ) {
-		playlist->current = 0;
-	}
-
+	playlist_next( playlist );
 	return res;
 }
 
 int playlist_next( Playlist *playlist )
 {
-    //int res = pthread_mutex_lock( &playlist->lock );
-	//if( res ) {
-	//	return res;
-	//}
-
-	//if( playlist->root == NULL ) {
-	//	printf("playlist is empty\n");
-    //	pthread_mutex_unlock( &playlist->lock );
-	//	return 1;
-	//}
-
-	//if( playlist->current == NULL ) {
-	//	printf("no current playlist file -- this should be set when playlist is loaded\n");
-    //	pthread_mutex_unlock( &playlist->lock );
-	//	return 1;
-	//}
-
-	//if( playlist->current->next == NULL ) {
-	//	playlist->current = playlist->root;
-    //	pthread_mutex_unlock( &playlist->lock );
-	//	return 0;
-	//}
-
-	//playlist->current = playlist->current->next;
-    //pthread_mutex_unlock( &playlist->lock );
+	playlist->current++;
+	if( playlist->current >= playlist->len ) {
+		playlist->current = 0;
+	}
 	return 0;
 }
 

@@ -109,6 +109,40 @@ void play_tone( Player *player )
 	}
 }
 
+void get_text( Player *player ) {
+	mpg123_id3v1 *v1;
+	mpg123_id3v2 *v2;
+	char *icy_meta;
+
+	int meta = mpg123_meta_check( player->mh );
+	if( meta & MPG123_NEW_ID3 ) {
+		if( mpg123_id3( player->mh, &v1, &v2) == MPG123_OK ) {
+			//printf("got meta\n");
+			if( v1 != NULL ) {
+				printf("v1 title: %s\n", v1->title);
+				printf("v1 artist: %s\n", v1->artist);
+				//sprintf(text_buf, "%s: %s - %s", playlist_name, v1->artist, v1->title);
+				//printf("v1 text: %s\n", text_buf);
+				//writeText(&lcd_state, text_buf);
+			}
+			if( v2 != NULL ) {
+				printf("v2 title: %s\n", v2->title->p);
+				printf("v2 artist: %s\n", v2->artist->p);
+				//sprintf(text_buf, "%s: %s - %s", playlist_name, v2->artist->p, v2->title->p);
+				//printf("v2 text: %s\n", text_buf);
+				//writeText(&lcd_state, text_buf);
+			}
+		}
+	}
+	if( meta & MPG123_NEW_ICY ) {
+		if( mpg123_icy( player->mh, &icy_meta) == MPG123_OK ) {
+			printf("got ICY: %s\n", icy_meta);
+			//parseICY(icy_meta, playlist_name, text_buf);
+			//writeText(&lcd_state, text_buf);
+		}
+	}
+}
+
 void player_thread_run( void *data )
 {
 	int res;
@@ -130,13 +164,19 @@ void player_thread_run( void *data )
 		//	continue;
 		//}
 		int fd;
-		res = playlist_manager_open_fd( player->playlist_manager, &fd );
+		off_t icy_interval;
+		res = playlist_manager_open_fd( player->playlist_manager, &fd, &icy_interval );
 		if( res ) {
 			printf("no fd returned\n");
 			sleep(1);
 			continue;
 		}
 		printf("opening %d\n", fd);
+
+		if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0 )) {
+			printf("unable to set icy interval\n");
+			return 1;
+		}
 
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
 			printf("failed to open\n");
@@ -166,6 +206,7 @@ void player_thread_run( void *data )
 			switch( res ) {
 				case MPG123_OK:
 					ao_play( player->dev, buffer, decoded_size );
+					get_text( player );
 					continue;
 				case MPG123_NEW_FORMAT:
 					printf("TODO handle new format\n");

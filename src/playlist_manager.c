@@ -101,7 +101,7 @@ int load_quick_album( PlaylistManager *manager, const char *path )
 	return OK;
 }
 
-int playlist_manager_open_fd( PlaylistManager *manager, int *fd )
+int playlist_manager_open_fd( PlaylistManager *manager, int *fd, long int *icy_interval )
 {
 	int res;
     res = pthread_mutex_lock( &manager->lock );
@@ -110,9 +110,43 @@ int playlist_manager_open_fd( PlaylistManager *manager, int *fd )
 	}
 
 	if( 0 <= manager->current && manager->current < manager->len ) {
-		res = playlist_open_fd( manager->playlists[manager->current], fd );
+		res = playlist_open_fd( manager->playlists[manager->current], fd, icy_interval );
 	} else {
 		res = 1;
+	}
+
+    pthread_mutex_unlock( &manager->lock );
+	return res;
+}
+
+int playlist_manager_next( PlaylistManager *manager )
+{
+	int res;
+    res = pthread_mutex_lock( &manager->lock );
+	if( res ) {
+		return res;
+	}
+
+	manager->current++;
+	if( manager->current >= manager->len ) {
+		manager->current = 0;
+	}
+
+    pthread_mutex_unlock( &manager->lock );
+	return res;
+}
+
+int playlist_manager_prev( PlaylistManager *manager )
+{
+	int res;
+    res = pthread_mutex_lock( &manager->lock );
+	if( res ) {
+		return res;
+	}
+
+	manager->current--;
+	if( manager->current < 0 ) {
+		manager->current = manager->len - 1;
 	}
 
     pthread_mutex_unlock( &manager->lock );
