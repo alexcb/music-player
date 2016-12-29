@@ -19,9 +19,119 @@
 #include <microhttpd.h>
 #include <json-c/json.h>
 
-void update_metadata_web_clients(bool playing, const char *playlist_name, const char *artist, const char *title, void *data)
+#define MAX_CONNETIONS 64
+#define MAX_PAYLOAD_SIZE 1024
+
+typedef struct WebsocketData {
+	struct MHD_UpgradeResponseHandle *urh;
+	char *extra_in;
+	size_t extra_in_size;
+	MHD_socket sock;
+} WebsocketData;
+
+
+typedef struct WebHandlerData {
+	AlbumList *album_list;
+	PlaylistManager *playlist_manager;
+	Player *player;
+	WebsocketData *connections[MAX_CONNETIONS];
+	int num_connections;
+	pthread_mutex_t connections_lock;
+	char last_sent_payload[MAX_PAYLOAD_SIZE];
+} WebHandlerData;
+
+
+// from mhd upgrade example
+//static void make_blocking( MHD_socket fd )
+//{
+//	int flags;
+//
+//	flags = fcntl (fd, F_GETFL);
+//	if (-1 == flags)
+//		return;
+//	if ((flags & ~O_NONBLOCK) != flags)
+//		if (-1 == fcntl (fd, F_SETFL, flags & ~O_NONBLOCK))
+//			abort ();
+//}
+
+int send_all( int sockfd, const char *buf, size_t len )
+{
+	int res;
+	while( len > 0 ) {
+		res = send( sockfd, buf, len, 0);
+		if( errno == EAGAIN ) {
+			res = 0;
+			continue;
+		}
+		if( res < 0 ) {
+			return SOCK_SEND_ERROR;
+		}
+		buf += res;
+		len -= res;
+	}
+	return OK;
+}
+
+bool handle_websocket( WebsocketData *ws, const char *payload )
+{
+	int res;
+
+	// discard this, we are not reading from this socket
+	if( ws->extra_in ) {
+		free( ws->extra_in );
+		ws->extra_in = NULL;
+	}
+
+	res = send_all( ws->sock, payload, strlen(payload));
+	if( res ) {
+		goto error;
+	}
+	res = send_all( ws->sock, "\n", 1);
+	if( res ) {
+		goto error;
+	}
+
+	return true;
+
+error:
+	LOG_INFO( "disconnecting websocket" );
+	free( ws );
+	return false;
+}
+
+WebHandlerData *shitty_global = NULL;
+void update_metadata_web_clients( bool playing, const char *playlist_name, const char *artist, const char *title, void *data )
 {
 	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_web_clients", playlist_name, artist, title );
+
+	json_object *state = json_object_new_object();
+	json_object_object_add( state, "artist", json_object_new_string( artist ) );
+	json_object_object_add( state, "title", json_object_new_string( title ) );
+	json_object_object_add( state, "playlist", json_object_new_string( playlist_name ) );
+
+	const char *s = json_object_to_json_string( state );
+
+	bool ok;
+	if( shitty_global ) {
+		pthread_mutex_lock( &shitty_global->connections_lock );
+		for( int i = 0; i < shitty_global->num_connections; ) {
+			ok = handle_websocket( shitty_global->connections[ i ], s );
+			if( !ok ) {
+				// remove websocket, and move end websoc
+				shitty_global->num_connections--;
+				if( i < shitty_global->num_connections ) {
+					shitty_global->connections[ i ] = shitty_global->connections[ shitty_global->num_connections ];
+				}
+			} else {
+				i++;
+			}
+		}
+		strncpy( shitty_global->last_sent_payload, s, MAX_PAYLOAD_SIZE );
+		pthread_mutex_unlock( &shitty_global->connections_lock );
+	}
+
+	// this causes the json string to be released
+	json_object_put( state );
 }
 
 int error_handler(struct MHD_Connection *connection, const char *fmt, ...)
@@ -57,7 +167,7 @@ static void free_callback (void *cls)
 
 
 static int web_handler_static(
-		MyData *data,
+		WebHandlerData *data,
 		struct MHD_Connection *connection,
 		const char *url,
 		const char *method,
@@ -113,8 +223,66 @@ static int web_handler_static(
 	return ret;
 }
 
+static void uh_cb (void *cls,
+		struct MHD_Connection *connection,
+		void *con_cls,
+		const char *extra_in,
+		size_t extra_in_size,
+		MHD_socket sock,
+		struct MHD_UpgradeResponseHandle *urh)
+{
+	LOG_DEBUG("uh_cb called");
+	WebHandlerData *data = (WebHandlerData*) cls;
+	WebsocketData *ws = (WebsocketData*) malloc( sizeof(WebsocketData) );
+	if( ws == NULL ) {
+		abort();
+	}
+	if( extra_in_size > 0) {
+		ws->extra_in = malloc( extra_in_size );
+		if( ws->extra_in == NULL )
+			abort ();
+		memcpy( ws->extra_in, extra_in, extra_in_size );
+	} else {
+		ws->extra_in = NULL;
+	}
+	ws->extra_in_size = extra_in_size;
+	ws->sock = sock;
+	ws->urh = urh;
+
+	pthread_mutex_lock( &data->connections_lock );
+
+	bool ok = handle_websocket( ws, shitty_global->last_sent_payload );
+	if( data->num_connections < MAX_CONNETIONS && ok ) {
+		data->connections[data->num_connections] = ws;
+		data->num_connections++;
+	} else {
+		abort();
+	}
+
+	pthread_mutex_unlock( &data->connections_lock );
+}
+
+static int web_handler_websocket(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const char *upload_data,
+		size_t *upload_data_size,
+		void **con_cls)
+{
+	LOG_DEBUG("web_handler_websocket");
+	struct MHD_Response *response = MHD_create_response_for_upgrade( &uh_cb, (void*) data );
+	MHD_add_response_header( response, MHD_HTTP_HEADER_UPGRADE, "websocket" );
+	int ret = MHD_queue_response( connection, MHD_HTTP_SWITCHING_PROTOCOLS, response );
+	MHD_destroy_response( response );
+	LOG_DEBUG("ret=d web_handler_websocket", ret);
+	return ret;
+}
+
 static int web_handler_albums(
-		MyData *data,
+		WebHandlerData *data,
 		struct MHD_Connection *connection,
 		const char *url,
 		const char *method,
@@ -147,7 +315,7 @@ static int web_handler_albums(
 }
 
 static int web_handler_albums_play(
-		MyData *data,
+		WebHandlerData *data,
 		struct MHD_Connection *connection,
 		const char *url,
 		const char *method,
@@ -189,7 +357,20 @@ static int web_handler(
 		size_t *upload_data_size,
 		void **con_cls)
 {
-	MyData *data = (MyData*) cls;
+	WebHandlerData *data = (WebHandlerData*) cls;
+
+	static int dummy;
+	if (&dummy != *con_cls)
+	{
+		/* never respond on first call -- not sure why, but libhttpd does this everywhere */
+		*con_cls = &dummy;
+		return MHD_YES;
+	}
+	*con_cls = NULL; /* reset when done -- again, not sure what this does */
+
+	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/websocket") == 0 ) {
+		return web_handler_websocket( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+	}
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/albums") == 0 ) {
 		return web_handler_albums( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
@@ -209,49 +390,29 @@ static int web_handler(
 	}
 
 	return error_handler( connection, "unable to dispatch url: %s", url );
-
-
-//	if( strcmp(url, "albums") == 0 ) {
-//		
-//	}
-//	Player *player = (Player*) cls;
-//	static int old_connection_marker;
-//	int new_connection = (NULL == *con_cls);
-//
-//	if (new_connection)
-//	{
-//		/* new connection with POST */
-//		*con_cls = &old_connection_marker;
-//		printf("got new connection: %s\n", url);
-//		return MHD_YES;
-//	}
-//
-//
-//	const char *value = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "q" );
-//
-//	if( value == NULL ) {
-//		value = "NOTHING";
-//	}
-//	printf("resume connection: %s\n", value);
-//
-//	player->playing = !player->playing;
-//
-//	struct MHD_Response *response = MHD_create_response_from_buffer(5, "hello", MHD_RESPMEM_PERSISTENT);
-//
-//	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-//	MHD_destroy_response(response);
-//	return ret;
 }
 
-int start_http_server( MyData *data )
+int start_http_server( AlbumList *album_list, PlaylistManager *playlist_manager, Player *player )
 {
+	WebHandlerData data = {
+		.album_list = album_list,
+		.playlist_manager = playlist_manager,
+		.player = player,
+		.num_connections = 0,
+	};
+	pthread_mutex_init( &data.connections_lock, NULL );
+	data.last_sent_payload[0] = '\0';
+
+	// used to pass data to id3 tag callback
+	shitty_global = &data;
+
 	struct MHD_Daemon *d = MHD_start_daemon(
-			MHD_USE_SELECT_INTERNALLY,
+			MHD_USE_SELECT_INTERNALLY | MHD_USE_SUSPEND_RESUME,
 			80,
 			NULL,
 			NULL,
 			&web_handler,
-			(void*) data,
+			(void*) &data,
 			MHD_OPTION_END);
 
 	if( d == NULL ) {
@@ -261,5 +422,7 @@ int start_http_server( MyData *data )
 
 	LOG_DEBUG("busy looping");
 	//for(;;) { sleep(10); printf("busy loop sleep\n"); }
-	for(;;) { sleep(10); }
+	for(;;) {
+		sleep(1);
+	}
 }

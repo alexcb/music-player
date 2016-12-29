@@ -31,3 +31,13 @@ Notes about amixer, one can call `sudo amixer cget numid=<any ID here>` to get a
 
 watch -n 0.2 '(git status | grep modified) && gitfixupandpush'
 
+
+
+
+libmicrohttpd:
+wget ftp://ftp.gnu.org/gnu/libmicrohttpd/libmicrohttpd-0.9.52.tar.gz
+tar xzf libmicrohttpd-0.9.52.tar.gz
+cd libmicrohttpd-0.9.52
+./configure
+make
+make install

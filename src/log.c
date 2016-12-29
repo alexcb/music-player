@@ -137,9 +137,10 @@ void _log(const char *fmt, ...)
 			const char *val = va_arg( arguments, const char* );
 			n = append_quoted_string( buf+buf_i, LOG_BUF_SIZE - buf_i, val );
 			buf_i += n;
-		//} else {
-		//	char fmt2[3] = { '%', val_fmt[0], '\0' };
-		//	snprintf( buf+buf_i, LOG_BUF_SIZE - buf_i, fmt2, val );
+		} else if( val_fmt[0] == 'd' ) {
+			int val = va_arg( arguments, int );
+			snprintf( buf+buf_i, LOG_BUF_SIZE - buf_i, "%d", val );
+			buf_i += strlen(buf+buf_i);
 		}
 
 		if( LOG_BUF_SIZE - buf_i > 1 ) {

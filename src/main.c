@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
 	}
 
 	LOG_DEBUG("running server");
-	res = start_http_server( &my_data );
+	res = start_http_server( &album_list, &playlist_manager, &player );
 	if( res ) {
 		LOG_ERROR("failed to start http server");
 		return 2;
