@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+cd mpg123hack
+git fetch
+git checkout origin/broken-hacks
+make clean
+make
+sudo gdb -ex "source ../gdbcmd"
