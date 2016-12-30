@@ -1,0 +1,4 @@
+handle SIGPIPE nostop noprint pass
+cd /home/alex/musicapp
+exec-file /home/alex/mpg123hack/my123
+run
