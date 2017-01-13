@@ -19,7 +19,8 @@
 
 #define BITS 8
 
-void player_thread_run( void *data );
+void player_audio_thread_run( void *data );
+void player_reader_thread_run( void *data );
 
 int start_player( Player *player )
 {
@@ -42,7 +43,20 @@ int start_player( Player *player )
 	player->playing = true;
 	player->restart = false;
 
-	res = pthread_create( &player->thread, NULL, (void *) &player_thread_run, (void *) player);
+	player->playing_index = 0;
+	player->reading_index = 0;
+
+	res = init_circular_buffer( &player->circular_buffer, 10*1024*1024 );
+	if( res ) {
+		goto error;
+	}
+
+	//TODO turn back on res = pthread_create( &player->audio_thread, NULL, (void *) &player_audio_thread_run, (void *) player);
+	//TODO turn back on if( res ) {
+	//TODO turn back on 	goto error;
+	//TODO turn back on }
+
+	res = pthread_create( &player->reader_thread, NULL, (void *) &player_reader_thread_run, (void *) player);
 	if( res ) {
 		goto error;
 	}
@@ -100,7 +114,93 @@ bool get_text( Player *player ) {
 	return false;
 }
 
-void player_thread_run( void *data )
+void player_reader_thread_run( void *data )
+{
+	Player *player = (Player*) data;
+
+	int res;
+	int fd;
+	off_t icy_interval;
+	char *playlist_name;
+	const char *path;
+	int num_items;
+	char *p;
+
+	size_t decoded_size;
+	size_t buffer_free;
+
+	for(;;) {
+
+		playlist_manager_lock( player->playlist_manager );
+
+		res = playlist_manager_get_length( player->playlist_manager, &num_items );
+		if( res ) {
+			LOG_ERROR( "unable to get playlist length" );
+		}
+
+		if( player->reading_index >= num_items ) {
+			player->reading_index = 0;
+		}
+
+		res = playlist_manager_get_path( player->playlist_manager, player->reading_index, &path );
+		if( res ) {
+			LOG_ERROR( "unable to get path" );
+		}
+
+		LOG_DEBUG("path=s opening file in reader", path);
+		res = open_file( path, &fd );
+		if( res ) {
+			LOG_ERROR( "unable to open" );
+		}
+
+		playlist_manager_unlock( player->playlist_manager );
+
+		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
+			close( fd );
+			player->reading_index++;
+			continue;
+		}
+
+		size_t min_buffer_size = mpg123_outblock( player->mh );
+
+		bool done = false;
+		bool oom_msg = false;
+		while( !done ) {
+			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
+			if( res ) {
+				if( !oom_msg ) {
+					LOG_DEBUG("requested=d out of buffer memory", min_buffer_size);
+					oom_msg = true;
+				}
+				usleep(100);
+				continue;
+			}
+			oom_msg = false;
+
+			LOG_DEBUG("buffer_free=d reading", buffer_free);
+			res = mpg123_read( player->mh, p, buffer_free, &decoded_size);
+			switch( res ) {
+				case MPG123_OK:
+					LOG_DEBUG("size=d writing to buffer", decoded_size);
+					buffer_mark_written( &player->circular_buffer, decoded_size );
+					break;
+				case MPG123_NEW_FORMAT:
+					printf("TODO handle new format\n");
+					break;
+				case MPG123_DONE:
+					done = true;
+					break;
+				default:
+					printf("non-handled -- mpg123_read returned: %s\n", mpg123_plain_strerror(res));
+					break;
+			}
+		}
+
+
+	}
+}
+
+void player_audio_thread_run( void *data )
 {
 	int res;
 	Player *player = (Player*) data;
