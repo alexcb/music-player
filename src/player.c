@@ -15,7 +15,13 @@
 
 #include <ao/ao.h>
 
+#define AUDIO_DATA 1
+#define ID_DATA 2
 
+struct id_data {
+	char artist[PLAYER_ARTIST_LEN];
+	char title[PLAYER_TITLE_LEN];
+};
 
 #define BITS 8
 
@@ -51,10 +57,10 @@ int start_player( Player *player )
 		goto error;
 	}
 
-	//TODO turn back on res = pthread_create( &player->audio_thread, NULL, (void *) &player_audio_thread_run, (void *) player);
-	//TODO turn back on if( res ) {
-	//TODO turn back on 	goto error;
-	//TODO turn back on }
+	res = pthread_create( &player->audio_thread, NULL, (void *) &player_audio_thread_run, (void *) player);
+	if( res ) {
+		goto error;
+	}
 
 	res = pthread_create( &player->reader_thread, NULL, (void *) &player_reader_thread_run, (void *) player);
 	if( res ) {
@@ -130,7 +136,6 @@ void player_reader_thread_run( void *data )
 	size_t buffer_free;
 
 	for(;;) {
-
 		playlist_manager_lock( player->playlist_manager );
 
 		res = playlist_manager_get_length( player->playlist_manager, &num_items );
@@ -161,42 +166,89 @@ void player_reader_thread_run( void *data )
 			continue;
 		}
 
-		size_t min_buffer_size = mpg123_outblock( player->mh );
-
-		bool done = false;
-		bool oom_msg = false;
-		while( !done ) {
-			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
-			if( res ) {
-				if( !oom_msg ) {
-					LOG_DEBUG("requested=d out of buffer memory", min_buffer_size);
-					oom_msg = true;
-				}
-				usleep(100);
-				continue;
+		LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
+		for(;;) {
+			res = get_buffer_write( &player->circular_buffer, sizeof(struct id_data) + 1, &p, &buffer_free );
+			if( !res ) {
+				break;
 			}
-			oom_msg = false;
-
-			LOG_DEBUG("buffer_free=d reading", buffer_free);
-			res = mpg123_read( player->mh, p, buffer_free, &decoded_size);
-			switch( res ) {
-				case MPG123_OK:
-					LOG_DEBUG("size=d writing to buffer", decoded_size);
-					buffer_mark_written( &player->circular_buffer, decoded_size );
-					break;
-				case MPG123_NEW_FORMAT:
-					printf("TODO handle new format\n");
-					break;
-				case MPG123_DONE:
-					done = true;
-					break;
-				default:
-					printf("non-handled -- mpg123_read returned: %s\n", mpg123_plain_strerror(res));
-					break;
-			}
+			usleep(100);
 		}
 
+		LOG_DEBUG( "writing metadata to buffer" );
+		*((unsigned char*)p) = ID_DATA;
+		p++;
+		struct id_data *id_data = (struct id_data*) p;
+		memset( p, 0, sizeof(struct id_data) );
 
+		
+		mpg123_scan( player->mh );
+
+		mpg123_id3v1 *v1;
+		mpg123_id3v2 *v2;
+		int meta = mpg123_meta_check( player->mh );
+		if( meta & MPG123_NEW_ID3 ) {
+			if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
+				if( v2 != NULL ) {
+					LOG_DEBUG( "populating metadata with id3 v2" );
+					strncpy( id_data->artist, v2->artist->p, PLAYER_ARTIST_LEN );
+					strncpy( id_data->title, v2->title->p, PLAYER_TITLE_LEN );
+				} else if( v1 != NULL ) {
+					LOG_DEBUG( "populating metadata with id3 v1" );
+					strncpy( id_data->artist, v1->artist, PLAYER_ARTIST_LEN );
+					strncpy( id_data->title, v1->title, PLAYER_TITLE_LEN );
+				} else {
+					assert( false );
+				}
+			}
+		}
+		buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
+
+		//..size_t min_buffer_size = mpg123_outblock( player->mh ) + 1;
+
+		//..bool done = false;
+		//..bool oom_msg = false;
+		//..while( !done ) {
+		//..	res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
+		//..	if( res ) {
+		//..		if( !oom_msg ) {
+		//..			LOG_DEBUG("requested=d out of buffer memory", min_buffer_size);
+		//..			oom_msg = true;
+		//..		}
+		//..		usleep(100);
+		//..		continue;
+		//..	}
+		//..	oom_msg = false;
+
+		//..	*((unsigned char*)p) = AUDIO_DATA;
+		//..	p++;
+
+		//..	// reserve some space for number of bytes decoded
+		//..	size_t *decoded_size = (size_t*) p;
+		//..	p += sizeof(size_t);
+
+		//..	LOG_DEBUG("buffer_free=d decoding mp3", buffer_free);
+		//..	res = mpg123_read( player->mh, p, buffer_free, decoded_size);
+		//..	switch( res ) {
+		//..		case MPG123_OK:
+		//..			LOG_DEBUG("size=d wrote to buffer", *decoded_size);
+		//..			break;
+		//..		case MPG123_NEW_FORMAT:
+		//..			LOG_DEBUG("size=d TODO handle new format", *decoded_size);
+		//..			break;
+		//..		case MPG123_DONE:
+		//..			LOG_DEBUG("size=d done", *decoded_size);
+		//..			done = true;
+		//..			break;
+		//..		default:
+		//..			printf("non-handled -- mpg123_read returned: %s\n", mpg123_plain_strerror(res));
+		//..			break;
+		//..	}
+		//..	if( *decoded_size > 0 ) {
+		//..		buffer_mark_written( &player->circular_buffer, *decoded_size + 1 + sizeof(size_t) );
+		//..	}
+		//..}
+		player->reading_index++;
 	}
 }
 
@@ -208,91 +260,136 @@ void player_audio_thread_run( void *data )
 	//play_tone( player );
 	//setbuf(stdout, NULL);
 
+	size_t buffer_avail;
+	size_t chunk_size;
+	char *p;
+
 	printf("player running\n");
 	for(;;) {
-		if( !player->playing ) {
-			printf("paused\n");
-			sleep(1);
+		res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
+		if( res ) {
+			usleep(100);
 			continue;
 		}
-		//if( player->playlist == NULL ) {
-		//	printf("no playlist\n");
+
+		unsigned char *q = (unsigned char*) p;
+		buffer_mark_read( &player->circular_buffer, 1 );
+		p++;
+
+		if( *q == ID_DATA ) {
+			struct id_data *id_data = (struct id_data*) p;
+			LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
+			buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
+			continue;
+		}
+
+		// otherwise it must be audio data
+		assert( *q == AUDIO_DATA );
+
+		size_t *decoded_size = (size_t*) p;
+		p += sizeof(size_t);
+		assert( *decoded_size <= buffer_avail );
+
+		buffer_avail = *decoded_size;
+		buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
+
+		chunk_size = 10240;
+		while( buffer_avail > 0 ) {
+			if( buffer_avail < chunk_size ) {
+				chunk_size = buffer_avail;
+			}
+			ao_play( player->dev, p, chunk_size );
+			p += buffer_avail;
+			buffer_avail -= chunk_size;
+			buffer_mark_read( &player->circular_buffer, chunk_size );
+		}
+	}
+}
+
+		//
+		//if( !player->playing ) {
+		//	printf("paused\n");
 		//	sleep(1);
 		//	continue;
 		//}
-		int fd;
-		off_t icy_interval;
-		char *playlist_name;
-		res = playlist_manager_open_fd( player->playlist_manager, &fd, &icy_interval, &playlist_name );
-		if( res ) {
-			printf("no fd returned\n");
-			sleep(1);
-			continue;
-		}
-		printf("opening %d\n", fd);
+		////if( player->playlist == NULL ) {
+		////	printf("no playlist\n");
+		////	sleep(1);
+		////	continue;
+		////}
+		//int fd;
+		//off_t icy_interval;
+		//char *playlist_name;
+		//res = playlist_manager_open_fd( player->playlist_manager, &fd, &icy_interval, &playlist_name );
+		//if( res ) {
+		//	printf("no fd returned\n");
+		//	sleep(1);
+		//	continue;
+		//}
+		//printf("opening %d\n", fd);
 
-		if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0 )) {
-			LOG_ERROR( "unable to set icy interval" );
-			close( fd );
-			free( playlist_name );
-			return;
-		}
+		//if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0 )) {
+		//	LOG_ERROR( "unable to set icy interval" );
+		//	close( fd );
+		//	free( playlist_name );
+		//	return;
+		//}
 
-		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
-			printf("failed to open\n");
-			close( fd );
-			free( playlist_name );
-			continue;
-		}
+		//if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
+		//	printf("failed to open\n");
+		//	close( fd );
+		//	free( playlist_name );
+		//	continue;
+		//}
 
-		size_t buffer_size = mpg123_outblock( player->mh );
-		unsigned char *buffer = (unsigned char*) malloc(buffer_size);
+		//size_t buffer_size = mpg123_outblock( player->mh );
+		//unsigned char *buffer = (unsigned char*) malloc(buffer_size);
 
-		size_t decoded_size;
-		printf("decoding\n");
-		bool done = false;
-		bool last_playing_state = !player->playing;
-		while( !done ) {
-			if( last_playing_state != player->playing ) {
-				call_observers( player, playlist_name );
-				last_playing_state = player->playing;
-			}
-			if( !player->playing ) {
-				// TODO pass along a pause state
-				// TODO might need to close off internet streams instead of pausing
-				// depending on what type of fd we are reading from
-				usleep(100);
-				continue;
-			}
-			if( player->restart ) {
-				//usleep(100);
-				player->restart = false;
-				break;
-			}
-			res = mpg123_read( player->mh, buffer, buffer_size, &decoded_size);
-			switch( res ) {
-				case MPG123_OK:
-					ao_play( player->dev, buffer, decoded_size );
-					if( get_text( player ) ) {
-						call_observers( player, playlist_name );
-					}
-					continue;
-				case MPG123_NEW_FORMAT:
-					printf("TODO handle new format\n");
-					break;
-				case MPG123_DONE:
-					done = true;
-					break;
-				default:
-					printf("non-handled -- mpg123_read returned: %s\n", mpg123_plain_strerror(res));
-					break;
-			}
-		}
-		strncpy( player->artist, "", PLAYER_ARTIST_LEN );
-		strncpy( player->title, "", PLAYER_TITLE_LEN );
-		close( fd );
-		free( playlist_name );
-	}
+		//size_t decoded_size;
+		//printf("decoding\n");
+		//bool done = false;
+		//bool last_playing_state = !player->playing;
+		//while( !done ) {
+		//	if( last_playing_state != player->playing ) {
+		//		call_observers( player, playlist_name );
+		//		last_playing_state = player->playing;
+		//	}
+		//	if( !player->playing ) {
+		//		// TODO pass along a pause state
+		//		// TODO might need to close off internet streams instead of pausing
+		//		// depending on what type of fd we are reading from
+		//		usleep(100);
+		//		continue;
+		//	}
+		//	if( player->restart ) {
+		//		//usleep(100);
+		//		player->restart = false;
+		//		break;
+		//	}
+		//	res = mpg123_read( player->mh, buffer, buffer_size, &decoded_size);
+		//	switch( res ) {
+		//		case MPG123_OK:
+		//			ao_play( player->dev, buffer, decoded_size );
+		//			if( get_text( player ) ) {
+		//				call_observers( player, playlist_name );
+		//			}
+		//			continue;
+		//		case MPG123_NEW_FORMAT:
+		//			printf("TODO handle new format\n");
+		//			break;
+		//		case MPG123_DONE:
+		//			done = true;
+		//			break;
+		//		default:
+		//			printf("non-handled -- mpg123_read returned: %s\n", mpg123_plain_strerror(res));
+		//			break;
+		//	}
+		//}
+		//strncpy( player->artist, "", PLAYER_ARTIST_LEN );
+		//strncpy( player->title, "", PLAYER_TITLE_LEN );
+		//close( fd );
+		//free( playlist_name );
+//	}
 
 //
 //	ao_device *dev;
@@ -397,7 +494,7 @@ void player_audio_thread_run( void *data )
 //
 //	free(buffer);
 //	ao_close(dev);
-}
+//}
 
 
 
