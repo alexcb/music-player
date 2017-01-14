@@ -166,44 +166,44 @@ void player_reader_thread_run( void *data )
 			continue;
 		}
 
-		LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
-		for(;;) {
-			res = get_buffer_write( &player->circular_buffer, sizeof(struct id_data) + 1, &p, &buffer_free );
-			if( !res ) {
-				break;
-			}
-			usleep(100);
-		}
+		//id3 LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
+		//id3 for(;;) {
+		//id3 	res = get_buffer_write( &player->circular_buffer, sizeof(struct id_data) + 1, &p, &buffer_free );
+		//id3 	if( !res ) {
+		//id3 		break;
+		//id3 	}
+		//id3 	usleep(100);
+		//id3 }
 
-		LOG_DEBUG( "writing metadata to buffer" );
-		*((unsigned char*)p) = ID_DATA;
-		p++;
-		struct id_data *id_data = (struct id_data*) p;
-		memset( p, 0, sizeof(struct id_data) );
+		//id3 LOG_DEBUG( "writing metadata to buffer" );
+		//id3 *((unsigned char*)p) = ID_DATA;
+		//id3 p++;
+		//id3 struct id_data *id_data = (struct id_data*) p;
+		//id3 memset( p, 0, sizeof(struct id_data) );
 
-		
-		mpg123_scan( player->mh );
+		//id3 
+		//id3 mpg123_scan( player->mh );
 
-		mpg123_id3v1 *v1;
-		mpg123_id3v2 *v2;
-		int meta = mpg123_meta_check( player->mh );
-		if( meta & MPG123_NEW_ID3 ) {
-			if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
-				if( v2 != NULL ) {
-					LOG_DEBUG( "populating metadata with id3 v2" );
-					strncpy( id_data->artist, v2->artist->p, PLAYER_ARTIST_LEN );
-					strncpy( id_data->title, v2->title->p, PLAYER_TITLE_LEN );
-				} else if( v1 != NULL ) {
-					LOG_DEBUG( "populating metadata with id3 v1" );
-					strncpy( id_data->artist, v1->artist, PLAYER_ARTIST_LEN );
-					strncpy( id_data->title, v1->title, PLAYER_TITLE_LEN );
-				} else {
-					assert( false );
-				}
-			}
-		}
-		buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
-		printf("marking wrote by %d\n", sizeof(struct id_data) + 1);
+		//id3 mpg123_id3v1 *v1;
+		//id3 mpg123_id3v2 *v2;
+		//id3 int meta = mpg123_meta_check( player->mh );
+		//id3 if( meta & MPG123_NEW_ID3 ) {
+		//id3 	if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
+		//id3 		if( v2 != NULL ) {
+		//id3 			LOG_DEBUG( "populating metadata with id3 v2" );
+		//id3 			strncpy( id_data->artist, v2->artist->p, PLAYER_ARTIST_LEN );
+		//id3 			strncpy( id_data->title, v2->title->p, PLAYER_TITLE_LEN );
+		//id3 		} else if( v1 != NULL ) {
+		//id3 			LOG_DEBUG( "populating metadata with id3 v1" );
+		//id3 			strncpy( id_data->artist, v1->artist, PLAYER_ARTIST_LEN );
+		//id3 			strncpy( id_data->title, v1->title, PLAYER_TITLE_LEN );
+		//id3 		} else {
+		//id3 			assert( false );
+		//id3 		}
+		//id3 	}
+		//id3 }
+		//id3 buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
+		//id3 printf("marking wrote by %d\n", sizeof(struct id_data) + 1);
 
 		size_t min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
@@ -230,14 +230,15 @@ void player_reader_thread_run( void *data )
 			p += sizeof(size_t);
 			buffer_free -= sizeof(size_t);
 
-			*decoded_size = buffer_free;
-			LOG_DEBUG("bytes=d writing fake data", *decoded_size);
-			buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
+			//*decoded_size = buffer_free;
+			//size_t foo;
+			//size_t *decoded_size = &foo;
+
 			//done = true;
 
-			size_t start = p - player->circular_buffer.p;
-			size_t end = start + buffer_free;
-			printf("writing to %d %d\n", start, end);
+			//size_t start = p - player->circular_buffer.p;
+			//size_t end = start + buffer_free;
+			//printf("writing to %d %d\n", start, end);
 			*decoded_size = 0;
 			res = mpg123_read( player->mh, p, buffer_free, decoded_size);
 			switch( res ) {
