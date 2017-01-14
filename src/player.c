@@ -230,7 +230,7 @@ void player_reader_thread_run( void *data )
 			p += sizeof(size_t);
 			buffer_free -= sizeof(size_t);
 
-			*decoded_size = 19;
+			*decoded_size = buffer_free;
 			LOG_DEBUG("bytes=d writing fake data", *decoded_size);
 			buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
 			//done = true;
