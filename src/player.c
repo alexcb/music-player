@@ -134,6 +134,33 @@ void player_reader_thread_run( void *data )
 
 	size_t decoded_size;
 	size_t buffer_free;
+	size_t min_buffer_size;
+	bool oom_msg;
+	size_t bytes_written;
+
+	for(;;) {
+		min_buffer_size = 13221;
+		res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
+		if( res ) {
+			usleep(100);
+			continue;
+		}
+
+		*((unsigned char*)p) = AUDIO_DATA;
+		p++;
+		buffer_free--;
+
+		// reserve some space for number of bytes decoded
+		size_t *decoded_size = (size_t*) p;
+		p += sizeof(size_t);
+		buffer_free -= sizeof(size_t);
+
+		*decoded_size = buffer_free;
+
+		bytes_written = 1 + sizeof(size_t) + buffer_free;
+		LOG_DEBUG("size=d wrote data", *decoded_size);
+		buffer_mark_written( &player->circular_buffer, bytes_written );
+	}
 
 	for(;;) {
 		playlist_manager_lock( player->playlist_manager );
@@ -205,10 +232,10 @@ void player_reader_thread_run( void *data )
 		//id3 buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
 		//id3 printf("marking wrote by %d\n", sizeof(struct id_data) + 1);
 
-		size_t min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
+		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
 		bool done = false;
-		bool oom_msg = false;
+		oom_msg = false;
 		while( !done ) {
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
 			if( res ) {
@@ -288,9 +315,10 @@ void player_audio_thread_run( void *data )
 		//     size_t end = start + buffer_avail;
 		//     printf("consuming %d to %d\n", start, end);
 
-		//     unsigned char payload_id = *(unsigned char*) p;
-		//     buffer_mark_read( &player->circular_buffer, 1 );
-		//     p++;
+		unsigned char payload_id = *(unsigned char*) p;
+		p++;
+		buffer_avail--;
+		buffer_mark_read( &player->circular_buffer, 1 );
 
 		//     if( payload_id == ID_DATA ) {
 		//     	struct id_data *id_data = (struct id_data*) p;
@@ -300,16 +328,16 @@ void player_audio_thread_run( void *data )
 		//     }
 
 		//     // otherwise it must be audio data
-		//     assert( payload_id == AUDIO_DATA );
+		assert( payload_id == AUDIO_DATA );
 		//     LOG_DEBUG( "got AUDIO_DATA" );
 
-		//     size_t decoded_size = *((size_t*) p);
-		//     LOG_DEBUG( "decoded_size=d the size", decoded_size );
-		//     p += sizeof(size_t);
-		//     buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
+		size_t decoded_size = *((size_t*) p);
+		p += sizeof(size_t);
+		buffer_avail-= sizeof(size_t);
+		buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
 
 		//LOG_DEBUG( "decoded_size=d buffer_avail=d about to play", decoded_size, buffer_avail );
-		//assert( decoded_size <= buffer_avail );
+		assert( decoded_size <= buffer_avail );
 
 		//LOG_DEBUG( "decoded_size=d consuming data", decoded_size );
 		//buffer_mark_read( &player->circular_buffer, decoded_size );
