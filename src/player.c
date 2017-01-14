@@ -203,6 +203,7 @@ void player_reader_thread_run( void *data )
 			}
 		}
 		buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
+		printf("marking wrote by %d\n", sizeof(struct id_data) + 1);
 
 		size_t min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
@@ -298,15 +299,17 @@ void player_audio_thread_run( void *data )
 
 		// otherwise it must be audio data
 		assert( payload_id == AUDIO_DATA );
+		LOG_DEBUG( "got AUDIO_DATA" );
 
-		size_t decoded_size = *(size_t*) p;
+		size_t decoded_size = *((size_t*) p);
+		LOG_DEBUG( "decoded_size=d the size", decoded_size );
 		p += sizeof(size_t);
 		buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
 
 		//LOG_DEBUG( "decoded_size=d buffer_avail=d about to play", decoded_size, buffer_avail );
 		assert( decoded_size <= buffer_avail );
 
-		LOG_DEBUG( "decoded_size=s consuming data", decoded_size );
+		LOG_DEBUG( "decoded_size=d consuming data", decoded_size );
 		buffer_mark_read( &player->circular_buffer, decoded_size );
 
 		//printf("reading audio at %p %p\n", p, decoded_size);

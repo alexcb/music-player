@@ -65,12 +65,18 @@ int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, 
 
 int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_size )
 {
+	// special case for empty buffer
+	//not needed if( buffer->len == 0 && buffer->read == 0 && buffer->write == 0) {
+	//not needed 	return 1;
+	//not needed }
+
 	if( buffer->read == buffer->len ) {
 		buffer->read = 0;
 	}
 
 	// if Writer < Reader < Len; read from Reader to Len
 	if( buffer->write <= buffer->read && buffer->read < buffer->len ) {
+		printf("here 1\n");
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->len - buffer->read;
 		return 0;
@@ -78,6 +84,7 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_s
 
 	// Reader < Writer < Len
 	if( buffer->read < buffer->write ) {
+		printf("here 2\n");
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->write - buffer->read;
 		return 0;
@@ -109,6 +116,7 @@ void buffer_mark_read( CircularBuffer *buffer, size_t n )
 	pthread_mutex_lock( &buffer->lock );
 	buffer->read += n;
 	if( buffer->read == buffer->write ) {
+		printf("resetting buffer\n");
 		buffer->read = 0;
 		buffer->write = 0;
 		buffer->len = 0;
