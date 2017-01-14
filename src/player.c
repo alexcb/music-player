@@ -221,18 +221,17 @@ void player_reader_thread_run( void *data )
 			}
 			oom_msg = false;
 
-			*((unsigned char*)p) = AUDIO_DATA;
-			p++;
-			buffer_free--;
+			//*((unsigned char*)p) = AUDIO_DATA;
+			//p++;
+			//buffer_free--;
 
 			// reserve some space for number of bytes decoded
-			size_t *decoded_size = (size_t*) p;
-			p += sizeof(size_t);
-			buffer_free -= sizeof(size_t);
+			//size_t *decoded_size = (size_t*) p;
+			//p += sizeof(size_t);
+			//buffer_free -= sizeof(size_t);
 
-			//*decoded_size = buffer_free;
-			//size_t foo;
-			//size_t *decoded_size = &foo;
+			size_t foo;
+			size_t *decoded_size = &foo;
 
 			//done = true;
 
@@ -255,8 +254,9 @@ void player_reader_thread_run( void *data )
 					break;
 			}
 			if( *decoded_size > 0 ) {
-				LOG_DEBUG("size=d decoded data", *decoded_size);
-				buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
+				LOG_DEBUG("size=d wrote decoded data", *decoded_size);
+				//buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
+				buffer_mark_written( &player->circular_buffer, *decoded_size );
 			}
 		}
 		player->reading_index++;
@@ -281,49 +281,52 @@ void player_audio_thread_run( void *data )
 			usleep(100);
 			continue;
 		}
+		//buffer_mark_read( &player->circular_buffer, buffer_avail );
+
 		//LOG_DEBUG( "buffer_avail=d data to decode", buffer_avail );
-		size_t start = p - player->circular_buffer.p;
-		size_t end = start + buffer_avail;
-		printf("consuming %d to %d\n", start, end);
+		//     size_t start = p - player->circular_buffer.p;
+		//     size_t end = start + buffer_avail;
+		//     printf("consuming %d to %d\n", start, end);
 
-		unsigned char payload_id = *(unsigned char*) p;
-		buffer_mark_read( &player->circular_buffer, 1 );
-		p++;
+		//     unsigned char payload_id = *(unsigned char*) p;
+		//     buffer_mark_read( &player->circular_buffer, 1 );
+		//     p++;
 
-		if( payload_id == ID_DATA ) {
-			struct id_data *id_data = (struct id_data*) p;
-			LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
-			buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
-			continue;
-		}
+		//     if( payload_id == ID_DATA ) {
+		//     	struct id_data *id_data = (struct id_data*) p;
+		//     	LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
+		//     	buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
+		//     	continue;
+		//     }
 
-		// otherwise it must be audio data
-		assert( payload_id == AUDIO_DATA );
-		LOG_DEBUG( "got AUDIO_DATA" );
+		//     // otherwise it must be audio data
+		//     assert( payload_id == AUDIO_DATA );
+		//     LOG_DEBUG( "got AUDIO_DATA" );
 
-		size_t decoded_size = *((size_t*) p);
-		LOG_DEBUG( "decoded_size=d the size", decoded_size );
-		p += sizeof(size_t);
-		buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
+		//     size_t decoded_size = *((size_t*) p);
+		//     LOG_DEBUG( "decoded_size=d the size", decoded_size );
+		//     p += sizeof(size_t);
+		//     buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
 
 		//LOG_DEBUG( "decoded_size=d buffer_avail=d about to play", decoded_size, buffer_avail );
-		assert( decoded_size <= buffer_avail );
+		//assert( decoded_size <= buffer_avail );
 
-		LOG_DEBUG( "decoded_size=d consuming data", decoded_size );
-		buffer_mark_read( &player->circular_buffer, decoded_size );
+		//LOG_DEBUG( "decoded_size=d consuming data", decoded_size );
+		//buffer_mark_read( &player->circular_buffer, decoded_size );
 
 		//printf("reading audio at %p %p\n", p, decoded_size);
 
-		//chunk_size = 10240;
-		//while( buffer_avail > 0 ) {
-		//	if( buffer_avail < chunk_size ) {
-		//		chunk_size = buffer_avail;
-		//	}
-		//	//ao_play( player->dev, p, chunk_size );
-		//	p += chunk_size;
-		//	buffer_avail -= chunk_size;
-		//	buffer_mark_read( &player->circular_buffer, chunk_size );
-		//}
+		LOG_DEBUG( "buffer_avail=d consuming data", buffer_avail );
+		chunk_size = 10240;
+		while( buffer_avail > 0 ) {
+			if( buffer_avail < chunk_size ) {
+				chunk_size = buffer_avail;
+			}
+			//ao_play( player->dev, p, chunk_size );
+			p += chunk_size;
+			buffer_avail -= chunk_size;
+			buffer_mark_read( &player->circular_buffer, chunk_size );
+		}
 	}
 }
 

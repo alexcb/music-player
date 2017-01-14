@@ -76,7 +76,7 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_s
 
 	// if Writer < Reader < Len; read from Reader to Len
 	if( buffer->write <= buffer->read && buffer->read < buffer->len ) {
-		printf("here 1\n");
+		//printf("here 1\n");
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->len - buffer->read;
 		return 0;
@@ -84,7 +84,7 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_s
 
 	// Reader < Writer < Len
 	if( buffer->read < buffer->write ) {
-		printf("here 2\n");
+		//printf("here 2\n");
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->write - buffer->read;
 		return 0;
@@ -116,7 +116,7 @@ void buffer_mark_read( CircularBuffer *buffer, size_t n )
 	pthread_mutex_lock( &buffer->lock );
 	buffer->read += n;
 	if( buffer->read == buffer->write ) {
-		printf("resetting buffer\n");
+		//printf("resetting buffer\n");
 		buffer->read = 0;
 		buffer->write = 0;
 		buffer->len = 0;
