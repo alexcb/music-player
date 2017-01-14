@@ -229,9 +229,12 @@ void player_reader_thread_run( void *data )
 			p += sizeof(size_t);
 			buffer_free -= sizeof(size_t);
 
-			*decoded_size = 0;
+			*decoded_size = min_buffer_size - 1 - sizeof(size_t);
+			LOG_DEBUG("bytes=d writing fake data", *decoded_size);
 			buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
 
+			sleep(1);
+			done = true;
 
 			//printf("saving audio to %p %p\n", p, decoded_size);
 			//LOG_DEBUG("buffer_free=d decoding mp3", buffer_free);
@@ -279,7 +282,8 @@ void player_audio_thread_run( void *data )
 			usleep(100);
 			continue;
 		}
-		LOG_DEBUG( "buffer_avail=d data to decode", buffer_avail );
+		//LOG_DEBUG( "buffer_avail=d data to decode", buffer_avail );
+		printf("consuming at %p max %d\n", p, buffer_avail);
 
 		unsigned char payload_id = *(unsigned char*) p;
 		buffer_mark_read( &player->circular_buffer, 1 );
@@ -302,6 +306,7 @@ void player_audio_thread_run( void *data )
 		//LOG_DEBUG( "decoded_size=d buffer_avail=d about to play", decoded_size, buffer_avail );
 		assert( decoded_size <= buffer_avail );
 
+		LOG_DEBUG( "decoded_size=s consuming data", decoded_size );
 		buffer_mark_read( &player->circular_buffer, decoded_size );
 
 		//printf("reading audio at %p %p\n", p, decoded_size);
