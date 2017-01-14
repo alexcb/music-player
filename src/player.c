@@ -235,25 +235,28 @@ void player_reader_thread_run( void *data )
 			buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
 			//done = true;
 
-			//*decoded_size = 0;
-			//res = mpg123_read( player->mh, p, buffer_free, decoded_size);
-			//switch( res ) {
-			//	case MPG123_OK:
-			//		break;
-			//	case MPG123_NEW_FORMAT:
-			//		LOG_DEBUG("TODO handle new format");
-			//		break;
-			//	case MPG123_DONE:
-			//		done = true;
-			//		break;
-			//	default:
-			//		//printf("non-handled -- mpg123_read returned: %s\n", mpg123_plain_strerror(res));
-			//		break;
-			//}
-			//if( *decoded_size > 0 ) {
-			//	LOG_DEBUG("size=d decoded data", *decoded_size);
-			//	buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
-			//}
+			size_t start = p - player->circular_buffer.p;
+			size_t end = start + buffer_free;
+			printf("writing to %d %d\n", start, end);
+			*decoded_size = 0;
+			res = mpg123_read( player->mh, p, buffer_free, decoded_size);
+			switch( res ) {
+				case MPG123_OK:
+					break;
+				case MPG123_NEW_FORMAT:
+					LOG_DEBUG("TODO handle new format");
+					break;
+				case MPG123_DONE:
+					done = true;
+					break;
+				default:
+					//printf("non-handled -- mpg123_read returned: %s\n", mpg123_plain_strerror(res));
+					break;
+			}
+			if( *decoded_size > 0 ) {
+				LOG_DEBUG("size=d decoded data", *decoded_size);
+				buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
+			}
 		}
 		player->reading_index++;
 	}
@@ -278,7 +281,9 @@ void player_audio_thread_run( void *data )
 			continue;
 		}
 		//LOG_DEBUG( "buffer_avail=d data to decode", buffer_avail );
-		printf("consuming at %p max %d\n", p, buffer_avail);
+		size_t start = p - player->circular_buffer.p;
+		size_t end = start + buffer_avail;
+		printf("consuming %d to %d\n", start, end);
 
 		unsigned char payload_id = *(unsigned char*) p;
 		buffer_mark_read( &player->circular_buffer, 1 );
