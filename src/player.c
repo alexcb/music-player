@@ -299,7 +299,7 @@ void player_audio_thread_run( void *data )
 		p += sizeof(size_t);
 		buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
 
-		LOG_DEBUG( "decoded_size=d buffer_avail=d about to play", decoded_size, buffer_avail );
+		//LOG_DEBUG( "decoded_size=d buffer_avail=d about to play", decoded_size, buffer_avail );
 		assert( decoded_size <= buffer_avail );
 
 		buffer_mark_read( &player->circular_buffer, decoded_size );
