@@ -155,6 +155,7 @@ void player_reader_thread_run( void *data )
 		p += sizeof(size_t);
 		buffer_free -= sizeof(size_t);
 
+		buffer_free = buffer_free / 2 - 19;
 		*decoded_size = buffer_free;
 
 		bytes_written = 1 + sizeof(size_t) + buffer_free;
@@ -235,36 +236,24 @@ void player_reader_thread_run( void *data )
 		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
 		bool done = false;
-		oom_msg = false;
 		while( !done ) {
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
 			if( res ) {
-				if( !oom_msg ) {
-					LOG_DEBUG("requested=d out of buffer memory", min_buffer_size);
-					oom_msg = true;
-				}
 				usleep(100);
 				continue;
 			}
-			oom_msg = false;
 
-			//*((unsigned char*)p) = AUDIO_DATA;
-			//p++;
-			//buffer_free--;
+			*((unsigned char*)p) = AUDIO_DATA;
+			p++;
+			buffer_free--;
+			bytes_written++;
 
 			// reserve some space for number of bytes decoded
-			//size_t *decoded_size = (size_t*) p;
-			//p += sizeof(size_t);
-			//buffer_free -= sizeof(size_t);
+			size_t *decoded_size = (size_t*) p;
+			p += sizeof(size_t);
+			buffer_free -= sizeof(size_t);
+			bytes_written++;
 
-			size_t foo;
-			size_t *decoded_size = &foo;
-
-			//done = true;
-
-			//size_t start = p - player->circular_buffer.p;
-			//size_t end = start + buffer_free;
-			//printf("writing to %d %d\n", start, end);
 			*decoded_size = 0;
 			res = mpg123_read( player->mh, p, buffer_free, decoded_size);
 			switch( res ) {
@@ -281,9 +270,9 @@ void player_reader_thread_run( void *data )
 					break;
 			}
 			if( *decoded_size > 0 ) {
-				LOG_DEBUG("size=d wrote decoded data", *decoded_size);
-				//buffer_mark_written( &player->circular_buffer, 1 + sizeof(size_t) + (*decoded_size) );
-				buffer_mark_written( &player->circular_buffer, *decoded_size );
+				bytes_written += *decoded_size;
+				LOG_DEBUG("size=d wrote decoded data", bytes_written);
+				buffer_mark_written( &player->circular_buffer, bytes_written );
 			}
 		}
 		player->reading_index++;
