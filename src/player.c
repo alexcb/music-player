@@ -269,12 +269,6 @@ void player_audio_thread_run( void *data )
 			usleep(100);
 			continue;
 		}
-		//buffer_mark_read( &player->circular_buffer, buffer_avail );
-
-		//LOG_DEBUG( "buffer_avail=d data to decode", buffer_avail );
-		//     size_t start = p - player->circular_buffer.p;
-		//     size_t end = start + buffer_avail;
-		//     printf("consuming %d to %d\n", start, end);
 
 		unsigned char payload_id = *(unsigned char*) p;
 		p++;
@@ -296,21 +290,14 @@ void player_audio_thread_run( void *data )
 		buffer_avail-= sizeof(size_t);
 		buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
 
-		//LOG_DEBUG( "decoded_size=d buffer_avail=d about to play", decoded_size, buffer_avail );
 		assert( decoded_size <= buffer_avail );
 
-		//LOG_DEBUG( "decoded_size=d consuming data", decoded_size );
-		//buffer_mark_read( &player->circular_buffer, decoded_size );
-
-		//printf("reading audio at %p %p\n", p, decoded_size);
-
-		//LOG_DEBUG( "buffer_avail=d consuming data", buffer_avail );
 		chunk_size = 10240;
 		while( decoded_size > 0 ) {
 			if( decoded_size < chunk_size ) {
 				chunk_size = decoded_size;
 			}
-			ao_play( player->dev, p, chunk_size );
+			//ao_play( player->dev, p, chunk_size );
 			p += chunk_size;
 			decoded_size -= chunk_size;
 			buffer_mark_read( &player->circular_buffer, chunk_size );
