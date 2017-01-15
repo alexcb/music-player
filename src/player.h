@@ -29,7 +29,13 @@ typedef struct Player
 	size_t done;
 	int err;
 
-	pthread_t thread;
+	int reading_index;
+	int playing_index;
+
+	pthread_t audio_thread;
+	pthread_t reader_thread;
+
+	CircularBuffer circular_buffer;
 
 	struct httpdata hd;
 
@@ -41,6 +47,7 @@ typedef struct Player
 
 	char artist[PLAYER_ARTIST_LEN];
 	char title[PLAYER_TITLE_LEN];
+
 
 	// when true play, when false, pause / stop
 	volatile bool playing;

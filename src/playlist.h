@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pthread.h>
+#include "circular_buffer.h"
 
 typedef struct PlaylistItem
 {
@@ -23,3 +24,5 @@ int playlist_add_file( Playlist *playlist, const char *path );
 int playlist_open_fd( Playlist *playlist, int *fd, long int *icy_interval );
 int playlist_next( Playlist *playlist );
 void playlist_sort_by_path( Playlist *playlist );
+
+int open_file( const char *path, int *fd );
