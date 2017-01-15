@@ -45,6 +45,38 @@ int playlist_manager_init( PlaylistManager *manager )
 	return 0;
 }
 
+void playlist_manager_lock( PlaylistManager *manager )
+{
+	pthread_mutex_lock( &manager->lock );
+}
+
+void playlist_manager_unlock( PlaylistManager *manager )
+{
+	pthread_mutex_unlock( &manager->lock );
+}
+
+int playlist_manager_get_path( PlaylistManager *manager, int index, const char **path )
+{
+	if( 0 <= manager->current && manager->current < manager->len ) {
+		Playlist *playlist = manager->playlists[manager->current];
+		if( 0 <= index && index <= playlist->len ) {
+			*path = playlist->list[index].path;
+			return 0;
+		}
+	}
+	return 1;
+}
+
+int playlist_manager_get_length( PlaylistManager *manager, int *len )
+{
+	if( 0 <= manager->current && manager->current < manager->len ) {
+		Playlist *playlist = manager->playlists[manager->current];
+		*len = playlist->len;
+		return 0;
+	}
+	return 1;
+}
+
 int load_quick_album_recursive( PlaylistManager *manager, const char *path )
 {
 	int res;
