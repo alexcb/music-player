@@ -178,34 +178,32 @@ void player_reader_thread_run( void *data )
 			usleep(100);
 		}
 
-		if( 0 ) {
-			*((unsigned char*)p) = ID_DATA;
-			p++;
-			struct id_data *id_data = (struct id_data*) p;
-			memset( p, 0, sizeof(struct id_data) );
-			
-			mpg123_scan( player->mh );
+		*((unsigned char*)p) = ID_DATA;
+		p++;
+		struct id_data *id_data = (struct id_data*) p;
+		memset( p, 0, sizeof(struct id_data) );
+		
+		mpg123_scan( player->mh );
 
-			mpg123_id3v1 *v1;
-			mpg123_id3v2 *v2;
-			int meta = mpg123_meta_check( player->mh );
-			if( meta & MPG123_NEW_ID3 ) {
-				if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
-					if( v2 != NULL ) {
-						LOG_DEBUG( "populating metadata with id3 v2" );
-						strncpy( id_data->artist, v2->artist->p, PLAYER_ARTIST_LEN );
-						strncpy( id_data->title, v2->title->p, PLAYER_TITLE_LEN );
-					} else if( v1 != NULL ) {
-						LOG_DEBUG( "populating metadata with id3 v1" );
-						strncpy( id_data->artist, v1->artist, PLAYER_ARTIST_LEN );
-						strncpy( id_data->title, v1->title, PLAYER_TITLE_LEN );
-					} else {
-						assert( false );
-					}
+		mpg123_id3v1 *v1;
+		mpg123_id3v2 *v2;
+		int meta = mpg123_meta_check( player->mh );
+		if( meta & MPG123_NEW_ID3 ) {
+			if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
+				if( v2 != NULL ) {
+					LOG_DEBUG( "populating metadata with id3 v2" );
+					strncpy( id_data->artist, v2->artist->p, PLAYER_ARTIST_LEN );
+					strncpy( id_data->title, v2->title->p, PLAYER_TITLE_LEN );
+				} else if( v1 != NULL ) {
+					LOG_DEBUG( "populating metadata with id3 v1" );
+					strncpy( id_data->artist, v1->artist, PLAYER_ARTIST_LEN );
+					strncpy( id_data->title, v1->title, PLAYER_TITLE_LEN );
+				} else {
+					assert( false );
 				}
 			}
-			buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
 		}
+		buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
 
 		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 		bool done = false;
@@ -286,12 +284,12 @@ void player_audio_thread_run( void *data )
 		buffer_avail--;
 		buffer_mark_read( &player->circular_buffer, 1 );
 
-		//if( payload_id == ID_DATA ) {
-		//	struct id_data *id_data = (struct id_data*) p;
-		//	LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
-		//	buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
-		//	continue;
-		//}
+		if( payload_id == ID_DATA ) {
+			struct id_data *id_data = (struct id_data*) p;
+			LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
+			buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
+			continue;
+		}
 
 		//// otherwise it must be audio data
 		assert( payload_id == AUDIO_DATA );
@@ -304,7 +302,6 @@ void player_audio_thread_run( void *data )
 		assert( decoded_size <= buffer_avail );
 
 		//size_t decoded_size = buffer_avail;
-		printf("playing from buf\n");
 		chunk_size = 10240;
 		while( decoded_size > 0 ) {
 			if( decoded_size < chunk_size ) {
