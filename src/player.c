@@ -306,13 +306,13 @@ void player_audio_thread_run( void *data )
 
 		//LOG_DEBUG( "buffer_avail=d consuming data", buffer_avail );
 		chunk_size = 10240;
-		while( buffer_avail > 0 ) {
-			if( buffer_avail < chunk_size ) {
-				chunk_size = buffer_avail;
+		while( decoded_size > 0 ) {
+			if( decoded_size < chunk_size ) {
+				chunk_size = decoded_size;
 			}
 			ao_play( player->dev, p, chunk_size );
 			p += chunk_size;
-			buffer_avail -= chunk_size;
+			decoded_size -= chunk_size;
 			buffer_mark_read( &player->circular_buffer, chunk_size );
 		}
 	}
