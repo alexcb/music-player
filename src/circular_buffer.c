@@ -9,7 +9,9 @@ int init_circular_buffer( CircularBuffer *cb, size_t buffer_size )
 	cb->size = buffer_size;
 	cb->len = 0;
 
-	cb->p = (char*) malloc(buffer_size);
+	pthread_mutex_init( &cb->lock, NULL );
+
+	cb->p = (char*) malloc( buffer_size );
 	if( cb->p == NULL ) {
 		return 1;
 	}
@@ -20,12 +22,13 @@ int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, cha
 {
 	size_t n;
 
-	if( min_buffer_size > buffer->size ) {
+	if( min_buffer_size > buffer->size / 2 ) {
 		return 1;
 	}
 	
 	// special case for empty buffer
-	if( buffer->len == 0 && buffer->read == 0 && buffer->write == 0) {
+	if( buffer->len == 0 && buffer->read == buffer->write) {
+		buffer->read = buffer->write = 0;
 		*p = buffer->p;
 		*reserved_size = buffer->size;
 		return 0;
@@ -65,18 +68,13 @@ int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, 
 
 int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_size )
 {
-	// special case for empty buffer
-	//not needed if( buffer->len == 0 && buffer->read == 0 && buffer->write == 0) {
-	//not needed 	return 1;
-	//not needed }
-
 	if( buffer->read == buffer->len ) {
 		buffer->read = 0;
+		buffer->len = 0;
 	}
 
-	// if Writer < Reader < Len; read from Reader to Len
+	// if Writer <= Reader < Len; read from Reader to Len
 	if( buffer->write <= buffer->read && buffer->read < buffer->len ) {
-		//printf("here 1\n");
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->len - buffer->read;
 		return 0;
@@ -84,7 +82,6 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_s
 
 	// Reader < Writer < Len
 	if( buffer->read < buffer->write ) {
-		//printf("here 2\n");
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->write - buffer->read;
 		return 0;
