@@ -221,17 +221,17 @@ void player_reader_thread_run( void *data )
 			//buffer_free--;
 			//bytes_written = 1;
 
-			//// reserve some space for number of bytes decoded
-			//size_t *decoded_size = (size_t*) p;
-			//p += sizeof(size_t);
-			//buffer_free -= sizeof(size_t);
-			//bytes_written += sizeof(size_t);
+			// reserve some space for number of bytes decoded
+			size_t *decoded_size = (size_t*) p;
+			p += sizeof(size_t);
+			buffer_free -= sizeof(size_t);
+			bytes_written += sizeof(size_t);
 
-			//*decoded_size = 0;
+			*decoded_size = 0;
 
-			size_t foo;
-			size_t *decoded_size = &foo;
-			bytes_written = 0;
+			//size_t foo;
+			//size_t *decoded_size = &foo;
+			bytes_written = sizeof(size_t);
 
 			res = mpg123_read( player->mh, p, buffer_free, decoded_size);
 			switch( res ) {
@@ -291,14 +291,14 @@ void player_audio_thread_run( void *data )
 		//// otherwise it must be audio data
 		//assert( payload_id == AUDIO_DATA );
 
-		//size_t decoded_size = *((size_t*) p);
-		//p += sizeof(size_t);
-		//buffer_avail-= sizeof(size_t);
-		//buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
+		size_t decoded_size = *((size_t*) p);
+		p += sizeof(size_t);
+		buffer_avail-= sizeof(size_t);
+		buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
 
-		//assert( decoded_size <= buffer_avail );
+		assert( decoded_size <= buffer_avail );
 
-		size_t decoded_size = buffer_avail;
+		//size_t decoded_size = buffer_avail;
 		chunk_size = 10240;
 		while( decoded_size > 0 ) {
 			if( decoded_size < chunk_size ) {
