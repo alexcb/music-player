@@ -169,7 +169,7 @@ void player_reader_thread_run( void *data )
 			continue;
 		}
 
-		LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
+		//LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
 		for(;;) {
 			res = get_buffer_write( &player->circular_buffer, sizeof(struct id_data) + 1, &p, &buffer_free );
 			if( !res ) {
@@ -178,7 +178,7 @@ void player_reader_thread_run( void *data )
 			usleep(100);
 		}
 
-		LOG_DEBUG( "writing metadata to buffer" );
+		//LOG_DEBUG( "writing metadata to buffer" );
 		*((unsigned char*)p) = ID_DATA;
 		p++;
 		struct id_data *id_data = (struct id_data*) p;
@@ -243,7 +243,7 @@ void player_reader_thread_run( void *data )
 			}
 			if( *decoded_size > 0 ) {
 				bytes_written += *decoded_size;
-				LOG_DEBUG("size=d wrote decoded data", bytes_written);
+				//LOG_DEBUG("size=d wrote decoded data", bytes_written);
 				buffer_mark_written( &player->circular_buffer, bytes_written );
 			}
 		}
@@ -304,7 +304,7 @@ void player_audio_thread_run( void *data )
 
 		//printf("reading audio at %p %p\n", p, decoded_size);
 
-		LOG_DEBUG( "buffer_avail=d consuming data", buffer_avail );
+		//LOG_DEBUG( "buffer_avail=d consuming data", buffer_avail );
 		chunk_size = 10240;
 		while( buffer_avail > 0 ) {
 			if( buffer_avail < chunk_size ) {
