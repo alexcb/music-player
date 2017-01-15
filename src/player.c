@@ -178,33 +178,34 @@ void player_reader_thread_run( void *data )
 			usleep(100);
 		}
 
-		//LOG_DEBUG( "writing metadata to buffer" );
-		*((unsigned char*)p) = ID_DATA;
-		p++;
-		struct id_data *id_data = (struct id_data*) p;
-		memset( p, 0, sizeof(struct id_data) );
-		
-		mpg123_scan( player->mh );
+		if( 0 ) {
+			*((unsigned char*)p) = ID_DATA;
+			p++;
+			struct id_data *id_data = (struct id_data*) p;
+			memset( p, 0, sizeof(struct id_data) );
+			
+			mpg123_scan( player->mh );
 
-		mpg123_id3v1 *v1;
-		mpg123_id3v2 *v2;
-		int meta = mpg123_meta_check( player->mh );
-		if( meta & MPG123_NEW_ID3 ) {
-			if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
-				if( v2 != NULL ) {
-					LOG_DEBUG( "populating metadata with id3 v2" );
-					strncpy( id_data->artist, v2->artist->p, PLAYER_ARTIST_LEN );
-					strncpy( id_data->title, v2->title->p, PLAYER_TITLE_LEN );
-				} else if( v1 != NULL ) {
-					LOG_DEBUG( "populating metadata with id3 v1" );
-					strncpy( id_data->artist, v1->artist, PLAYER_ARTIST_LEN );
-					strncpy( id_data->title, v1->title, PLAYER_TITLE_LEN );
-				} else {
-					assert( false );
+			mpg123_id3v1 *v1;
+			mpg123_id3v2 *v2;
+			int meta = mpg123_meta_check( player->mh );
+			if( meta & MPG123_NEW_ID3 ) {
+				if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
+					if( v2 != NULL ) {
+						LOG_DEBUG( "populating metadata with id3 v2" );
+						strncpy( id_data->artist, v2->artist->p, PLAYER_ARTIST_LEN );
+						strncpy( id_data->title, v2->title->p, PLAYER_TITLE_LEN );
+					} else if( v1 != NULL ) {
+						LOG_DEBUG( "populating metadata with id3 v1" );
+						strncpy( id_data->artist, v1->artist, PLAYER_ARTIST_LEN );
+						strncpy( id_data->title, v1->title, PLAYER_TITLE_LEN );
+					} else {
+						assert( false );
+					}
 				}
 			}
+			buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
 		}
-		buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
 
 		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 		bool done = false;
@@ -215,18 +216,23 @@ void player_reader_thread_run( void *data )
 				continue;
 			}
 
-			*((unsigned char*)p) = AUDIO_DATA;
-			p++;
-			buffer_free--;
-			bytes_written = 1;
+			//*((unsigned char*)p) = AUDIO_DATA;
+			//p++;
+			//buffer_free--;
+			//bytes_written = 1;
 
-			// reserve some space for number of bytes decoded
-			size_t *decoded_size = (size_t*) p;
-			p += sizeof(size_t);
-			buffer_free -= sizeof(size_t);
-			bytes_written += sizeof(size_t);
+			//// reserve some space for number of bytes decoded
+			//size_t *decoded_size = (size_t*) p;
+			//p += sizeof(size_t);
+			//buffer_free -= sizeof(size_t);
+			//bytes_written += sizeof(size_t);
 
-			*decoded_size = 0;
+			//*decoded_size = 0;
+
+			size_t foo;
+			size_t *decoded_size = &foo;
+			bytes_written = 0;
+
 			res = mpg123_read( player->mh, p, buffer_free, decoded_size);
 			switch( res ) {
 				case MPG123_OK:
@@ -270,34 +276,35 @@ void player_audio_thread_run( void *data )
 			continue;
 		}
 
-		unsigned char payload_id = *(unsigned char*) p;
-		p++;
-		buffer_avail--;
-		buffer_mark_read( &player->circular_buffer, 1 );
+		//unsigned char payload_id = *(unsigned char*) p;
+		//p++;
+		//buffer_avail--;
+		//buffer_mark_read( &player->circular_buffer, 1 );
 
-		if( payload_id == ID_DATA ) {
-			struct id_data *id_data = (struct id_data*) p;
-			LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
-			buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
-			continue;
-		}
+		//if( payload_id == ID_DATA ) {
+		//	struct id_data *id_data = (struct id_data*) p;
+		//	LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
+		//	buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
+		//	continue;
+		//}
 
-		// otherwise it must be audio data
-		assert( payload_id == AUDIO_DATA );
+		//// otherwise it must be audio data
+		//assert( payload_id == AUDIO_DATA );
 
-		size_t decoded_size = *((size_t*) p);
-		p += sizeof(size_t);
-		buffer_avail-= sizeof(size_t);
-		buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
+		//size_t decoded_size = *((size_t*) p);
+		//p += sizeof(size_t);
+		//buffer_avail-= sizeof(size_t);
+		//buffer_mark_read( &player->circular_buffer, sizeof(size_t) );
 
-		assert( decoded_size <= buffer_avail );
+		//assert( decoded_size <= buffer_avail );
 
+		size_t decoded_size = buffer_avail;
 		chunk_size = 10240;
 		while( decoded_size > 0 ) {
 			if( decoded_size < chunk_size ) {
 				chunk_size = decoded_size;
 			}
-			//ao_play( player->dev, p, chunk_size );
+			ao_play( player->dev, p, chunk_size );
 			p += chunk_size;
 			decoded_size -= chunk_size;
 			buffer_mark_read( &player->circular_buffer, chunk_size );
