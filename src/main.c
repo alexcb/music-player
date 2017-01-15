@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 	int x = rand() % album_list.len;
 	x = 123; //bob dylan
 	x = 514; //nasa -- first song is short and has a playback bug -- it starts on track 2
-	x = 11;
+	//x = 740; //sun kil moon
 	//x = 805; //cramps
 	load_quick_album( &playlist_manager, album_list.list[x].path );
 

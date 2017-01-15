@@ -132,7 +132,7 @@ void player_reader_thread_run( void *data )
 	int num_items;
 	char *p;
 
-	size_t decoded_size;
+	size_t *decoded_size;
 	size_t buffer_free;
 	size_t min_buffer_size;
 	bool oom_msg;
@@ -209,6 +209,7 @@ void player_reader_thread_run( void *data )
 
 		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 		bool done = false;
+		char *foo = (char*) malloc(min_buffer_size);
 		while( !done ) {
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
 			if( res ) {
@@ -216,13 +217,16 @@ void player_reader_thread_run( void *data )
 				continue;
 			}
 
-			//*((unsigned char*)p) = AUDIO_DATA;
-			//p++;
-			//buffer_free--;
-			//bytes_written = 1;
+			// dont read too much
+			buffer_free = min_buffer_size;
+
+			*((unsigned char*)p) = AUDIO_DATA;
+			p++;
+			buffer_free--;
+			bytes_written = 1;
 
 			// reserve some space for number of bytes decoded
-			size_t *decoded_size = (size_t*) p;
+			decoded_size = (size_t*) p;
 			p += sizeof(size_t);
 			buffer_free -= sizeof(size_t);
 			bytes_written += sizeof(size_t);
@@ -231,7 +235,7 @@ void player_reader_thread_run( void *data )
 
 			//size_t foo;
 			//size_t *decoded_size = &foo;
-			bytes_written = sizeof(size_t);
+			//bytes_written = sizeof(size_t);
 
 			res = mpg123_read( player->mh, p, buffer_free, decoded_size);
 			switch( res ) {
@@ -268,6 +272,7 @@ void player_audio_thread_run( void *data )
 	size_t buffer_avail;
 	size_t chunk_size;
 	char *p;
+	unsigned char payload_id;
 
 	for(;;) {
 		res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
@@ -276,10 +281,10 @@ void player_audio_thread_run( void *data )
 			continue;
 		}
 
-		//unsigned char payload_id = *(unsigned char*) p;
-		//p++;
-		//buffer_avail--;
-		//buffer_mark_read( &player->circular_buffer, 1 );
+		payload_id = *(unsigned char*) p;
+		p++;
+		buffer_avail--;
+		buffer_mark_read( &player->circular_buffer, 1 );
 
 		//if( payload_id == ID_DATA ) {
 		//	struct id_data *id_data = (struct id_data*) p;
@@ -289,7 +294,7 @@ void player_audio_thread_run( void *data )
 		//}
 
 		//// otherwise it must be audio data
-		//assert( payload_id == AUDIO_DATA );
+		assert( payload_id == AUDIO_DATA );
 
 		size_t decoded_size = *((size_t*) p);
 		p += sizeof(size_t);
@@ -299,6 +304,7 @@ void player_audio_thread_run( void *data )
 		assert( decoded_size <= buffer_avail );
 
 		//size_t decoded_size = buffer_avail;
+		printf("playing from buf\n");
 		chunk_size = 10240;
 		while( decoded_size > 0 ) {
 			if( decoded_size < chunk_size ) {
