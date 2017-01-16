@@ -12,6 +12,9 @@
 #define PLAYER_ARTIST_LEN 1024
 #define PLAYER_TITLE_LEN 1024
 
+#define TRACK_CHANGE_IMMEDIATE 1
+#define TRACK_CHANGE_NEXT 2
+
 typedef void (*MetadataObserver)(bool playing, const char *playlist_name, const char *artist, const char *title, void *data);
 
 typedef struct Player
@@ -28,9 +31,12 @@ typedef struct Player
 	size_t buffer_size;
 	size_t done;
 	int err;
+	bool new_track;
 
 	int reading_index;
 	int playing_index;
+	int track_change_mode;
+	char* volatile next_track;
 
 	pthread_t audio_thread;
 	pthread_t reader_thread;

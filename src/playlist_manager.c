@@ -40,6 +40,7 @@ int playlist_manager_init( PlaylistManager *manager )
 		return res;
 	}
 
+	manager->version = 0;
 	manager->current = 0;
 	manager->len = 3;
 	return 0;
@@ -132,6 +133,7 @@ int load_quick_album( PlaylistManager *manager, const char *path )
 	LOG_DEBUG("sorting album");
 	playlist_sort_by_path( manager->playlists[0] );
 	playlist_rename( manager->playlists[0], basename(path) );
+	manager->version++;
 	pthread_mutex_unlock( &manager->lock );
 	return OK;
 }

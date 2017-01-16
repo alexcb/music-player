@@ -291,7 +291,7 @@ static int web_handler_albums(
 		size_t *upload_data_size,
 		void **con_cls)
 {
-
+	LOG_DEBUG("in web_handler_albums");
 	json_object *albums = json_object_new_array();
 	for( int i = 0; i < data->album_list->len; i++ ) {
 		json_object *album = json_object_new_object();
@@ -362,6 +362,7 @@ static int web_handler(
 	static int dummy;
 	if (&dummy != *con_cls)
 	{
+		LOG_INFO("url=s method=s handling request", url, method);
 		/* never respond on first call -- not sure why, but libhttpd does this everywhere */
 		*con_cls = &dummy;
 		return MHD_YES;
