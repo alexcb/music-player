@@ -142,6 +142,7 @@ void player_reader_thread_run( void *data )
 	size_t bytes_written;
 
 restart_reading:
+	printf("(re)starting reader\n");
 	playlist_manager_lock( player->playlist_manager );
 	playlist_version = player->playlist_manager->version;
 	playlist_manager_unlock( player->playlist_manager );
@@ -181,7 +182,7 @@ restart_reading:
 			continue;
 		}
 
-		//LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
+		LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
 		for(;;) {
 			if( playlist_version != player->playlist_manager->version ) {
 				mpg123_close( player->mh );
@@ -196,22 +197,13 @@ restart_reading:
 		}
 
 		if( player->new_track ) {
+			printf("marking new track\n");
 			player->new_track = false;
 			while( __sync_bool_compare_and_swap( &player->next_track, player->next_track, p) == false );
-			printf("marked location to skip to\n");
-
-			//switch( player->track_change_mode ) {
-			//	case TRACK_CHANGE_IMMEDIATE:
-			//		p;
-			//		break;
-			//	case TRACK_CHANGE_NEXT:
-			//		assert(0); //not yet implemented
-			//		break;
-			//	default:
-			//		assert(0);
-			//}
+			printf("marking new track done\n");
 		}
 
+		printf("creating ID_DATA entry\n");
 		*((unsigned char*)p) = ID_DATA;
 		p++;
 		struct id_data *id_data = (struct id_data*) p;
@@ -247,6 +239,7 @@ restart_reading:
 			if( playlist_version != player->playlist_manager->version ) {
 				goto restart_reading;
 			}
+			//printf("requesting room for audio data\n");
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
 			if( res ) {
 				usleep(100);
@@ -280,7 +273,7 @@ restart_reading:
 					done = true;
 					break;
 				default:
-					//printf("non-handled -- mpg123_read returned: %s\n", mpg123_plain_strerror(res));
+					LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
 					break;
 			}
 			if( *decoded_size > 0 ) {
@@ -288,10 +281,9 @@ restart_reading:
 				//LOG_DEBUG("size=d wrote decoded data", bytes_written);
 				buffer_mark_written( &player->circular_buffer, bytes_written );
 			}
-
-			mpg123_close( player->mh );
-			close( fd );
 		}
+		mpg123_close( player->mh );
+		close( fd );
 		player->reading_index++;
 	}
 }
@@ -320,9 +312,9 @@ void player_audio_thread_run( void *data )
 			continue;
 		}
 		buf_start = p;
+		//printf("decoding data\n");
 
 		if( next_track ) {
-			printf("skipping to %d (from %d)\n", next_track - player->circular_buffer.p, p - player->circular_buffer.p);
 			LOG_DEBUG( "skipping to next track" );
 			if( next_track < p ) {
 				LOG_DEBUG( "skip to end of buffer" );
@@ -369,6 +361,7 @@ void player_audio_thread_run( void *data )
 			if( player->next_track && player->track_change_mode == TRACK_CHANGE_IMMEDIATE ) {
 				next_track = NULL;
 				do {
+					printf("dealing with skip track\n");
 					q = player->next_track;
 					next_track = __sync_val_compare_and_swap( &player->next_track, q, NULL );
 				} while( next_track != q );
@@ -386,7 +379,7 @@ void player_audio_thread_run( void *data )
 			if( decoded_size < chunk_size ) {
 				chunk_size = decoded_size;
 			}
-			//ao_play( player->dev, p, chunk_size );
+			ao_play( player->dev, p, chunk_size );
 			p += chunk_size;
 			decoded_size -= chunk_size;
 			buffer_mark_read( &player->circular_buffer, chunk_size );
