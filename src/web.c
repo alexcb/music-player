@@ -102,11 +102,13 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 
 	const char *s = json_object_to_json_string( state );
 
-	bool ok;
+	int res;
 	pthread_mutex_lock( &data->connections_lock );
+	LOG_DEBUG( "num_connections=d", data->num_connections );
 	for( int i = 0; i < data->num_connections; ) {
-		ok = websocket_send( data->connections[ i ], s );
-		if( !ok ) {
+		res = websocket_send( data->connections[ i ], s );
+		if( res ) {
+			LOG_ERROR( "removing websocket due to send error" );
 			// remove websocket
 			data->num_connections--;
 			if( i < data->num_connections ) {
