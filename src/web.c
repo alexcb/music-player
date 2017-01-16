@@ -34,10 +34,12 @@ typedef struct WebHandlerData {
 	AlbumList *album_list;
 	PlaylistManager *playlist_manager;
 	Player *player;
+
+	//websocket related entries
 	WebsocketData *connections[MAX_CONNETIONS];
 	int num_connections;
 	pthread_mutex_t connections_lock;
-	char last_sent_payload[MAX_PAYLOAD_SIZE];
+	
 } WebHandlerData;
 
 
@@ -71,6 +73,20 @@ int send_all( int sockfd, const char *buf, size_t len )
 	}
 	return OK;
 }
+
+void clear_websocket_input( WebsocketData *ws )
+{
+	if( ws->extra_in ) {
+		free( ws->extra_in );
+		ws->extra_in = NULL;
+	}
+}
+
+int websocket_send( WebsocketData *ws, const char *payload )
+{
+	return send_all( ws->sock, payload, strlen(payload));
+}
+
 
 bool handle_websocket( WebsocketData *ws, const char *payload )
 {
@@ -126,7 +142,6 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 				i++;
 			}
 		}
-		strncpy( shitty_global->last_sent_payload, s, MAX_PAYLOAD_SIZE );
 		pthread_mutex_unlock( &shitty_global->connections_lock );
 	}
 
@@ -231,7 +246,25 @@ static int web_handler_static(
 	return ret;
 }
 
-static void uh_cb (void *cls,
+int register_websocket( WebHandlerData *data, WebsocketData *ws )
+{
+	int res = 0;
+	pthread_mutex_lock( &data->connections_lock );
+
+	if( data->num_connections < MAX_CONNETIONS ) {
+		data->connections[data->num_connections] = ws;
+		data->num_connections++;
+	} else {
+		res = 1;
+	}
+
+	pthread_mutex_unlock( &data->connections_lock );
+
+	return res;
+}
+
+static void websocket_upgrade_handler(
+		void *cls,
 		struct MHD_Connection *connection,
 		void *con_cls,
 		const char *extra_in,
@@ -239,7 +272,8 @@ static void uh_cb (void *cls,
 		MHD_socket sock,
 		struct MHD_UpgradeResponseHandle *urh)
 {
-	LOG_DEBUG("uh_cb called");
+	int res;
+	LOG_DEBUG("websocket_upgrade_handler called");
 	WebHandlerData *data = (WebHandlerData*) cls;
 	WebsocketData *ws = (WebsocketData*) malloc( sizeof(WebsocketData) );
 	if( ws == NULL ) {
@@ -257,18 +291,18 @@ static void uh_cb (void *cls,
 	ws->sock = sock;
 	ws->urh = urh;
 
-	pthread_mutex_lock( &data->connections_lock );
+	// discard all cached input (we're not accepting input at the moment)
+	clear_websocket_input( ws );
 
-	bool ok = handle_websocket( ws, shitty_global->last_sent_payload );
-	if( data->num_connections < MAX_CONNETIONS && ok ) {
-		data->connections[data->num_connections] = ws;
-		data->num_connections++;
-	} else {
+	res = register_websocket( data, ws );
+	if( res ) {
 		abort();
 	}
 
-	pthread_mutex_unlock( &data->connections_lock );
+	// send a welcome message to websocket
+	websocket_send( ws, "hello world" );
 }
+
 
 static int web_handler_websocket(
 		WebHandlerData *data,
@@ -280,8 +314,7 @@ static int web_handler_websocket(
 		size_t *upload_data_size,
 		void **con_cls)
 {
-	LOG_DEBUG("web_handler_websocket");
-	struct MHD_Response *response = MHD_create_response_for_upgrade( &uh_cb, (void*) data );
+	struct MHD_Response *response = MHD_create_response_for_upgrade( &websocket_upgrade_handler, (void*) data );
 	MHD_add_response_header( response, MHD_HTTP_HEADER_UPGRADE, "websocket" );
 	int ret = MHD_queue_response( connection, MHD_HTTP_SWITCHING_PROTOCOLS, response );
 	MHD_destroy_response( response );
@@ -410,7 +443,6 @@ int start_http_server( AlbumList *album_list, PlaylistManager *playlist_manager,
 		.num_connections = 0,
 	};
 	pthread_mutex_init( &data.connections_lock, NULL );
-	data.last_sent_payload[0] = '\0';
 
 	// used to pass data to id3 tag callback
 	shitty_global = &data;
