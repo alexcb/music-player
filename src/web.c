@@ -286,8 +286,8 @@ void compute_key(const char *key, char *out)
 
 	LOG_DEBUG("key=s computing key", buf);
 	unsigned char hash[SHA_DIGEST_LENGTH]; // == 20
-	SHA1(buf, strlen(buf) - 1, hash);
 
+	SHA1(buf, strlen(buf), hash);
 	Base64encode( out, hash, SHA_DIGEST_LENGTH);
 }
 
@@ -352,7 +352,6 @@ static int web_handler_websocket(
 
 	char accept_key[30];
 	compute_key(client_key, accept_key);
-	LOG_DEBUG("accept_key=s computed key", accept_key);
 
 	struct MHD_Response *response = MHD_create_response_for_upgrade( &websocket_upgrade_handler, (void*) data );
 	MHD_add_response_header( response, MHD_HTTP_HEADER_UPGRADE, "websocket" );
