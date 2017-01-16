@@ -51,6 +51,8 @@ int start_player( Player *player )
 
 	player->playing_index = 0;
 	player->reading_index = 0;
+	player->track_change_mode = TRACK_CHANGE_IMMEDIATE;
+	player->next_track = NULL;
 
 	res = init_circular_buffer( &player->circular_buffer, 10*1024*1024 );
 	if( res ) {
@@ -131,13 +133,21 @@ void player_reader_thread_run( void *data )
 	const char *path;
 	int num_items;
 	char *p;
+	bool done;
+	int playlist_version;
 
 	size_t *decoded_size;
 	size_t buffer_free;
 	size_t min_buffer_size;
-	bool oom_msg;
 	size_t bytes_written;
 
+	playlist_manager_lock( player->playlist_manager );
+	playlist_version = player->playlist_manager->version;
+	playlist_manager_unlock( player->playlist_manager );
+
+restart_reading:
+	player->reading_index = 0;
+	player->new_track = true;
 	for(;;) {
 		playlist_manager_lock( player->playlist_manager );
 
@@ -171,11 +181,30 @@ void player_reader_thread_run( void *data )
 
 		//LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
 		for(;;) {
+			if( playlist_version != player->playlist_manager->version ) {
+				goto restart_reading;
+			}
 			res = get_buffer_write( &player->circular_buffer, sizeof(struct id_data) + 1, &p, &buffer_free );
 			if( !res ) {
 				break;
 			}
 			usleep(100);
+		}
+
+		if( player->new_track ) {
+			player->new_track = false;
+			while( __sync_bool_compare_and_swap( &player->next_track, player->next_track, p) == false );
+
+			//switch( player->track_change_mode ) {
+			//	case TRACK_CHANGE_IMMEDIATE:
+			//		p;
+			//		break;
+			//	case TRACK_CHANGE_NEXT:
+			//		assert(0); //not yet implemented
+			//		break;
+			//	default:
+			//		assert(0);
+			//}
 		}
 
 		*((unsigned char*)p) = ID_DATA;
@@ -206,9 +235,11 @@ void player_reader_thread_run( void *data )
 		buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
 
 		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
-		bool done = false;
-		char *foo = (char*) malloc(min_buffer_size);
+		done = false;
 		while( !done ) {
+			if( playlist_version != player->playlist_manager->version ) {
+				goto restart_reading;
+			}
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
 			if( res ) {
 				usleep(100);
@@ -266,6 +297,8 @@ void player_audio_thread_run( void *data )
 	size_t buffer_avail;
 	size_t chunk_size;
 	char *p;
+	char *q;
+	char *next_track;
 	unsigned char payload_id;
 
 	for(;;) {
@@ -273,6 +306,18 @@ void player_audio_thread_run( void *data )
 		if( res ) {
 			usleep(100);
 			continue;
+		}
+
+		if( next_track ) {
+			if( next_track < p ) {
+				buffer_mark_read( &player->circular_buffer, buffer_avail );
+				continue;
+			}
+			if( p < next_track ) {
+				chunk_size = next_track - p;
+				assert( chunk_size < buffer_avail );
+				buffer_mark_read( &player->circular_buffer, chunk_size );
+			}
 		}
 
 		payload_id = *(unsigned char*) p;
@@ -300,6 +345,17 @@ void player_audio_thread_run( void *data )
 		//size_t decoded_size = buffer_avail;
 		chunk_size = 10240;
 		while( decoded_size > 0 ) {
+			if( player->next_track && player->track_change_mode == TRACK_CHANGE_IMMEDIATE ) {
+				next_track = NULL;
+				do {
+					q = player->next_track;
+					next_track = __sync_val_compare_and_swap( &player->next_track, player->next_track, NULL );
+				} while( next_track != q );
+
+				buffer_mark_read( &player->circular_buffer, decoded_size );
+				break;
+			}
+
 			if( decoded_size < chunk_size ) {
 				chunk_size = decoded_size;
 			}
