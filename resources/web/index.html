@@ -138,6 +138,7 @@ $(document).ready(function() {
 	}
 	exampleSocket.onmessage = function (event) {
 		console.log(event.data);
+		updateCurrentSong(event.data);
 	}
 
 });

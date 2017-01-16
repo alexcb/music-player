@@ -363,12 +363,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	res = player_add_metadata_observer( &player, &update_metadata_web_clients, NULL );
-	if( res ) {
-		LOG_ERROR("failed to register observer");
-		return 1;
-	}
-
 	MyData my_data = {
 		&player,
 		&album_list,
@@ -381,8 +375,22 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	WebHandlerData web_handler_data;
+
+	res = init_http_server_data( &web_handler_data, &album_list, &playlist_manager, &player );
+	if( res ) {
+		LOG_ERROR("failed to init http server");
+		return 2;
+	}
+
+	res = player_add_metadata_observer( &player, &update_metadata_web_clients, (void*) &web_handler_data );
+	if( res ) {
+		LOG_ERROR("failed to register observer");
+		return 1;
+	}
+
 	LOG_DEBUG("running server");
-	res = start_http_server( &album_list, &playlist_manager, &player );
+	res = start_http_server( &web_handler_data );
 	if( res ) {
 		LOG_ERROR("failed to start http server");
 		return 2;

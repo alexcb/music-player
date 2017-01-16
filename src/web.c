@@ -19,33 +19,8 @@
 #include <arpa/inet.h>
 
 
-#include <microhttpd.h>
 #include <json-c/json.h>
 #include <openssl/sha.h>
-
-#define MAX_CONNETIONS 64
-#define MAX_PAYLOAD_SIZE 1024
-
-typedef struct WebsocketData {
-	struct MHD_UpgradeResponseHandle *urh;
-	char *extra_in;
-	size_t extra_in_size;
-	MHD_socket sock;
-} WebsocketData;
-
-
-typedef struct WebHandlerData {
-	AlbumList *album_list;
-	PlaylistManager *playlist_manager;
-	Player *player;
-
-	//websocket related entries
-	WebsocketData *connections[MAX_CONNETIONS];
-	int num_connections;
-	pthread_mutex_t connections_lock;
-	
-} WebHandlerData;
-
 
 // from mhd upgrade example
 //static void make_blocking( MHD_socket fd )
@@ -115,48 +90,9 @@ int websocket_send( WebsocketData *ws, const char *payload )
 	return res;
 }
 
-
-int websocket_send_header( WebsocketData *ws, const char *header, const char *value )
+void update_metadata_web_clients( bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *d )
 {
-	char buf[1024];
-	snprintf(buf, 1024, "%s: %s\n", header, value);
-	if( strlen(buf) > 1020 ) {
-		return 1;
-	}
-	return send_all( ws->sock, buf, strlen(buf));
-}
-
-
-bool handle_websocket( WebsocketData *ws, const char *payload )
-{
-	int res;
-
-	// discard this, we are not reading from this socket
-	if( ws->extra_in ) {
-		free( ws->extra_in );
-		ws->extra_in = NULL;
-	}
-
-	res = send_all( ws->sock, payload, strlen(payload));
-	if( res ) {
-		goto error;
-	}
-	res = send_all( ws->sock, "\n", 1);
-	if( res ) {
-		goto error;
-	}
-
-	return true;
-
-error:
-	LOG_INFO( "disconnecting websocket" );
-	free( ws );
-	return false;
-}
-
-WebHandlerData *shitty_global = NULL;
-void update_metadata_web_clients( bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *data )
-{
+	WebHandlerData *data = (WebHandlerData*) d;
 	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_web_clients", playlist_name, track->artist, track->title );
 
 	json_object *state = json_object_new_object();
@@ -167,22 +103,20 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 	const char *s = json_object_to_json_string( state );
 
 	bool ok;
-	if( shitty_global ) {
-		pthread_mutex_lock( &shitty_global->connections_lock );
-		for( int i = 0; i < shitty_global->num_connections; ) {
-			ok = handle_websocket( shitty_global->connections[ i ], s );
-			if( !ok ) {
-				// remove websocket
-				shitty_global->num_connections--;
-				if( i < shitty_global->num_connections ) {
-					shitty_global->connections[ i ] = shitty_global->connections[ shitty_global->num_connections ];
-				}
-			} else {
-				i++;
+	pthread_mutex_lock( &data->connections_lock );
+	for( int i = 0; i < data->num_connections; ) {
+		ok = websocket_send( data->connections[ i ], s );
+		if( !ok ) {
+			// remove websocket
+			data->num_connections--;
+			if( i < data->num_connections ) {
+				data->connections[ i ] = data->connections[ data->num_connections ];
 			}
+		} else {
+			i++;
 		}
-		pthread_mutex_unlock( &shitty_global->connections_lock );
 	}
+	pthread_mutex_unlock( &data->connections_lock );
 
 	// this causes the json string to be released
 	json_object_put( state );
@@ -373,7 +307,7 @@ static int web_handler_websocket(
 	const char *client_key = MHD_lookup_connection_value( connection, MHD_HEADER_KIND, "Sec-WebSocket-Key" );
 	if( !client_key ) {
 		LOG_WARN("websocket connection requestion without Sec-WebSocket-Key");
-		return;
+		return MHD_NO; //todo figure out if this is the right way to cleanup
 	}
 
 	char accept_key[30];
@@ -502,26 +436,26 @@ static int web_handler(
 	return error_handler( connection, "unable to dispatch url: %s", url );
 }
 
-int start_http_server( AlbumList *album_list, PlaylistManager *playlist_manager, Player *player )
+int init_http_server_data( WebHandlerData *data, AlbumList *album_list, PlaylistManager *playlist_manager, Player *player )
 {
-	WebHandlerData data = {
-		.album_list = album_list,
-		.playlist_manager = playlist_manager,
-		.player = player,
-		.num_connections = 0,
-	};
-	pthread_mutex_init( &data.connections_lock, NULL );
+	data->album_list = album_list;
+	data->playlist_manager = playlist_manager,
+	data->player = player,
+	data->num_connections = 0,
+	pthread_mutex_init( &(data->connections_lock), NULL );
 
-	// used to pass data to id3 tag callback
-	shitty_global = &data;
+	return 0;
+}
 
+int start_http_server( WebHandlerData *data )
+{
 	struct MHD_Daemon *d = MHD_start_daemon(
 			MHD_USE_SELECT_INTERNALLY | MHD_USE_SUSPEND_RESUME,
 			80,
 			NULL,
 			NULL,
 			&web_handler,
-			(void*) &data,
+			(void*) data,
 			MHD_OPTION_END);
 
 	if( d == NULL ) {
