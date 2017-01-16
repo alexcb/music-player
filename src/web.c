@@ -16,6 +16,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <arpa/inet.h>
+
 
 #include <microhttpd.h>
 #include <json-c/json.h>
@@ -86,7 +88,31 @@ void clear_websocket_input( WebsocketData *ws )
 
 int websocket_send( WebsocketData *ws, const char *payload )
 {
-	return send_all( ws->sock, payload, strlen(payload));
+	char header[16];
+	int i = 0;
+	size_t len = strlen(payload);
+	unsigned char b1 = 0x01 | 0x80;
+	unsigned char b2 = 0;
+	header[i++] = b1;
+	if( len < 126 ) {
+		b2 = b2 | len;
+		header[i++] = b2;
+	} else if( len < 65536 ) {
+		b2 = b2 | 126;
+		header[i++] = b2;
+		((uint16_t*) header)[i] = htons(len);
+		i += 2;
+	} else {
+		b2 = b2 | 127;
+		header[i++] = b2;
+		((uint32_t*) header)[i] = htonl(len);
+		i += 4;
+	}
+
+	int res = 0;
+	res = res || send_all( ws->sock, header, i);
+	res = res || send_all( ws->sock, payload, strlen(payload));
+	return res;
 }
 
 

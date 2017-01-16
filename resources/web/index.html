@@ -41,10 +41,6 @@
 
 		<script type="text/javascript">
 
-$(document).ready(function(){
-	$("#msgid").html("This is Hello World by JQuery");
-});
-
 var albums = [];
 $.getJSON( "/albums", function( data ) {
 	albums = data.albums;
@@ -139,6 +135,9 @@ $(document).ready(function() {
 	var exampleSocket = new WebSocket("ws://" + document.domain + ':' + location.port + "/websocket");
 	exampleSocket.onopen = function (event) {
 		console.log("websocket opened");
+	}
+	exampleSocket.onmessage = function (event) {
+		console.log(event.data);
 	}
 
 });
