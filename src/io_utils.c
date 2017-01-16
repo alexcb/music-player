@@ -1,4 +1,6 @@
 #include "io_utils.h"
+#include "log.h"
+#include "httpget.h"
 
 #include <string.h>
 #include <stdlib.h>

@@ -141,6 +141,7 @@ void player_reader_thread_run( void *data )
 	size_t buffer_free;
 	size_t min_buffer_size;
 	size_t bytes_written;
+	bool is_stream;
 
 restart_reading:
 	playlist_manager_lock( player->playlist_manager );
@@ -168,12 +169,19 @@ restart_reading:
 		}
 
 		LOG_DEBUG("path=s opening file in reader", path);
-		res = open_file( path, &fd );
+		res = open_fd( path, &fd, &is_stream, &icy_interval );
 		if( res ) {
 			LOG_ERROR( "unable to open" );
 		}
 
 		playlist_manager_unlock( player->playlist_manager );
+
+		if( is_stream ) {
+			if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0)) {
+				LOG_ERROR( "unable to set icy interval" );
+				continue;
+			}
+		}
 
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
 			LOG_ERROR( "mpg123_open_fd failed" );
