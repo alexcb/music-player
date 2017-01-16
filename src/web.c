@@ -194,7 +194,15 @@ static int web_handler_static(
 	//FILE *f = fopen(url, "r");
 	//struct MHD_Response *response = MHD_create_response_from_fd( fd, stat.st_size );
 
-	FILE *file = fopen( url, "rb" );
+	char path[1024];
+	const char *root = getenv("WEB_ROOT");
+	if( root ) {
+		snprintf(path, 1024, "%s/%s", root, url);
+	} else {
+		snprintf(path, 1024, "%s", url);
+	}
+
+	FILE *file = fopen( path, "rb" );
 	if( file == NULL ) {
 		return error_handler( connection, "unable to open file: %s", url );
 	}
