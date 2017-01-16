@@ -284,6 +284,7 @@ void compute_key(const char *key, char *out)
 	char buf[1024];
 	snprintf(buf, 1024, "%s%s", key, WEBSOCKET_ACCEPT_MAGIC);
 
+	LOG_DEBUG("key=s computing key", buf);
 	unsigned char hash[SHA_DIGEST_LENGTH]; // == 20
 	SHA1(buf, strlen(buf) - 1, hash);
 
@@ -303,13 +304,6 @@ static void websocket_upgrade_handler(
 	LOG_DEBUG("websocket_upgrade_handler called");
 	WebHandlerData *data = (WebHandlerData*) cls;
 
-	const char *client_key = MHD_lookup_connection_value( connection, MHD_HEADER_KIND, "Sec-WebSocket-Key" );
-	if( !client_key ) {
-		LOG_WARN("websocket connection requestion without Sec-WebSocket-Key");
-		close(sock); //TODO figure out how to clean up here, i dont know if close is required
-		return;
-	}
-
 	WebsocketData *ws = (WebsocketData*) malloc( sizeof(WebsocketData) );
 	if( ws == NULL ) {
 		abort();
@@ -325,22 +319,6 @@ static void websocket_upgrade_handler(
 	ws->extra_in_size = extra_in_size;
 	ws->sock = sock;
 	ws->urh = urh;
-
-
-	char accept_key[30];
-	compute_key(client_key, accept_key);
-	LOG_DEBUG("accept_key=s computed key", accept_key);
-
-	res = websocket_send( ws, "HTTP/1.1 101 Switching Protocols");
-	res = res || websocket_send_header( ws, "Upgrade", "websocket");
-	res = res || websocket_send_header( ws, "Connection", "Upgrade");
-	res = res || websocket_send_header( ws, "Sec-WebSocket-Accept", accept_key);
-	res = websocket_send( ws, "\n");
-	if( res ) {
-		LOG_ERROR("failed to send header");
-		free(ws);
-		//abort();
-	}
 
 	// discard all cached input (we're not accepting input at the moment)
 	clear_websocket_input( ws );
@@ -366,8 +344,21 @@ static int web_handler_websocket(
 		size_t *upload_data_size,
 		void **con_cls)
 {
+	const char *client_key = MHD_lookup_connection_value( connection, MHD_HEADER_KIND, "Sec-WebSocket-Key" );
+	if( !client_key ) {
+		LOG_WARN("websocket connection requestion without Sec-WebSocket-Key");
+		return;
+	}
+
+	char accept_key[30];
+	compute_key(client_key, accept_key);
+	LOG_DEBUG("accept_key=s computed key", accept_key);
+
 	struct MHD_Response *response = MHD_create_response_for_upgrade( &websocket_upgrade_handler, (void*) data );
 	MHD_add_response_header( response, MHD_HTTP_HEADER_UPGRADE, "websocket" );
+	MHD_add_response_header( response, "Sec-WebSocket-Accept", accept_key );
+
+
 	int ret = MHD_queue_response( connection, MHD_HTTP_SWITCHING_PROTOCOLS, response );
 	MHD_destroy_response( response );
 	LOG_DEBUG("ret=d web_handler_websocket", ret);
