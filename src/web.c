@@ -358,40 +358,55 @@ static int web_handler(
 		size_t *upload_data_size,
 		void **con_cls)
 {
-	WebHandlerData *data = (WebHandlerData*) cls;
 
-	static int dummy;
-	if (&dummy != *con_cls)
-	{
-		LOG_INFO("url=s method=s handling request", url, method);
-		/* never respond on first call -- not sure why, but libhttpd does this everywhere */
-		*con_cls = &dummy;
-		return MHD_YES;
-	}
-	*con_cls = NULL; /* reset when done -- again, not sure what this does */
+	const char *page = "<html><body>Hello, browser!</body></html>";
+	struct MHD_Response *response;
+	int ret;
 
-	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/websocket") == 0 ) {
-		return web_handler_websocket( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
-	}
+	response =
+		MHD_create_response_from_buffer (strlen (page), (void *) page, 
+				MHD_RESPMEM_PERSISTENT);
+	ret = MHD_queue_response (connection, MHD_HTTP_OK, response);
+	MHD_destroy_response (response);
 
-	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/albums") == 0 ) {
-		return web_handler_albums( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
-	}
+	return ret;
 
-	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/albums") == 0 ) {
-		return web_handler_albums_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
-	}
 
-	if( strcmp( method, "GET" ) == 0 && has_prefix(url, "/static/") ) {
-		return web_handler_static( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
-	}
 
-	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/") == 0 ) {
-		url = "/static/index.html";
-		return web_handler_static( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
-	}
-
-	return error_handler( connection, "unable to dispatch url: %s", url );
+//	WebHandlerData *data = (WebHandlerData*) cls;
+//
+//	static int dummy;
+//	if (&dummy != *con_cls)
+//	{
+//		LOG_INFO("url=s method=s handling request", url, method);
+//		/* never respond on first call -- not sure why, but libhttpd does this everywhere */
+//		*con_cls = &dummy;
+//		return MHD_YES;
+//	}
+//	*con_cls = NULL; /* reset when done -- again, not sure what this does */
+//
+//	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/websocket") == 0 ) {
+//		return web_handler_websocket( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+//	}
+//
+//	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/albums") == 0 ) {
+//		return web_handler_albums( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+//	}
+//
+//	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/albums") == 0 ) {
+//		return web_handler_albums_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+//	}
+//
+//	if( strcmp( method, "GET" ) == 0 && has_prefix(url, "/static/") ) {
+//		return web_handler_static( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+//	}
+//
+//	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/") == 0 ) {
+//		url = "/static/index.html";
+//		return web_handler_static( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+//	}
+//
+//	return error_handler( connection, "unable to dispatch url: %s", url );
 }
 
 int start_http_server( AlbumList *album_list, PlaylistManager *playlist_manager, Player *player )
