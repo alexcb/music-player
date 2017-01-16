@@ -141,13 +141,14 @@ void player_reader_thread_run( void *data )
 	size_t min_buffer_size;
 	size_t bytes_written;
 
+restart_reading:
 	playlist_manager_lock( player->playlist_manager );
 	playlist_version = player->playlist_manager->version;
 	playlist_manager_unlock( player->playlist_manager );
 
-restart_reading:
 	player->reading_index = 0;
 	player->new_track = true;
+
 	for(;;) {
 		playlist_manager_lock( player->playlist_manager );
 
@@ -174,6 +175,7 @@ restart_reading:
 		playlist_manager_unlock( player->playlist_manager );
 
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
+			LOG_ERROR( "mpg123_open_fd failed" );
 			close( fd );
 			player->reading_index++;
 			continue;
@@ -182,6 +184,8 @@ restart_reading:
 		//LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
 		for(;;) {
 			if( playlist_version != player->playlist_manager->version ) {
+				mpg123_close( player->mh );
+				close( fd );
 				goto restart_reading;
 			}
 			res = get_buffer_write( &player->circular_buffer, sizeof(struct id_data) + 1, &p, &buffer_free );
@@ -194,6 +198,7 @@ restart_reading:
 		if( player->new_track ) {
 			player->new_track = false;
 			while( __sync_bool_compare_and_swap( &player->next_track, player->next_track, p) == false );
+			printf("marked location to skip to\n");
 
 			//switch( player->track_change_mode ) {
 			//	case TRACK_CHANGE_IMMEDIATE:
@@ -231,6 +236,8 @@ restart_reading:
 					assert( false );
 				}
 			}
+		} else {
+			LOG_INFO( "no ID3 data available" );
 		}
 		buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
 
@@ -281,6 +288,9 @@ restart_reading:
 				//LOG_DEBUG("size=d wrote decoded data", bytes_written);
 				buffer_mark_written( &player->circular_buffer, bytes_written );
 			}
+
+			mpg123_close( player->mh );
+			close( fd );
 		}
 		player->reading_index++;
 	}
@@ -298,7 +308,9 @@ void player_audio_thread_run( void *data )
 	size_t chunk_size;
 	char *p;
 	char *q;
-	char *next_track;
+	char *buf_start;
+	char *next_track = NULL;
+	char *current_song = NULL;
 	unsigned char payload_id;
 
 	for(;;) {
@@ -307,17 +319,25 @@ void player_audio_thread_run( void *data )
 			usleep(100);
 			continue;
 		}
+		buf_start = p;
 
 		if( next_track ) {
+			printf("skipping to %d (from %d)\n", next_track - player->circular_buffer.p, p - player->circular_buffer.p);
+			LOG_DEBUG( "skipping to next track" );
 			if( next_track < p ) {
+				LOG_DEBUG( "skip to end of buffer" );
 				buffer_mark_read( &player->circular_buffer, buffer_avail );
 				continue;
 			}
 			if( p < next_track ) {
+				LOG_DEBUG( "skip to next track" );
 				chunk_size = next_track - p;
 				assert( chunk_size < buffer_avail );
 				buffer_mark_read( &player->circular_buffer, chunk_size );
+				continue;
 			}
+			LOG_DEBUG( "finished skipping" );
+			next_track = NULL;
 		}
 
 		payload_id = *(unsigned char*) p;
@@ -326,6 +346,7 @@ void player_audio_thread_run( void *data )
 		buffer_mark_read( &player->circular_buffer, 1 );
 
 		if( payload_id == ID_DATA ) {
+			current_song = buf_start;
 			struct id_data *id_data = (struct id_data*) p;
 			LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
 			buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
@@ -349,11 +370,17 @@ void player_audio_thread_run( void *data )
 				next_track = NULL;
 				do {
 					q = player->next_track;
-					next_track = __sync_val_compare_and_swap( &player->next_track, player->next_track, NULL );
+					next_track = __sync_val_compare_and_swap( &player->next_track, q, NULL );
 				} while( next_track != q );
 
-				buffer_mark_read( &player->circular_buffer, decoded_size );
-				break;
+				if( next_track == current_song ) {
+					printf("Got a skip track request to currently playing song\n");
+					next_track = NULL;
+				} else {
+					printf("Got a skip track request\n");
+					buffer_mark_read( &player->circular_buffer, decoded_size );
+					break;
+				}
 			}
 
 			if( decoded_size < chunk_size ) {
