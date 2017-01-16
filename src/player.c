@@ -316,6 +316,7 @@ void player_audio_thread_run( void *data )
 
 		if( next_track ) {
 			LOG_DEBUG( "skipping to next track" );
+			printf("currently at %d want %d\n", p - player->circular_buffer.p, next_track - player->circular_buffer.p);
 			if( next_track < p ) {
 				LOG_DEBUG( "skip to end of buffer" );
 				buffer_mark_read( &player->circular_buffer, buffer_avail );
@@ -324,7 +325,8 @@ void player_audio_thread_run( void *data )
 			if( p < next_track ) {
 				LOG_DEBUG( "skip to next track" );
 				chunk_size = next_track - p;
-				assert( chunk_size < buffer_avail );
+				printf("%d < %d\n", chunk_size, buffer_avail);
+				assert( chunk_size <= buffer_avail );
 				buffer_mark_read( &player->circular_buffer, chunk_size );
 				continue;
 			}
