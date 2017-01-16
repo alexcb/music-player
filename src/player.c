@@ -192,7 +192,7 @@ restart_reading:
 			if( !res ) {
 				break;
 			}
-			usleep(100);
+			usleep(10);
 		}
 
 		if( player->new_track ) {
@@ -237,7 +237,7 @@ restart_reading:
 			}
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
 			if( res ) {
-				usleep(100);
+				usleep(10);
 				continue;
 			}
 
@@ -303,7 +303,7 @@ void player_audio_thread_run( void *data )
 	for(;;) {
 		res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 		if( res ) {
-			usleep(100);
+			usleep(10);
 			continue;
 		}
 		buf_start = p;
@@ -365,6 +365,11 @@ void player_audio_thread_run( void *data )
 					buffer_mark_read( &player->circular_buffer, decoded_size );
 					break;
 				}
+			}
+
+			if( !player->playing ) {
+				usleep(10);
+				continue;
 			}
 
 			if( decoded_size < chunk_size ) {
