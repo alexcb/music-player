@@ -42,9 +42,6 @@ int start_player( Player *player )
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
 
-	player->playing = true;
-	player->restart = false;
-
 	player->playing_index = 0;
 	player->reading_index = 0;
 	player->track_change_mode = TRACK_CHANGE_IMMEDIATE;

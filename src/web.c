@@ -96,6 +96,7 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_web_clients", playlist_name, track->artist, track->title );
 
 	json_object *state = json_object_new_object();
+	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
 	json_object_object_add( state, "artist", json_object_new_string( track->artist ) );
 	json_object_object_add( state, "title", json_object_new_string( track->title ) );
 	json_object_object_add( state, "playlist", json_object_new_string( playlist_name ) );
@@ -380,8 +381,6 @@ static int web_handler_albums_play(
 			if( 0 <= i && i < data->album_list->len ) {
 				// TODO error handling
 				load_quick_album( data->playlist_manager, data->album_list->list[i].path );
-				// TODO need for a mutex here?
-				data->player->restart = true;
 			}
 		}
 	}

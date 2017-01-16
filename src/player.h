@@ -65,10 +65,6 @@ typedef struct Player
 
 	// when true play, when false, pause / stop
 	volatile bool playing;
-
-	// set to true when player should
-	// query playlist for which file to play (used when changing tracks)
-	volatile bool restart;
 } Player;
 
 

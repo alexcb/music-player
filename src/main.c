@@ -266,10 +266,8 @@ void* gpio_input_thread_run( void *p )
 		data->player->playing = play_switch;
 		if( rotation_switch > 0 ) {
 			playlist_manager_next( data->playlist_manager );
-			data->player->restart = true;
 		} else if( rotation_switch < 0 ) {
 			playlist_manager_prev( data->playlist_manager );
-			data->player->restart = true;
 		}
 		rotation_switch = 0;
 	}
@@ -329,6 +327,7 @@ int main(int argc, char *argv[])
 	// on/off switch
 	pinMode( PIN_SWITCH, INPUT );
 	pullUpDnControl( PIN_SWITCH, PUD_UP );
+	int switch_current_pos = digitalRead( PIN_SWITCH );
 
 	int pin1 = digitalRead( PIN_ROTARY_1 );
 	int pin2 = digitalRead( PIN_ROTARY_2 );
@@ -356,6 +355,10 @@ int main(int argc, char *argv[])
 		LOG_ERROR("failed to start player");
 		return 1;
 	}
+
+	// TODO do this during the setup above
+	// ideally split it into two funcs: init, and start threads
+	player.playing = switch_current_pos;
 
 	res = player_add_metadata_observer( &player, &update_metadata_lcd, (void *) &lcd_state );
 	if( res ) {
