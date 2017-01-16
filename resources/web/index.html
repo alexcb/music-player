@@ -42,6 +42,9 @@ $(document).ready(function(){
 var albums = [];
 $.getJSON( "/albums", function( data ) {
 	albums = data.albums;
+	$.each( albums, function( i, album ) {
+		album.id = i;
+	});
 	populateTable("");
 });
 
