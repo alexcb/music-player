@@ -1,0 +1,127 @@
+<html>
+	<head>
+		<title>Play me the Hits</title>
+
+		<script type="text/javascript" src="static/jquery-3.1.1.min.js"></script>
+		<script type="text/javascript" src="static/fuse.min.js"></script>
+		<link rel="stylesheet" href="static/pure-min.css" crossorigin="anonymous">
+		<link rel="stylesheet" href="static/layout.css" crossorigin="anonymous">
+
+	</head>
+
+	<body>
+
+
+		<div id="layout">
+			<div id="main">
+				<div class="content">
+					<h2 class="content-subhead">Play me the hits</h2>
+
+					<form class="pure-form">
+						<label for="filter">
+							<input type="filter" placeholder="filter" id="filter">
+						</label>
+						</fieldset>
+					</form>
+
+					<table class="pure-table pure-table-horizontal" id="albums">
+						<tbody>
+						</tbody>
+					</table>
+
+				</div>
+			</div>
+		</div>
+
+		<script type="text/javascript">
+
+$(document).ready(function(){
+	$("#msgid").html("This is Hello World by JQuery");
+});
+
+var albums = [];
+$.getJSON( "/albums", function( data ) {
+	albums = data.albums;
+	populateTable("");
+});
+
+var fuse_options = {
+	shouldSort: true,
+	threshold: 0.6,
+	location: 0,
+	distance: 100,
+	maxPatternLength: 32,
+	minMatchCharLength: 1,
+	keys: [
+		"artist",
+		"name"
+	]
+};
+
+var matches = [];
+function populateTable(filter) {
+	var tbody = jQuery("#albums tbody");
+	var j = 0;
+	matches = [];
+	if( filter == "" ) {
+		matches = albums;
+	} else {
+		var fuse = new Fuse(albums, fuse_options);
+		matches = fuse.search(filter);
+	}
+
+	if( current_selection >= matches.length ) {
+		current_selection = matches.length - 1;
+	}
+
+	tbody.empty();
+	$.each( matches, function( i, album ) {
+		var prefix = "";
+		if( i == current_selection ) {
+			prefix = "&gt; ";
+		}
+		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td>" + album.artist + "</td><td>" + album.name + "</td></tr>");
+		tbody.append( x );
+	});
+}
+
+var current_selection = 0;
+$("#filter").keydown(function(e) {
+	switch(e.which) {
+		case 38: // up
+			current_selection = Math.max( current_selection-1, 0 );
+			break;
+
+		case 40: // down
+			current_selection++;
+			break;
+
+		case 13: // down
+			console.log("play song");
+			var album = matches[current_selection];
+			$.post( "/albums?album=" + album.id, function( data ) { });
+
+			break;
+
+		default:
+
+			current_selection = 0;
+			return; // exit this handler for other keys
+	}
+	e.preventDefault(); // prevent the default action (scroll / move caret)
+});
+
+
+$("#filter").keyup(function() {
+	populateTable(this.value);
+});
+
+$("#filter").attr("autocomplete", "off");
+$("#filter").select();
+
+
+		</script>
+
+	</body>
+</html>
+
