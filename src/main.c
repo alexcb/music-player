@@ -203,12 +203,85 @@ void setupLCDPins(LCDState *lcd_state)
 	set_contrast( lcd_state, CONTRAST );
 }
 
+int get_album_id3_data( const char *path, char *artist, char *album )
+{
+	int res;
+	mpg123_handle *mh = mpg123_new( NULL, &res );
+	if( !mh ) {
+		LOG_ERROR( "err=d failed to create mpg123 instance", res );
+		return 1;
+	}
+	LOG_DEBUG( "path=s open", path );
+	res = mpg123_open( mh, path );
+	if( res != MPG123_OK ) {
+		LOG_DEBUG("err=d open error", res);
+		res = 1;
+		goto error;
+	}
+	LOG_DEBUG( "scan" );
+	res = mpg123_scan( mh );
+	if( res != MPG123_OK ) {
+		res = 1;
+		goto error;
+	}
+
+	LOG_DEBUG( "reading id3" );
+	mpg123_id3v1 *v1;
+	mpg123_id3v2 *v2;
+	res = 1;
+	int meta = mpg123_meta_check( mh );
+	if( meta & MPG123_NEW_ID3 ) {
+		if( mpg123_id3( mh, &v1, &v2 ) == MPG123_OK ) {
+			res = 0;
+			if( v2 != NULL ) {
+				LOG_DEBUG( "populating metadata with id3 v2" );
+				strcpy( artist, v2->artist->p );
+				strcpy( album, v2->album->p );
+			} else if( v1 != NULL ) {
+				LOG_DEBUG( "populating metadata with id3 v1" );
+				strcpy( artist, v1->artist );
+				strcpy( album, v1->album );
+			} else {
+				assert( false );
+			}
+		}
+	}
+
+error:
+	mpg123_close( mh );
+	mpg123_delete( mh );
+
+	return res;
+}
+
+int get_album_id3_data_from_album_path( const char *path, char *artist, char *album )
+{
+	struct dirent *entry;
+	DIR *dir = opendir( path );
+
+	char filepath[1024];
+	int res;
+
+	while( (entry = readdir( dir )) != NULL) {
+		if( entry->d_type == DT_REG ) {
+			if( has_suffix( entry->d_name, ".mp3" ) ) {
+				sprintf( filepath, "%s/%s", path, entry->d_name );
+				LOG_DEBUG("path=s attempting to read id3", filepath);
+				res = get_album_id3_data( filepath, artist, album );
+				break;
+			}
+		}
+	}
+	closedir( dir );
+}
 
 int load_albums( AlbumList *album_list, const char *path )
 {
 	int res;
 	char artist_path[1024];
 	struct dirent *artist_dirent, *album_dirent;
+	char artist[1024];
+	char album[1024];
 
 	DIR *artist_dir = opendir(path);
 	if( artist_dir == NULL ) {
@@ -233,8 +306,15 @@ int load_albums( AlbumList *album_list, const char *path )
 			if( album_dirent->d_type != DT_DIR || strcmp(album_dirent->d_name, ".") == 0 || strcmp(album_dirent->d_name, "..") == 0 ) {
 				continue;
 			}
+
+			// this is actually now the path to the album
 			sprintf(artist_path, "%s/%s/%s", path, artist_dirent->d_name, album_dirent->d_name);
-			res = album_list_add( album_list, artist_dirent->d_name, album_dirent->d_name, artist_path );
+
+			strcpy( artist, artist_dirent->d_name );
+			strcpy( album, album_dirent->d_name );
+			get_album_id3_data_from_album_path( artist_path, artist, album );
+
+			res = album_list_add( album_list, artist, album, artist_path );
 			if( res ) {
 				return res;
 			}
