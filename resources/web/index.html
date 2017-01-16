@@ -4,6 +4,7 @@
 
 		<script type="text/javascript" src="static/jquery-3.1.1.min.js"></script>
 		<script type="text/javascript" src="static/fuse.min.js"></script>
+		<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.5/socket.io.min.js"></script>
 		<link rel="stylesheet" href="static/pure-min.css" crossorigin="anonymous">
 		<link rel="stylesheet" href="static/layout.css" crossorigin="anonymous">
 
@@ -15,14 +16,19 @@
 		<div id="layout">
 			<div id="main">
 				<div class="content">
+
 					<h2 class="content-subhead">Play me the hits</h2>
 
-					<form class="pure-form">
-						<label for="filter">
-							<input type="filter" placeholder="filter" id="filter">
-						</label>
-						</fieldset>
-					</form>
+					<div class="pure-g">
+						<div class="pure-u-1-2">
+							<form class="pure-form">
+								<input type="filter" placeholder="filter" id="filter">
+							</form>
+						</div>
+						<div class="pure-u-1-2">
+							<span id="currentsong">no song</span>
+						</div>
+					</div>
 
 					<table class="pure-table pure-table-horizontal" id="albums">
 						<tbody>
@@ -122,6 +128,30 @@ $("#filter").keyup(function() {
 $("#filter").attr("autocomplete", "off");
 $("#filter").select();
 
+function updateCurrentSong(msg) {
+	$("#currentsong").text(msg);
+}
+
+updateCurrentSong("nothing");
+
+$(document).ready(function() {
+	namespace = '/websocket';
+	var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+
+	socket.on('connect', function() {
+		console.log('connected');
+		//socket.emit('my_event', {data: 'I\'m connected!'});
+	});
+
+	// Event handler for server sent data.
+	// The callback function is invoked whenever the server emits data
+	// to the client. The data is then displayed in the "Received"
+	// section of the page.
+	socket.on('my_response', function(msg) {
+		console.log(msg);
+		updateCurrentSong("updated song");
+	});
+});
 
 		</script>
 

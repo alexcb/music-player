@@ -100,13 +100,13 @@ error:
 }
 
 WebHandlerData *shitty_global = NULL;
-void update_metadata_web_clients( bool playing, const char *playlist_name, const char *artist, const char *title, void *data )
+void update_metadata_web_clients( bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *data )
 {
-	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_web_clients", playlist_name, artist, title );
+	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_web_clients", playlist_name, track->artist, track->title );
 
 	json_object *state = json_object_new_object();
-	json_object_object_add( state, "artist", json_object_new_string( artist ) );
-	json_object_object_add( state, "title", json_object_new_string( title ) );
+	json_object_object_add( state, "artist", json_object_new_string( track->artist ) );
+	json_object_object_add( state, "title", json_object_new_string( track->title ) );
 	json_object_object_add( state, "playlist", json_object_new_string( playlist_name ) );
 
 	const char *s = json_object_to_json_string( state );
@@ -117,7 +117,7 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 		for( int i = 0; i < shitty_global->num_connections; ) {
 			ok = handle_websocket( shitty_global->connections[ i ], s );
 			if( !ok ) {
-				// remove websocket, and move end websoc
+				// remove websocket
 				shitty_global->num_connections--;
 				if( i < shitty_global->num_connections ) {
 					shitty_global->connections[ i ] = shitty_global->connections[ shitty_global->num_connections ];
