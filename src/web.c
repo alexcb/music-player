@@ -8,6 +8,7 @@
 #include "log.h"
 #include "errors.h"
 #include "my_data.h"
+#include "base64.h"
 
 #include <string.h>
 #include <assert.h>
@@ -18,6 +19,7 @@
 
 #include <microhttpd.h>
 #include <json-c/json.h>
+#include <openssl/sha.h>
 
 #define MAX_CONNETIONS 64
 #define MAX_PAYLOAD_SIZE 1024
@@ -85,6 +87,17 @@ void clear_websocket_input( WebsocketData *ws )
 int websocket_send( WebsocketData *ws, const char *payload )
 {
 	return send_all( ws->sock, payload, strlen(payload));
+}
+
+
+int websocket_send_header( WebsocketData *ws, const char *header, const char *value )
+{
+	char buf[1024];
+	snprintf(buf, 1024, "%s: %s\n", header, value);
+	if( strlen(buf) > 1020 ) {
+		return 1;
+	}
+	return send_all( ws->sock, buf, strlen(buf));
 }
 
 
@@ -263,6 +276,20 @@ int register_websocket( WebHandlerData *data, WebsocketData *ws )
 	return res;
 }
 
+#define WEBSOCKET_ACCEPT_MAGIC "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+// out must be at least 30 bytes
+void compute_key(const char *key, char *out)
+{
+	char buf[1024];
+	snprintf(buf, 1024, "%s%s", key, WEBSOCKET_ACCEPT_MAGIC);
+
+	unsigned char hash[SHA_DIGEST_LENGTH]; // == 20
+	SHA1(buf, strlen(buf) - 1, hash);
+
+	Base64encode( out, hash, SHA_DIGEST_LENGTH);
+}
+
 static void websocket_upgrade_handler(
 		void *cls,
 		struct MHD_Connection *connection,
@@ -275,6 +302,13 @@ static void websocket_upgrade_handler(
 	int res;
 	LOG_DEBUG("websocket_upgrade_handler called");
 	WebHandlerData *data = (WebHandlerData*) cls;
+
+	const char *client_key = MHD_lookup_connection_value( connection, MHD_HEADER_KIND, "Sec-WebSocket-Key" );
+	if( !client_key ) {
+		LOG_WARN("websocket connection requestion without Sec-WebSocket-Key");
+		abort();
+	}
+
 	WebsocketData *ws = (WebsocketData*) malloc( sizeof(WebsocketData) );
 	if( ws == NULL ) {
 		abort();
@@ -291,11 +325,26 @@ static void websocket_upgrade_handler(
 	ws->sock = sock;
 	ws->urh = urh;
 
+
+	char accept_key[30];
+	compute_key(client_key, accept_key);
+
+	res = res || websocket_send( ws, "HTTP/1.1 101 Switching Protocols");
+	res = res || websocket_send_header( ws, "Upgrade", "websocket");
+	res = res || websocket_send_header( ws, "Connection", "Upgrade");
+	res = res || websocket_send_header( ws, "Sec-WebSocket-Accept", accept_key);
+	if( res ) {
+		LOG_ERROR("failed to send header");
+		free(ws);
+		abort();
+	}
+
 	// discard all cached input (we're not accepting input at the moment)
 	clear_websocket_input( ws );
 
 	res = register_websocket( data, ws );
 	if( res ) {
+		free( ws );
 		abort();
 	}
 
