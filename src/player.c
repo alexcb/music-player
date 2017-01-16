@@ -1,6 +1,7 @@
 #include "player.h"
 #include "icy.h"
 #include "log.h"
+#include "io_utils.h"
 
 #include <string.h>
 #include <math.h>
