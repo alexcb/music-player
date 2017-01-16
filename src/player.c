@@ -359,7 +359,7 @@ void player_audio_thread_run( void *data )
 			if( decoded_size < chunk_size ) {
 				chunk_size = decoded_size;
 			}
-			ao_play( player->dev, p, chunk_size );
+			//ao_play( player->dev, p, chunk_size );
 			p += chunk_size;
 			decoded_size -= chunk_size;
 			buffer_mark_read( &player->circular_buffer, chunk_size );
