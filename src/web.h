@@ -23,6 +23,7 @@ typedef struct WebHandlerData {
 	WebsocketData *connections[MAX_CONNETIONS];
 	int num_connections;
 	pthread_mutex_t connections_lock;
+	char current_track_payload[1024]; 
 	
 } WebHandlerData;
 

@@ -104,6 +104,7 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 
 	int res;
 	pthread_mutex_lock( &data->connections_lock );
+	strcpy( data->current_track_payload, s );
 	LOG_DEBUG( "num_connections=d", data->num_connections );
 	for( int i = 0; i < data->num_connections; ) {
 		res = websocket_send( data->connections[ i ], s );
@@ -229,6 +230,8 @@ int register_websocket( WebHandlerData *data, WebsocketData *ws )
 	if( data->num_connections < MAX_CONNETIONS ) {
 		data->connections[data->num_connections] = ws;
 		data->num_connections++;
+
+		websocket_send( ws, data->current_track_payload );
 	} else {
 		res = 1;
 	}
@@ -290,9 +293,6 @@ static void websocket_upgrade_handler(
 		free( ws );
 		abort();
 	}
-
-	// send a welcome message to websocket
-	websocket_send( ws, "hello world" );
 }
 
 
