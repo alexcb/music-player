@@ -142,7 +142,6 @@ void player_reader_thread_run( void *data )
 	size_t bytes_written;
 
 restart_reading:
-	printf("(re)starting reader\n");
 	playlist_manager_lock( player->playlist_manager );
 	playlist_version = player->playlist_manager->version;
 	playlist_manager_unlock( player->playlist_manager );
@@ -197,13 +196,10 @@ restart_reading:
 		}
 
 		if( player->new_track ) {
-			printf("marking new track\n");
 			player->new_track = false;
 			while( __sync_bool_compare_and_swap( &player->next_track, player->next_track, p) == false );
-			printf("marking new track done\n");
 		}
 
-		printf("creating ID_DATA entry\n");
 		*((unsigned char*)p) = ID_DATA;
 		p++;
 		struct id_data *id_data = (struct id_data*) p;
@@ -239,7 +235,6 @@ restart_reading:
 			if( playlist_version != player->playlist_manager->version ) {
 				goto restart_reading;
 			}
-			//printf("requesting room for audio data\n");
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
 			if( res ) {
 				usleep(100);
@@ -312,11 +307,9 @@ void player_audio_thread_run( void *data )
 			continue;
 		}
 		buf_start = p;
-		//printf("decoding data\n");
 
 		if( next_track ) {
 			LOG_DEBUG( "skipping to next track" );
-			printf("currently at %d want %d\n", p - player->circular_buffer.p, next_track - player->circular_buffer.p);
 			if( next_track < p ) {
 				LOG_DEBUG( "skip to end of buffer" );
 				buffer_mark_read( &player->circular_buffer, buffer_avail );
@@ -325,7 +318,6 @@ void player_audio_thread_run( void *data )
 			if( p < next_track ) {
 				LOG_DEBUG( "skip to next track" );
 				chunk_size = next_track - p;
-				printf("%d < %d\n", chunk_size, buffer_avail);
 				assert( chunk_size <= buffer_avail );
 				buffer_mark_read( &player->circular_buffer, chunk_size );
 				continue;
@@ -358,21 +350,18 @@ void player_audio_thread_run( void *data )
 		assert( decoded_size <= buffer_avail );
 
 		//size_t decoded_size = buffer_avail;
-		chunk_size = 10240;
+		chunk_size = 1024;
 		while( decoded_size > 0 ) {
 			if( player->next_track && player->track_change_mode == TRACK_CHANGE_IMMEDIATE ) {
 				next_track = NULL;
 				do {
-					printf("dealing with skip track\n");
 					q = player->next_track;
 					next_track = __sync_val_compare_and_swap( &player->next_track, q, NULL );
 				} while( next_track != q );
 
 				if( next_track == current_song ) {
-					printf("Got a skip track request to currently playing song\n");
 					next_track = NULL;
 				} else {
-					printf("Got a skip track request\n");
 					buffer_mark_read( &player->circular_buffer, decoded_size );
 					break;
 				}
