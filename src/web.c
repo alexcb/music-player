@@ -306,7 +306,8 @@ static void websocket_upgrade_handler(
 	const char *client_key = MHD_lookup_connection_value( connection, MHD_HEADER_KIND, "Sec-WebSocket-Key" );
 	if( !client_key ) {
 		LOG_WARN("websocket connection requestion without Sec-WebSocket-Key");
-		abort();
+		close(sock); //TODO figure out how to clean up here, i dont know if close is required
+		return;
 	}
 
 	WebsocketData *ws = (WebsocketData*) malloc( sizeof(WebsocketData) );
@@ -328,15 +329,17 @@ static void websocket_upgrade_handler(
 
 	char accept_key[30];
 	compute_key(client_key, accept_key);
+	LOG_DEBUG("accept_key=s computed key", accept_key);
 
-	res = res || websocket_send( ws, "HTTP/1.1 101 Switching Protocols");
+	res = websocket_send( ws, "HTTP/1.1 101 Switching Protocols");
 	res = res || websocket_send_header( ws, "Upgrade", "websocket");
 	res = res || websocket_send_header( ws, "Connection", "Upgrade");
 	res = res || websocket_send_header( ws, "Sec-WebSocket-Accept", accept_key);
+	res = websocket_send( ws, "\n");
 	if( res ) {
 		LOG_ERROR("failed to send header");
 		free(ws);
-		abort();
+		//abort();
 	}
 
 	// discard all cached input (we're not accepting input at the moment)
