@@ -22,6 +22,7 @@
 struct id_data {
 	char artist[PLAYER_ARTIST_LEN];
 	char title[PLAYER_TITLE_LEN];
+	bool is_stream;
 };
 
 #define BITS 8
@@ -141,7 +142,7 @@ void player_reader_thread_run( void *data )
 	size_t buffer_free;
 	size_t min_buffer_size;
 	size_t bytes_written;
-	bool is_stream;
+	bool is_stream = false;
 
 restart_reading:
 	playlist_manager_lock( player->playlist_manager );
@@ -152,6 +153,11 @@ restart_reading:
 	player->new_track = true;
 
 	for(;;) {
+		if( !player->playing ) {
+			usleep(10);
+			continue;
+		}
+
 		playlist_manager_lock( player->playlist_manager );
 
 		res = playlist_manager_get_length( player->playlist_manager, &num_items );
@@ -214,6 +220,8 @@ restart_reading:
 		p++;
 		struct id_data *id_data = (struct id_data*) p;
 		memset( p, 0, sizeof(struct id_data) );
+
+		id_data->is_stream = is_stream;
 		
 		mpg123_scan( player->mh );
 
@@ -312,6 +320,7 @@ void player_audio_thread_run( void *data )
 	char *next_track = NULL;
 	char *current_song = NULL;
 	unsigned char payload_id;
+	bool is_stream;
 
 	for(;;) {
 		res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
@@ -347,6 +356,7 @@ void player_audio_thread_run( void *data )
 		if( payload_id == ID_DATA ) {
 			current_song = buf_start;
 			struct id_data *id_data = (struct id_data*) p;
+			is_stream = id_data->is_stream;
 			LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
 			buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
 			continue;
@@ -381,8 +391,14 @@ void player_audio_thread_run( void *data )
 			}
 
 			if( !player->playing ) {
-				usleep(10);
-				continue;
+				if( is_stream ) {
+					//drain buffer and wait for new stream data
+					buffer_mark_read( &player->circular_buffer, decoded_size );
+					break;
+				} else {
+					usleep(10);
+					continue;
+				}
 			}
 
 			if( decoded_size < chunk_size ) {
