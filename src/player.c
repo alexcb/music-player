@@ -176,11 +176,9 @@ restart_reading:
 
 		playlist_manager_unlock( player->playlist_manager );
 
-		if( is_stream ) {
-			if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0)) {
-				LOG_ERROR( "unable to set icy interval" );
-				continue;
-			}
+		if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0)) {
+			LOG_ERROR( "unable to set icy interval" );
+			continue;
 		}
 
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
