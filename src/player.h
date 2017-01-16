@@ -15,7 +15,13 @@
 #define TRACK_CHANGE_IMMEDIATE 1
 #define TRACK_CHANGE_NEXT 2
 
-typedef void (*MetadataObserver)(bool playing, const char *playlist_name, const char *artist, const char *title, void *data);
+typedef struct PlayerTrackInfo {
+	char artist[PLAYER_ARTIST_LEN];
+	char title[PLAYER_TITLE_LEN];
+	bool is_stream;
+} PlayerTrackInfo;
+
+typedef void (*MetadataObserver)(bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *data);
 
 typedef struct Player
 {
@@ -47,22 +53,21 @@ typedef struct Player
 
 	PlaylistManager *playlist_manager;
 
-	int num_metadata_observers;
-	MetadataObserver metadata_observers[2];
-	void* metadata_observers_data[2];
+	int metadata_observers_num;
+	int metadata_observers_cap;
+	MetadataObserver *metadata_observers;
+	void **metadata_observers_data;
 
 	char artist[PLAYER_ARTIST_LEN];
 	char title[PLAYER_TITLE_LEN];
 
+	PlayerTrackInfo current_track;
 
 	// when true play, when false, pause / stop
 	volatile bool playing;
-
-	// set to true when player should
-	// query playlist for which file to play (used when changing tracks)
-	volatile bool restart;
 } Player;
 
 
 int start_player( Player *player );
 
+int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );

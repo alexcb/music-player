@@ -1,6 +1,7 @@
 #include "player.h"
 #include "icy.h"
 #include "log.h"
+#include "io_utils.h"
 
 #include <string.h>
 #include <math.h>
@@ -17,11 +18,6 @@
 
 #define AUDIO_DATA 1
 #define ID_DATA 2
-
-struct id_data {
-	char artist[PLAYER_ARTIST_LEN];
-	char title[PLAYER_TITLE_LEN];
-};
 
 #define BITS 8
 
@@ -46,9 +42,6 @@ int start_player( Player *player )
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
 
-	player->playing = true;
-	player->restart = false;
-
 	player->playing_index = 0;
 	player->reading_index = 0;
 	player->track_change_mode = TRACK_CHANGE_IMMEDIATE;
@@ -56,6 +49,17 @@ int start_player( Player *player )
 
 	res = init_circular_buffer( &player->circular_buffer, 10*1024*1024 );
 	if( res ) {
+		goto error;
+	}
+
+	player->metadata_observers_num = 0;
+	player->metadata_observers_cap = 2;
+	player->metadata_observers = (MetadataObserver*) malloc(sizeof(MetadataObserver) * player->metadata_observers_cap);
+	if( player->metadata_observers == NULL ) {
+		goto error;
+	}
+	player->metadata_observers_data = (void**) malloc(sizeof(void*) * player->metadata_observers_cap);
+	if( player->metadata_observers_data == NULL ) {
 		goto error;
 	}
 
@@ -78,9 +82,21 @@ error:
 	return 1;
 }
 
-void call_observers( Player *player, const char *playlist_name ) {
-	for( int i = 0; i < player->num_metadata_observers; i++ ) {
-		player->metadata_observers[i]( player->playing, playlist_name, player->artist, player->title, player->metadata_observers_data[i] );
+int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data )
+{
+	printf("player_add_metadata_observer\n");
+	if( player->metadata_observers_num == player->metadata_observers_cap ) {
+		return 1;
+	}
+	player->metadata_observers[player->metadata_observers_num] = observer;
+	player->metadata_observers_data[player->metadata_observers_num] = data;
+	player->metadata_observers_num++;
+	return 0;
+}
+
+void call_observers( Player *player ) {
+	for( int i = 0; i < player->metadata_observers_num; i++ ) {
+		player->metadata_observers[i]( player->playing, "todo:playlist_name", &player->current_track, player->metadata_observers_data[i] );
 	}
 }
 
@@ -140,6 +156,7 @@ void player_reader_thread_run( void *data )
 	size_t buffer_free;
 	size_t min_buffer_size;
 	size_t bytes_written;
+	bool is_stream = false;
 
 restart_reading:
 	playlist_manager_lock( player->playlist_manager );
@@ -150,6 +167,11 @@ restart_reading:
 	player->new_track = true;
 
 	for(;;) {
+		if( !player->playing ) {
+			usleep(10);
+			continue;
+		}
+
 		playlist_manager_lock( player->playlist_manager );
 
 		res = playlist_manager_get_length( player->playlist_manager, &num_items );
@@ -167,12 +189,17 @@ restart_reading:
 		}
 
 		LOG_DEBUG("path=s opening file in reader", path);
-		res = open_file( path, &fd );
+		res = open_fd( path, &fd, &is_stream, &icy_interval );
 		if( res ) {
 			LOG_ERROR( "unable to open" );
 		}
 
 		playlist_manager_unlock( player->playlist_manager );
+
+		if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0)) {
+			LOG_ERROR( "unable to set icy interval" );
+			continue;
+		}
 
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
 			LOG_ERROR( "mpg123_open_fd failed" );
@@ -181,18 +208,21 @@ restart_reading:
 			continue;
 		}
 
-		LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
+		LOG_DEBUG( "size=d requesting space", sizeof(PlayerTrackInfo) + 1 );
 		for(;;) {
-			if( playlist_version != player->playlist_manager->version ) {
+			if( 
+					playlist_version != player->playlist_manager->version || 
+					( !player->playing && is_stream )
+			) {
 				mpg123_close( player->mh );
 				close( fd );
 				goto restart_reading;
 			}
-			res = get_buffer_write( &player->circular_buffer, sizeof(struct id_data) + 1, &p, &buffer_free );
+			res = get_buffer_write( &player->circular_buffer, sizeof(PlayerTrackInfo) + 1, &p, &buffer_free );
 			if( !res ) {
 				break;
 			}
-			usleep(100);
+			usleep(10);
 		}
 
 		if( player->new_track ) {
@@ -202,8 +232,10 @@ restart_reading:
 
 		*((unsigned char*)p) = ID_DATA;
 		p++;
-		struct id_data *id_data = (struct id_data*) p;
-		memset( p, 0, sizeof(struct id_data) );
+		PlayerTrackInfo *id_data = (PlayerTrackInfo*) p;
+		memset( p, 0, sizeof(PlayerTrackInfo) );
+
+		id_data->is_stream = is_stream;
 		
 		mpg123_scan( player->mh );
 
@@ -227,17 +259,20 @@ restart_reading:
 		} else {
 			LOG_INFO( "no ID3 data available" );
 		}
-		buffer_mark_written( &player->circular_buffer, sizeof(struct id_data) + 1 );
+		buffer_mark_written( &player->circular_buffer, sizeof(PlayerTrackInfo) + 1 );
 
 		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 		done = false;
 		while( !done ) {
-			if( playlist_version != player->playlist_manager->version ) {
+			if( 
+					playlist_version != player->playlist_manager->version || 
+					( !player->playing && is_stream )
+			) {
 				goto restart_reading;
 			}
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
 			if( res ) {
-				usleep(100);
+				usleep(10);
 				continue;
 			}
 
@@ -303,7 +338,7 @@ void player_audio_thread_run( void *data )
 	for(;;) {
 		res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 		if( res ) {
-			usleep(100);
+			usleep(10);
 			continue;
 		}
 		buf_start = p;
@@ -333,9 +368,12 @@ void player_audio_thread_run( void *data )
 
 		if( payload_id == ID_DATA ) {
 			current_song = buf_start;
-			struct id_data *id_data = (struct id_data*) p;
-			LOG_DEBUG( "artist=s title=s playing new track", id_data->artist, id_data->title );
-			buffer_mark_read( &player->circular_buffer, sizeof(struct id_data) );
+			PlayerTrackInfo *id_data = (PlayerTrackInfo*) p;
+			memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
+
+			LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
+			call_observers( player );
+			buffer_mark_read( &player->circular_buffer, sizeof(PlayerTrackInfo) );
 			continue;
 		}
 
@@ -350,7 +388,7 @@ void player_audio_thread_run( void *data )
 		assert( decoded_size <= buffer_avail );
 
 		//size_t decoded_size = buffer_avail;
-		chunk_size = 10240;
+		chunk_size = 1024;
 		while( decoded_size > 0 ) {
 			if( player->next_track && player->track_change_mode == TRACK_CHANGE_IMMEDIATE ) {
 				next_track = NULL;
@@ -364,6 +402,17 @@ void player_audio_thread_run( void *data )
 				} else {
 					buffer_mark_read( &player->circular_buffer, decoded_size );
 					break;
+				}
+			}
+
+			if( !player->playing ) {
+				if( player->current_track.is_stream ) {
+					//drain buffer and wait for new stream data
+					buffer_mark_read( &player->circular_buffer, decoded_size );
+					break;
+				} else {
+					usleep(10);
+					continue;
 				}
 			}
 

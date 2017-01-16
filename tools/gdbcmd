@@ -1,4 +1,5 @@
 handle SIGPIPE nostop noprint pass
-cd /home/alex/musicapp
+handle SIGILL nostop noprint pass
+cd /home/alex/mpg123hack/resources/web
 exec-file /home/alex/mpg123hack/my123
 run

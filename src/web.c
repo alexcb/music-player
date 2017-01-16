@@ -8,6 +8,7 @@
 #include "log.h"
 #include "errors.h"
 #include "my_data.h"
+#include "base64.h"
 
 #include <string.h>
 #include <assert.h>
@@ -15,31 +16,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <arpa/inet.h>
 
-#include <microhttpd.h>
+
 #include <json-c/json.h>
-
-#define MAX_CONNETIONS 64
-#define MAX_PAYLOAD_SIZE 1024
-
-typedef struct WebsocketData {
-	struct MHD_UpgradeResponseHandle *urh;
-	char *extra_in;
-	size_t extra_in_size;
-	MHD_socket sock;
-} WebsocketData;
-
-
-typedef struct WebHandlerData {
-	AlbumList *album_list;
-	PlaylistManager *playlist_manager;
-	Player *player;
-	WebsocketData *connections[MAX_CONNETIONS];
-	int num_connections;
-	pthread_mutex_t connections_lock;
-	char last_sent_payload[MAX_PAYLOAD_SIZE];
-} WebHandlerData;
-
+#include <openssl/sha.h>
 
 // from mhd upgrade example
 //static void make_blocking( MHD_socket fd )
@@ -72,63 +53,74 @@ int send_all( int sockfd, const char *buf, size_t len )
 	return OK;
 }
 
-bool handle_websocket( WebsocketData *ws, const char *payload )
+void clear_websocket_input( WebsocketData *ws )
 {
-	int res;
-
-	// discard this, we are not reading from this socket
 	if( ws->extra_in ) {
 		free( ws->extra_in );
 		ws->extra_in = NULL;
 	}
-
-	res = send_all( ws->sock, payload, strlen(payload));
-	if( res ) {
-		goto error;
-	}
-	res = send_all( ws->sock, "\n", 1);
-	if( res ) {
-		goto error;
-	}
-
-	return true;
-
-error:
-	LOG_INFO( "disconnecting websocket" );
-	free( ws );
-	return false;
 }
 
-WebHandlerData *shitty_global = NULL;
-void update_metadata_web_clients( bool playing, const char *playlist_name, const char *artist, const char *title, void *data )
+int websocket_send( WebsocketData *ws, const char *payload )
 {
-	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_web_clients", playlist_name, artist, title );
+	char header[16];
+	int i = 0;
+	size_t len = strlen(payload);
+	unsigned char b1 = 0x01 | 0x80;
+	unsigned char b2 = 0;
+	header[i++] = b1;
+	if( len < 126 ) {
+		b2 = b2 | len;
+		header[i++] = b2;
+	} else if( len < 65536 ) {
+		b2 = b2 | 126;
+		header[i++] = b2;
+		((uint16_t*) header)[i] = htons(len);
+		i += 2;
+	} else {
+		b2 = b2 | 127;
+		header[i++] = b2;
+		((uint32_t*) header)[i] = htonl(len);
+		i += 4;
+	}
+
+	int res = 0;
+	res = res || send_all( ws->sock, header, i);
+	res = res || send_all( ws->sock, payload, strlen(payload));
+	return res;
+}
+
+void update_metadata_web_clients( bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *d )
+{
+	WebHandlerData *data = (WebHandlerData*) d;
+	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_web_clients", playlist_name, track->artist, track->title );
 
 	json_object *state = json_object_new_object();
-	json_object_object_add( state, "artist", json_object_new_string( artist ) );
-	json_object_object_add( state, "title", json_object_new_string( title ) );
+	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
+	json_object_object_add( state, "artist", json_object_new_string( track->artist ) );
+	json_object_object_add( state, "title", json_object_new_string( track->title ) );
 	json_object_object_add( state, "playlist", json_object_new_string( playlist_name ) );
 
 	const char *s = json_object_to_json_string( state );
 
-	bool ok;
-	if( shitty_global ) {
-		pthread_mutex_lock( &shitty_global->connections_lock );
-		for( int i = 0; i < shitty_global->num_connections; ) {
-			ok = handle_websocket( shitty_global->connections[ i ], s );
-			if( !ok ) {
-				// remove websocket, and move end websoc
-				shitty_global->num_connections--;
-				if( i < shitty_global->num_connections ) {
-					shitty_global->connections[ i ] = shitty_global->connections[ shitty_global->num_connections ];
-				}
-			} else {
-				i++;
+	int res;
+	pthread_mutex_lock( &data->connections_lock );
+	strcpy( data->current_track_payload, s );
+	LOG_DEBUG( "num_connections=d", data->num_connections );
+	for( int i = 0; i < data->num_connections; ) {
+		res = websocket_send( data->connections[ i ], s );
+		if( res ) {
+			LOG_ERROR( "removing websocket due to send error" );
+			// remove websocket
+			data->num_connections--;
+			if( i < data->num_connections ) {
+				data->connections[ i ] = data->connections[ data->num_connections ];
 			}
+		} else {
+			i++;
 		}
-		strncpy( shitty_global->last_sent_payload, s, MAX_PAYLOAD_SIZE );
-		pthread_mutex_unlock( &shitty_global->connections_lock );
 	}
+	pthread_mutex_unlock( &data->connections_lock );
 
 	// this causes the json string to be released
 	json_object_put( state );
@@ -194,7 +186,15 @@ static int web_handler_static(
 	//FILE *f = fopen(url, "r");
 	//struct MHD_Response *response = MHD_create_response_from_fd( fd, stat.st_size );
 
-	FILE *file = fopen( url, "rb" );
+	char path[1024];
+	const char *root = getenv("WEB_ROOT");
+	if( root ) {
+		snprintf(path, 1024, "%s/%s", root, url);
+	} else {
+		snprintf(path, 1024, "%s", url);
+	}
+
+	FILE *file = fopen( path, "rb" );
 	if( file == NULL ) {
 		return error_handler( connection, "unable to open file: %s", url );
 	}
@@ -223,7 +223,42 @@ static int web_handler_static(
 	return ret;
 }
 
-static void uh_cb (void *cls,
+int register_websocket( WebHandlerData *data, WebsocketData *ws )
+{
+	int res = 0;
+	pthread_mutex_lock( &data->connections_lock );
+
+	if( data->num_connections < MAX_CONNETIONS ) {
+		data->connections[data->num_connections] = ws;
+		data->num_connections++;
+
+		websocket_send( ws, data->current_track_payload );
+	} else {
+		res = 1;
+	}
+
+	pthread_mutex_unlock( &data->connections_lock );
+
+	return res;
+}
+
+#define WEBSOCKET_ACCEPT_MAGIC "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+// out must be at least 30 bytes
+void compute_key(const char *key, char *out)
+{
+	char buf[1024];
+	snprintf(buf, 1024, "%s%s", key, WEBSOCKET_ACCEPT_MAGIC);
+
+	LOG_DEBUG("key=s computing key", buf);
+	unsigned char hash[SHA_DIGEST_LENGTH]; // == 20
+
+	SHA1(buf, strlen(buf), hash);
+	Base64encode( out, hash, SHA_DIGEST_LENGTH);
+}
+
+static void websocket_upgrade_handler(
+		void *cls,
 		struct MHD_Connection *connection,
 		void *con_cls,
 		const char *extra_in,
@@ -231,8 +266,10 @@ static void uh_cb (void *cls,
 		MHD_socket sock,
 		struct MHD_UpgradeResponseHandle *urh)
 {
-	LOG_DEBUG("uh_cb called");
+	int res;
+	LOG_DEBUG("websocket_upgrade_handler called");
 	WebHandlerData *data = (WebHandlerData*) cls;
+
 	WebsocketData *ws = (WebsocketData*) malloc( sizeof(WebsocketData) );
 	if( ws == NULL ) {
 		abort();
@@ -249,18 +286,16 @@ static void uh_cb (void *cls,
 	ws->sock = sock;
 	ws->urh = urh;
 
-	pthread_mutex_lock( &data->connections_lock );
+	// discard all cached input (we're not accepting input at the moment)
+	clear_websocket_input( ws );
 
-	bool ok = handle_websocket( ws, shitty_global->last_sent_payload );
-	if( data->num_connections < MAX_CONNETIONS && ok ) {
-		data->connections[data->num_connections] = ws;
-		data->num_connections++;
-	} else {
+	res = register_websocket( data, ws );
+	if( res ) {
+		free( ws );
 		abort();
 	}
-
-	pthread_mutex_unlock( &data->connections_lock );
 }
+
 
 static int web_handler_websocket(
 		WebHandlerData *data,
@@ -272,9 +307,20 @@ static int web_handler_websocket(
 		size_t *upload_data_size,
 		void **con_cls)
 {
-	LOG_DEBUG("web_handler_websocket");
-	struct MHD_Response *response = MHD_create_response_for_upgrade( &uh_cb, (void*) data );
+	const char *client_key = MHD_lookup_connection_value( connection, MHD_HEADER_KIND, "Sec-WebSocket-Key" );
+	if( !client_key ) {
+		LOG_WARN("websocket connection requestion without Sec-WebSocket-Key");
+		return MHD_NO; //todo figure out if this is the right way to cleanup
+	}
+
+	char accept_key[30];
+	compute_key(client_key, accept_key);
+
+	struct MHD_Response *response = MHD_create_response_for_upgrade( &websocket_upgrade_handler, (void*) data );
 	MHD_add_response_header( response, MHD_HTTP_HEADER_UPGRADE, "websocket" );
+	MHD_add_response_header( response, "Sec-WebSocket-Accept", accept_key );
+
+
 	int ret = MHD_queue_response( connection, MHD_HTTP_SWITCHING_PROTOCOLS, response );
 	MHD_destroy_response( response );
 	LOG_DEBUG("ret=d web_handler_websocket", ret);
@@ -335,8 +381,6 @@ static int web_handler_albums_play(
 			if( 0 <= i && i < data->album_list->len ) {
 				// TODO error handling
 				load_quick_album( data->playlist_manager, data->album_list->list[i].path );
-				// TODO need for a mutex here?
-				data->player->restart = true;
 			}
 		}
 	}
@@ -393,27 +437,26 @@ static int web_handler(
 	return error_handler( connection, "unable to dispatch url: %s", url );
 }
 
-int start_http_server( AlbumList *album_list, PlaylistManager *playlist_manager, Player *player )
+int init_http_server_data( WebHandlerData *data, AlbumList *album_list, PlaylistManager *playlist_manager, Player *player )
 {
-	WebHandlerData data = {
-		.album_list = album_list,
-		.playlist_manager = playlist_manager,
-		.player = player,
-		.num_connections = 0,
-	};
-	pthread_mutex_init( &data.connections_lock, NULL );
-	data.last_sent_payload[0] = '\0';
+	data->album_list = album_list;
+	data->playlist_manager = playlist_manager,
+	data->player = player,
+	data->num_connections = 0,
+	pthread_mutex_init( &(data->connections_lock), NULL );
 
-	// used to pass data to id3 tag callback
-	shitty_global = &data;
+	return 0;
+}
 
+int start_http_server( WebHandlerData *data )
+{
 	struct MHD_Daemon *d = MHD_start_daemon(
 			MHD_USE_SELECT_INTERNALLY | MHD_USE_SUSPEND_RESUME,
 			80,
 			NULL,
 			NULL,
 			&web_handler,
-			(void*) &data,
+			(void*) data,
 			MHD_OPTION_END);
 
 	if( d == NULL ) {

@@ -138,32 +138,6 @@ int load_quick_album( PlaylistManager *manager, const char *path )
 	return OK;
 }
 
-int playlist_manager_open_fd( PlaylistManager *manager, int *fd, long int *icy_interval, char **playlist )
-{
-	int res;
-    res = pthread_mutex_lock( &manager->lock );
-	if( res ) {
-		return res;
-	}
-
-	if( 0 <= manager->current && manager->current < manager->len ) {
-		res = playlist_open_fd( manager->playlists[manager->current], fd, icy_interval );
-		if( res == OK ) {
-			*playlist = strdup(manager->playlists[manager->current]->name);
-			if( *playlist == NULL ) {
-				close( *fd );
-				pthread_mutex_unlock( &manager->lock );
-				return OUT_OF_MEMORY;
-			}
-		}
-	} else {
-		res = 1;
-	}
-
-    pthread_mutex_unlock( &manager->lock );
-	return res;
-}
-
 int playlist_manager_next( PlaylistManager *manager )
 {
 	int res;
@@ -177,6 +151,7 @@ int playlist_manager_next( PlaylistManager *manager )
 		manager->current = 0;
 	}
 
+	manager->version++;
     pthread_mutex_unlock( &manager->lock );
 	return res;
 }
@@ -194,6 +169,7 @@ int playlist_manager_prev( PlaylistManager *manager )
 		manager->current = manager->len - 1;
 	}
 
+	manager->version++;
     pthread_mutex_unlock( &manager->lock );
 	return res;
 }

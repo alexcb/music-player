@@ -45,7 +45,7 @@
 
 #define BITS 8
 
-void update_metadata_lcd(bool playing, const char *playlist_name, const char *artist, const char *title, void *data);
+void update_metadata_lcd(bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *data);
 
 //typedef struct Playlist
 //{
@@ -266,10 +266,8 @@ void* gpio_input_thread_run( void *p )
 		data->player->playing = play_switch;
 		if( rotation_switch > 0 ) {
 			playlist_manager_next( data->playlist_manager );
-			data->player->restart = true;
 		} else if( rotation_switch < 0 ) {
 			playlist_manager_prev( data->playlist_manager );
-			data->player->restart = true;
 		}
 		rotation_switch = 0;
 	}
@@ -329,6 +327,7 @@ int main(int argc, char *argv[])
 	// on/off switch
 	pinMode( PIN_SWITCH, INPUT );
 	pullUpDnControl( PIN_SWITCH, PUD_UP );
+	int switch_current_pos = digitalRead( PIN_SWITCH );
 
 	int pin1 = digitalRead( PIN_ROTARY_1 );
 	int pin2 = digitalRead( PIN_ROTARY_2 );
@@ -350,15 +349,20 @@ int main(int argc, char *argv[])
 	LOG_DEBUG("starting");
 	Player player;
 	player.playlist_manager = &playlist_manager;
-	player.num_metadata_observers = 2;
-	player.metadata_observers[0] = &update_metadata_lcd;
-	player.metadata_observers_data[0] = (void *) &lcd_state;
-	player.metadata_observers[1] = &update_metadata_web_clients;
-	player.metadata_observers_data[1] = NULL;
 
 	res = start_player( &player );
 	if( res ) {
 		LOG_ERROR("failed to start player");
+		return 1;
+	}
+
+	// TODO do this during the setup above
+	// ideally split it into two funcs: init, and start threads
+	player.playing = switch_current_pos;
+
+	res = player_add_metadata_observer( &player, &update_metadata_lcd, (void *) &lcd_state );
+	if( res ) {
+		LOG_ERROR("failed to register observer");
 		return 1;
 	}
 
@@ -374,8 +378,22 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	WebHandlerData web_handler_data;
+
+	res = init_http_server_data( &web_handler_data, &album_list, &playlist_manager, &player );
+	if( res ) {
+		LOG_ERROR("failed to init http server");
+		return 2;
+	}
+
+	res = player_add_metadata_observer( &player, &update_metadata_web_clients, (void*) &web_handler_data );
+	if( res ) {
+		LOG_ERROR("failed to register observer");
+		return 1;
+	}
+
 	LOG_DEBUG("running server");
-	res = start_http_server( &album_list, &playlist_manager, &player );
+	res = start_http_server( &web_handler_data );
 	if( res ) {
 		LOG_ERROR("failed to start http server");
 		return 2;
@@ -385,13 +403,13 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void update_metadata_lcd(bool playing, const char *playlist_name, const char *artist, const char *title, void *data)
+void update_metadata_lcd(bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *data)
 {
 	LCDState *lcd_state = (LCDState*) data;
-	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_lcd", playlist_name, artist, title );
+	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_lcd", playlist_name, track->artist, track->title );
 	if( playing ) {
 		char buf[1024];
-		snprintf( buf, 1024, "%s %s-%s", playlist_name, artist, title );
+		snprintf( buf, 1024, "%s %s-%s", playlist_name, track->artist, track->title );
 		writeText( lcd_state, buf );
 	} else {
 		writeText( lcd_state, "paused" );

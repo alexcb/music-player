@@ -12,6 +12,8 @@ or
 dependencies:
  libao-dev
  libmpg123-dev
+ libssl-dev
+ libmicrohttpd
  libwiringPi (see http://wiringpi.com/download-and-install/)
 
 todo:

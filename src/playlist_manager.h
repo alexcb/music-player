@@ -25,7 +25,5 @@ int playlist_manager_get_length( PlaylistManager *manager, int *len );
 
 int load_quick_album( PlaylistManager *manager, const char *path );
 
-int playlist_manager_open_fd( PlaylistManager *manager, int *fd, long int *icy_interval, char **playlist );
-
 int playlist_manager_next( PlaylistManager *manager );
 int playlist_manager_prev( PlaylistManager *manager );
