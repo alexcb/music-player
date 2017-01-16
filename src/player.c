@@ -334,6 +334,7 @@ void player_audio_thread_run( void *data )
 	char *next_track = NULL;
 	char *current_song = NULL;
 	unsigned char payload_id;
+	bool was_playing;
 
 	for(;;) {
 		res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
@@ -389,6 +390,7 @@ void player_audio_thread_run( void *data )
 
 		//size_t decoded_size = buffer_avail;
 		chunk_size = 1024;
+		was_playing = player->playing;
 		while( decoded_size > 0 ) {
 			if( player->next_track && player->track_change_mode == TRACK_CHANGE_IMMEDIATE ) {
 				next_track = NULL;
@@ -403,6 +405,10 @@ void player_audio_thread_run( void *data )
 					buffer_mark_read( &player->circular_buffer, decoded_size );
 					break;
 				}
+			}
+			if( was_playing != player->playing ) {
+				call_observers( player );
+				was_playing = player->playing;
 			}
 
 			if( !player->playing ) {

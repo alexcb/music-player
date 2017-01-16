@@ -137,8 +137,11 @@ $(document).ready(function() {
 		console.log("websocket opened");
 	}
 	exampleSocket.onmessage = function (event) {
+		console.log("got message: " + event.data);
+		if( event.data == "" ) {
+			return;
+		}
 		var msg = JSON.parse(event.data);
-		console.log(msg);
 		updateCurrentSong(msg.artist + " - " + msg.title);
 	}
 

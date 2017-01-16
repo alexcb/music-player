@@ -106,7 +106,7 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 	int res;
 	pthread_mutex_lock( &data->connections_lock );
 	strcpy( data->current_track_payload, s );
-	LOG_DEBUG( "num_connections=d", data->num_connections );
+	LOG_DEBUG( "num_connections=d state=s updating web clients", data->num_connections, s );
 	for( int i = 0; i < data->num_connections; ) {
 		res = websocket_send( data->connections[ i ], s );
 		if( res ) {
