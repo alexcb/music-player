@@ -190,7 +190,10 @@ restart_reading:
 
 		LOG_DEBUG( "size=d requesting space", sizeof(struct id_data) + 1 );
 		for(;;) {
-			if( playlist_version != player->playlist_manager->version ) {
+			if( 
+					playlist_version != player->playlist_manager->version || 
+					( !player->playing && is_stream )
+			) {
 				mpg123_close( player->mh );
 				close( fd );
 				goto restart_reading;
@@ -239,7 +242,10 @@ restart_reading:
 		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 		done = false;
 		while( !done ) {
-			if( playlist_version != player->playlist_manager->version ) {
+			if( 
+					playlist_version != player->playlist_manager->version || 
+					( !player->playing && is_stream )
+			) {
 				goto restart_reading;
 			}
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
