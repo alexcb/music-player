@@ -177,6 +177,7 @@ int playlist_manager_next( PlaylistManager *manager )
 		manager->current = 0;
 	}
 
+	manager->version++;
     pthread_mutex_unlock( &manager->lock );
 	return res;
 }
@@ -194,6 +195,7 @@ int playlist_manager_prev( PlaylistManager *manager )
 		manager->current = manager->len - 1;
 	}
 
+	manager->version++;
     pthread_mutex_unlock( &manager->lock );
 	return res;
 }
