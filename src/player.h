@@ -36,7 +36,7 @@ typedef struct Player
 	int reading_index;
 	int playing_index;
 	int track_change_mode;
-	volatile char *next_track;
+	char* volatile next_track;
 
 	pthread_t audio_thread;
 	pthread_t reader_thread;
