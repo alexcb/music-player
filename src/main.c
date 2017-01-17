@@ -245,11 +245,14 @@ error:
 
 int get_album_id3_data_from_album_path( mpg123_handle *mh, const char *path, char *artist, char *album )
 {
+	return 0;
 	struct dirent *entry;
 	DIR *dir = opendir( path );
 
 	char filepath[1024];
 	int res;
+
+	// This segfaults on /media/nugget_share/music/alex-beet/Boredoms/Super Ae/01 Super You.mp3
 
 	while( (entry = readdir( dir )) != NULL) {
 		if( entry->d_type == DT_REG ) {
