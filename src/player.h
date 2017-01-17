@@ -68,6 +68,7 @@ typedef struct Player
 } Player;
 
 
+int init_player( Player *player );
 int start_player( Player *player );
 
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );

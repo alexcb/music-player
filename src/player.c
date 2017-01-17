@@ -24,7 +24,7 @@
 void player_audio_thread_run( void *data );
 void player_reader_thread_run( void *data );
 
-int start_player( Player *player )
+int init_player( Player *player )
 {
 	int res;
 
@@ -62,7 +62,18 @@ int start_player( Player *player )
 	if( player->metadata_observers_data == NULL ) {
 		goto error;
 	}
+	return 0;
 
+error:
+	//free( player->buffer );
+	//mpg123_exit();
+	//ao_shutdown();
+	return 1;
+}
+
+int start_player( Player *player )
+{
+	int res;
 	res = pthread_create( &player->audio_thread, NULL, (void *) &player_audio_thread_run, (void *) player);
 	if( res ) {
 		goto error;
@@ -73,12 +84,7 @@ int start_player( Player *player )
 		goto error;
 	}
 
-	return 0;
-
 error:
-	//free( player->buffer );
-	//mpg123_exit();
-	//ao_shutdown();
 	return 1;
 }
 

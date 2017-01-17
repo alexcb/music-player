@@ -203,14 +203,9 @@ void setupLCDPins(LCDState *lcd_state)
 	set_contrast( lcd_state, CONTRAST );
 }
 
-int get_album_id3_data( const char *path, char *artist, char *album )
+int get_album_id3_data( mpg123_handle *mh, const char *path, char *artist, char *album )
 {
 	int res;
-	mpg123_handle *mh = mpg123_new( NULL, &res );
-	if( !mh ) {
-		LOG_ERROR( "err=d failed to create mpg123 instance", res );
-		return 1;
-	}
 	LOG_DEBUG( "path=s open", path );
 	res = mpg123_open( mh, path );
 	if( res != MPG123_OK ) {
@@ -218,12 +213,8 @@ int get_album_id3_data( const char *path, char *artist, char *album )
 		res = 1;
 		goto error;
 	}
-	LOG_DEBUG( "scan" );
-	res = mpg123_scan( mh );
-	if( res != MPG123_OK ) {
-		res = 1;
-		goto error;
-	}
+	LOG_DEBUG( "seek" );
+	mpg123_seek( mh, 0, SEEK_SET );
 
 	LOG_DEBUG( "reading id3" );
 	mpg123_id3v1 *v1;
@@ -249,12 +240,10 @@ int get_album_id3_data( const char *path, char *artist, char *album )
 
 error:
 	mpg123_close( mh );
-	mpg123_delete( mh );
-
 	return res;
 }
 
-int get_album_id3_data_from_album_path( const char *path, char *artist, char *album )
+int get_album_id3_data_from_album_path( mpg123_handle *mh, const char *path, char *artist, char *album )
 {
 	struct dirent *entry;
 	DIR *dir = opendir( path );
@@ -267,7 +256,7 @@ int get_album_id3_data_from_album_path( const char *path, char *artist, char *al
 			if( has_suffix( entry->d_name, ".mp3" ) ) {
 				sprintf( filepath, "%s/%s", path, entry->d_name );
 				LOG_DEBUG("path=s attempting to read id3", filepath);
-				res = get_album_id3_data( filepath, artist, album );
+				res = get_album_id3_data( mh, filepath, artist, album );
 				break;
 			}
 		}
@@ -275,7 +264,7 @@ int get_album_id3_data_from_album_path( const char *path, char *artist, char *al
 	closedir( dir );
 }
 
-int load_albums( AlbumList *album_list, const char *path )
+int load_albums( AlbumList *album_list, const char *path, mpg123_handle *mh )
 {
 	int res;
 	char artist_path[1024];
@@ -312,7 +301,7 @@ int load_albums( AlbumList *album_list, const char *path )
 
 			strcpy( artist, artist_dirent->d_name );
 			strcpy( album, album_dirent->d_name );
-			get_album_id3_data_from_album_path( artist_path, artist, album );
+			get_album_id3_data_from_album_path( mh, artist_path, artist, album );
 
 			res = album_list_add( album_list, artist, album, artist_path );
 			if( res ) {
@@ -358,6 +347,10 @@ void* gpio_input_thread_run( void *p )
 int main(int argc, char *argv[])
 {
 	int res;
+	Player player;
+
+	init_player( &player );
+
 
 	AlbumList album_list;
 	res = album_list_init( &album_list );
@@ -365,7 +358,7 @@ int main(int argc, char *argv[])
 		LOG_ERROR("failed to init album list");
 		return 1;
 	}
-	res = load_albums( &album_list, "/media/nugget_share/music/alex-beet" );
+	res = load_albums( &album_list, "/media/nugget_share/music/alex-beet", player.mh );
 	if( res ) {
 		LOG_ERROR("failed to load album list");
 		return 1;
@@ -427,7 +420,6 @@ int main(int argc, char *argv[])
 	writeText(&lcd_state, "Play me the hits");
 
 	LOG_DEBUG("starting");
-	Player player;
 	player.playlist_manager = &playlist_manager;
 
 	res = start_player( &player );
