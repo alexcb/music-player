@@ -226,8 +226,10 @@ int get_album_id3_data( mpg123_handle *mh, const char *path, char *artist, char 
 			res = 0;
 			if( v2 != NULL ) {
 				LOG_DEBUG( "populating metadata with id3 v2" );
-				strcpy( artist, v2->artist->p );
-				strcpy( album, v2->album->p );
+				if( v2->artist )
+					strcpy( artist, v2->artist->p );
+				if( v2->album )
+					strcpy( album, v2->album->p );
 			} else if( v1 != NULL ) {
 				LOG_DEBUG( "populating metadata with id3 v1" );
 				strcpy( artist, v1->artist );
@@ -245,19 +247,19 @@ error:
 
 int get_album_id3_data_from_album_path( mpg123_handle *mh, const char *path, char *artist, char *album )
 {
-	return 0;
 	struct dirent *entry;
 	DIR *dir = opendir( path );
 
 	char filepath[1024];
 	int res;
 
-	// This segfaults on /media/nugget_share/music/alex-beet/Boredoms/Super Ae/01 Super You.mp3
+	// This segfaults on 
 
 	while( (entry = readdir( dir )) != NULL) {
 		if( entry->d_type == DT_REG ) {
 			if( has_suffix( entry->d_name, ".mp3" ) ) {
 				sprintf( filepath, "%s/%s", path, entry->d_name );
+				//sprintf( filepath, "%s", "/media/nugget_share/music/alex-beet/Boredoms/Super Ae/01 Super You.mp3" );
 				LOG_DEBUG("path=s attempting to read id3", filepath);
 				res = get_album_id3_data( mh, filepath, artist, album );
 				break;
