@@ -83,6 +83,7 @@ int start_player( Player *player )
 	if( res ) {
 		goto error;
 	}
+	return 0;
 
 error:
 	return 1;
