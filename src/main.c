@@ -280,6 +280,8 @@ int load_albums( AlbumList *album_list, const char *path, mpg123_handle *mh )
 		return FILESYSTEM_ERROR;
 	}
 
+	int max_load = 25;
+
 	while( (artist_dirent = readdir(artist_dir)) != NULL) {
 		if( artist_dirent->d_type != DT_DIR || strcmp(artist_dirent->d_name, ".") == 0 || strcmp(artist_dirent->d_name, "..") == 0 ) {
 			continue;
@@ -312,6 +314,8 @@ int load_albums( AlbumList *album_list, const char *path, mpg123_handle *mh )
 			
 		}
 		closedir( album_dir );
+
+		if( max_load-- <= 0 ) break;
 	}
 	closedir( artist_dir );
 
