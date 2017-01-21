@@ -103,27 +103,47 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 
 	const char *s = json_object_to_json_string( state );
 
-	int res;
-	pthread_mutex_lock( &data->connections_lock );
+	pthread_mutex_lock( &data->current_track_payload_lock );
 	strcpy( data->current_track_payload, s );
-	LOG_DEBUG( "num_connections=d state=s updating web clients", data->num_connections, s );
-	for( int i = 0; i < data->num_connections; ) {
-		res = websocket_send( data->connections[ i ], s );
-		if( res ) {
-			LOG_ERROR( "removing websocket due to send error" );
-			// remove websocket
-			data->num_connections--;
-			if( i < data->num_connections ) {
-				data->connections[ i ] = data->connections[ data->num_connections ];
-			}
-		} else {
-			i++;
-		}
-	}
-	pthread_mutex_unlock( &data->connections_lock );
+	pthread_mutex_unlock( &data->current_track_payload_lock );
+	pthread_cond_signal( &data->current_track_payload_cond );
 
 	// this causes the json string to be released
 	json_object_put( state );
+}
+
+void websocket_push_thread( WebHandlerData *data )
+{
+	int res;
+	int cond_wait_res;
+	char local_payload[MAX_TRACK_PAYLOAD];
+	for(;;) {
+		pthread_mutex_lock( &data->current_track_payload_lock );
+		cond_wait_res = pthread_cond_wait( &data->current_track_payload_cond, &data->current_track_payload_lock );
+		strcpy( local_payload, data->current_track_payload );
+		pthread_mutex_unlock( &data->current_track_payload_lock );
+		if( cond_wait_res ) {
+			LOG_DEBUG( "err=d pthread_cond_wait failed", cond_wait_res );
+			continue;
+		}
+
+		pthread_mutex_lock( &data->connections_lock );
+		LOG_DEBUG( "num_connections=d state=s updating web clients  ", data->num_connections, local_payload );
+		for( int i = 0; i < data->num_connections; ) {
+			res = websocket_send( data->connections[ i ], local_payload );
+			if( res ) {
+				LOG_ERROR( "removing websocket due to send error" );
+				// remove websocket
+				data->num_connections--;
+				if( i < data->num_connections ) {
+					data->connections[ i ] = data->connections[ data->num_connections ];
+				}
+			} else {
+				i++;
+			}
+		}
+		pthread_mutex_unlock( &data->connections_lock );
+	}
 }
 
 int error_handler(struct MHD_Connection *connection, const char *fmt, ...)
@@ -253,8 +273,8 @@ void compute_key(const char *key, char *out)
 	LOG_DEBUG("key=s computing key", buf);
 	unsigned char hash[SHA_DIGEST_LENGTH]; // == 20
 
-	SHA1(buf, strlen(buf), hash);
-	Base64encode( out, hash, SHA_DIGEST_LENGTH);
+	SHA1((const unsigned char *)buf, strlen(buf), hash);
+	Base64encode( out, (const char*)hash, SHA_DIGEST_LENGTH);
 }
 
 static void websocket_upgrade_handler(
@@ -421,6 +441,10 @@ static int web_handler(
 		return web_handler_albums( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
 	}
 
+	//TODO if( strcmp( method, "GET" ) == 0 && strcmp(url, "/playlists") == 0 ) {
+	//TODO 	return web_handler_playlists( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+	//TODO }
+
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/albums") == 0 ) {
 		return web_handler_albums_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
 	}
@@ -443,7 +467,13 @@ int init_http_server_data( WebHandlerData *data, AlbumList *album_list, Playlist
 	data->playlist_manager = playlist_manager,
 	data->player = player,
 	data->num_connections = 0,
-	pthread_mutex_init( &(data->connections_lock), NULL );
+
+	pthread_mutex_init( &data->connections_lock, NULL );
+	pthread_mutex_init( &data->current_track_payload_lock, NULL );
+
+	pthread_cond_init( &data->current_track_payload_cond, NULL );
+
+	data->current_track_payload[0] = '\0';
 
 	return 0;
 }
@@ -464,9 +494,7 @@ int start_http_server( WebHandlerData *data )
 	}
 
 
-	LOG_DEBUG("busy looping");
-	//for(;;) { sleep(10); printf("busy loop sleep\n"); }
-	for(;;) {
-		sleep(1);
-	}
+	LOG_DEBUG("running websocket push thread");
+	websocket_push_thread( data );
+	return 0;
 }

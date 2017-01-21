@@ -5,6 +5,7 @@
 #include <microhttpd.h>
 
 #define MAX_CONNETIONS 64
+#define MAX_TRACK_PAYLOAD 4*1024
 
 typedef struct WebsocketData {
 	struct MHD_UpgradeResponseHandle *urh;
@@ -23,7 +24,10 @@ typedef struct WebHandlerData {
 	WebsocketData *connections[MAX_CONNETIONS];
 	int num_connections;
 	pthread_mutex_t connections_lock;
-	char current_track_payload[1024]; 
+
+	pthread_cond_t current_track_payload_cond;
+	pthread_mutex_t current_track_payload_lock;
+	char current_track_payload[MAX_TRACK_PAYLOAD];
 	
 } WebHandlerData;
 

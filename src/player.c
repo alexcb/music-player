@@ -152,7 +152,6 @@ void player_reader_thread_run( void *data )
 	int res;
 	int fd;
 	off_t icy_interval;
-	char *playlist_name;
 	const char *path;
 	int num_items;
 	char *p;
@@ -299,7 +298,7 @@ restart_reading:
 
 			*decoded_size = 0;
 
-			res = mpg123_read( player->mh, p, buffer_free, decoded_size);
+			res = mpg123_read( player->mh, (unsigned char *)p, buffer_free, decoded_size);
 			switch( res ) {
 				case MPG123_OK:
 					break;
@@ -376,7 +375,6 @@ void player_audio_thread_run( void *data )
 
 		if( payload_id == ID_DATA ) {
 			current_song = buf_start;
-			PlayerTrackInfo *id_data = (PlayerTrackInfo*) p;
 			memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
 
 			LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
@@ -444,4 +442,5 @@ int stop_player( Player *player )
 {
 	mpg123_exit();
 	ao_shutdown();
+	return 0;
 }

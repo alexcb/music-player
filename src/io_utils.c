@@ -24,6 +24,7 @@ int open_fd( const char *path, int *fd, bool *is_stream, long int *icy_interval 
 		res = open_file( path, fd );
 		*icy_interval = 0;
 	}
+	return res;
 }
 
 int open_file( const char *path, int *fd )
