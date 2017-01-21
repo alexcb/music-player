@@ -25,6 +25,7 @@ int playlist_manager_get_version( PlaylistManager *manager, int *version );
 int playlist_manager_get_path( PlaylistManager *manager, int index, const char **path );
 int playlist_manager_get_length( PlaylistManager *manager, int *len );
 
+int playlist_manager_set_playlist( PlaylistManager *manager, int id );
 
 int load_quick_album( PlaylistManager *manager, const char *path );
 

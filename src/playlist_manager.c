@@ -110,6 +110,25 @@ int load_quick_album_recursive( PlaylistManager *manager, const char *path )
 	return 0;
 }
 
+int playlist_manager_set_playlist( PlaylistManager *manager, int id )
+{
+	int res = 1;
+
+	res = pthread_mutex_lock( &manager->lock );
+	if( res ) {
+		return res;
+	}
+
+	if( 0 <= id && id < manager->len ) {
+		manager->current = id;
+		manager->version++;
+		res = 0;
+	}
+
+	pthread_mutex_unlock( &manager->lock );
+	return res;
+}
+
 int load_quick_album( PlaylistManager *manager, const char *path )
 {
 	int res;
