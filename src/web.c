@@ -365,12 +365,14 @@ static int web_handler_playlists(
 
 	Playlist *p;
 	for( int i = 0; i < data->playlist_manager->len; i++ ) {
+		LOG_DEBUG("playlist=d here", i);
 		json_object *playlist = json_object_new_object();
-		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
+		//json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
 
 		json_object *items = json_object_new_array();
 		p = data->playlist_manager->playlists[i];
 		for( int j = 0; j < p->len; j++ ) {
+			LOG_DEBUG("song=d there", j);
 			json_object *item = json_object_new_object();
 			json_object_object_add( item, "path", json_object_new_string( p->list[j].path ) );
 			json_object_array_add( items, item );
