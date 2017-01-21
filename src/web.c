@@ -347,6 +347,53 @@ static int web_handler_websocket(
 	return ret;
 }
 
+static int web_handler_playlists(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const char *upload_data,
+		size_t *upload_data_size,
+		void **con_cls)
+{
+	LOG_DEBUG("in web_handler_playlists");
+
+	json_object *playlists = json_object_new_array();
+
+	playlist_manager_lock( data->playlist_manager );
+
+	Playlist *p;
+	for( int i = 0; i < data->playlist_manager->len; i++ ) {
+		json_object *playlist = json_object_new_object();
+		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
+
+		json_object *items = json_object_new_array();
+		p = data->playlist_manager->playlists[i];
+		for( int j = 0; j < p->len; j++ ) {
+			json_object *item = json_object_new_object();
+			json_object_object_add( item, "path", json_object_new_string( p->list[j].path ) );
+			json_object_array_add( items, item );
+		}
+		json_object_object_add( playlist, "items", items );
+
+		json_object_array_add( playlists, playlist );
+	}
+
+	playlist_manager_unlock( data->playlist_manager );
+	
+
+	const char *s = json_object_to_json_string( playlists );
+	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
+
+	// this causes the json string to be released
+	json_object_put( playlists );
+
+	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
 static int web_handler_albums(
 		WebHandlerData *data,
 		struct MHD_Connection *connection,
@@ -441,9 +488,9 @@ static int web_handler(
 		return web_handler_albums( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
 	}
 
-	//TODO if( strcmp( method, "GET" ) == 0 && strcmp(url, "/playlists") == 0 ) {
-	//TODO 	return web_handler_playlists( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
-	//TODO }
+	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/playlists") == 0 ) {
+		return web_handler_playlists( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/albums") == 0 ) {
 		return web_handler_albums_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
