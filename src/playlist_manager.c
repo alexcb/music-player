@@ -68,7 +68,7 @@ int read_line(sds *buf, sds *line, int fd)
 			*buf = sdscatlen( *buf, tmp, j );
 		}
 		if( (*buf)[i] == '\n' ) {
-			sdscpylen( *line, *buf, i );
+			*line = sdscpylen( *line, *buf, i );
 			int j = i + 1;
 			memmove( *buf, *buf + j, strlen(*buf + j) + 1 );
 			sdsupdatelen( *buf );
@@ -108,8 +108,11 @@ int playlist_manager_load( PlaylistManager *manager )
 	int current_playlist = 0;
 	int last_line = 0;
 	while( !last_line ) {
+		printf("reading\n");
 		last_line = read_line( &buf, &line, fd );
+		printf("got line: '%s'\n", line);
 		if( line[0] == ' ' ) {
+			printf("adding\n");
 			// playlist item
 			if( current_playlist == 0 ) {
 				LOG_ERROR("no playlist name given");
@@ -121,7 +124,11 @@ int playlist_manager_load( PlaylistManager *manager )
 				LOG_ERROR("failed to add item to playlist");
 				return res;
 			}
+		} else if( line[0] == '\n' ) {
+			// skip
+			printf("skipping\n");
 		} else {
+			printf("new list\n");
 			// new playlist
 			current_playlist++;
 			res = playlist_new( &manager->playlists[current_playlist], line );
@@ -131,6 +138,7 @@ int playlist_manager_load( PlaylistManager *manager )
 			}
 		}
 	}
+	manager->len += current_playlist;
 
 	sdsfree( buf );
 	sdsfree( line );
