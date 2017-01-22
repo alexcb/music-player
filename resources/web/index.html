@@ -37,7 +37,7 @@
 						</div>
 						<div class="pure-u-4-5">
 							<div class="l-box">
-								<table class="pure-table pure-table-horizontal" id="albums">
+								<table class="pure-table pure-table-horizontal" id="playlist">
 									<tbody>
 									</tbody>
 								</table>
@@ -78,6 +78,7 @@
 		<script type="text/javascript">
 
 var playlists;
+var currently_selected_playlist = -1;
 
 function populatePlaylists() {
 	var tbody = jQuery("#playlists tbody");
@@ -87,7 +88,20 @@ function populatePlaylists() {
 	tbody.empty();
 	$.each( playlists.playlists, function( i, playlist ) {
 		var prefix = "";
-		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td>" + playlist.name + "</td></tr>");
+		if( i == currently_selected_playlist ) { prefix = "&gt;"; }
+		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td><a href=\"javascript:selectPlaylist(" + i + ");\">" + playlist.name + "</a></td></tr>");
+		tbody.append( x );
+	});
+}
+
+function populatePlaylist() {
+	var tbody = jQuery("#playlist tbody");
+	var j = 0;
+
+	tbody.empty();
+	$.each( playlists.playlists[currently_selected_playlist].items, function( i, item ) {
+		var prefix = "";
+		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td><a href=\"javascript:play(" + currently_selected_playlist + ", " + i + ");\">" + item.path + "</td></tr>");
 		tbody.append( x );
 	});
 }
@@ -97,7 +111,17 @@ function refreshPlaylists() {
 		.then(function(data) {
 			playlists = data;
 			populatePlaylists();
+			populatePlaylist();
 		});
+}
+
+function selectPlaylist(id) {
+	currently_selected_playlist = id;
+	populatePlaylist();
+}
+
+function play(playlist_id, track_id) {
+	$.post( "/play?playlist=" + playlist_id + "&track=" + track_id, function( data ) { });
 }
 
 
@@ -203,8 +227,17 @@ function refreshPlaylists() {
 //updateCurrentSong("nothing");
 //
 
+var first_msg = true;
+var last_msg;
 function updatePlaying(msg) {
-	if( msg.playlist_version != 
+	last_msg = msg;
+	if( !playlists || msg.playlist_version != playlists.version ) {
+		if( first_msg ) {
+			first_msg = false;
+			currently_selected_playlist = msg.playlist_id;
+		}
+		refreshPlaylists();
+	}
 }
 
 function createWebsocket() {
@@ -224,7 +257,6 @@ function createWebsocket() {
 }
 
 $(document).ready(function() {
-	refreshPlaylists();
 	createWebsocket();
 
 });
