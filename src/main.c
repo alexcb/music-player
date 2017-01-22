@@ -371,7 +371,9 @@ int main(int argc, char *argv[])
 	}
 
 	PlaylistManager playlist_manager;
-	playlist_manager_init( &playlist_manager );
+	playlist_manager_init( &playlist_manager, "/home/alex/the_playlist.txt" );
+
+	playlist_manager_load( &playlist_manager );
 
 	srand(time(NULL));
 	int x = rand() % album_list.len;
