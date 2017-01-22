@@ -58,30 +58,22 @@ int read_line(sds *buf, sds *line, int fd)
 	int i = 0;
 	char tmp[1024];
 	for(;;) {
-		LOG_INFO("buf=s a", *buf);
 		if( (*buf)[i] == '\0' ) {
-			LOG_INFO("b");
 			// reached end of input, read more
-			int i = read( fd, tmp, 1024 );
-			if( i == 0 ) {
-				LOG_INFO("c");
+			int j = read( fd, tmp, 1024 );
+			if( j == 0 ) {
 				*line = sdscpy( *line, *buf );
 				return 1;
 			}
-			LOG_INFO("d");
-			*buf = sdscatlen( *buf, tmp, i );
+			*buf = sdscatlen( *buf, tmp, j );
 		}
-		if( (*buf[i]) == '\n' ) {
-			LOG_INFO("e");
-			sdscpylen( *line, *buf, i - 1 );
+		if( (*buf)[i] == '\n' ) {
+			sdscpylen( *line, *buf, i );
 			int j = i + 1;
-			LOG_INFO("f");
-			memmove( *buf, *buf + j, strlen(*buf + j) );
-			LOG_INFO("g");
+			memmove( *buf, *buf + j, strlen(*buf + j) + 1 );
 			sdsupdatelen( *buf );
 			return 0;
 		}
-		LOG_INFO("next", *buf);
 		i++;
 	}
 }
@@ -90,6 +82,18 @@ int playlist_manager_load( PlaylistManager *manager )
 {
 	int res;
 	pthread_mutex_lock( &manager->lock );
+
+	if( manager->len )
+		LOG_WARN("memory leak");
+	manager->len = 0;
+
+	// first playlist is always quick album
+	res = playlist_new( &manager->playlists[0], "Quick Album" );
+	if( res != 0 ) {
+		pthread_mutex_unlock( &manager->lock );
+		return res;
+	}
+	manager->len++;
 
 	int fd = open( manager->playlistPath, O_RDONLY);
 	if( fd < 0 ) {
@@ -101,11 +105,31 @@ int playlist_manager_load( PlaylistManager *manager )
 	sds buf = sdsempty();
 	sds line = sdsempty();
 
-	res = 0;
-	while( !res ) {
-		LOG_INFO("reading line");
-		res = read_line( &buf, &line, fd );
-		printf("got line %s\n", line );
+	int current_playlist = 0;
+	int last_line = 0;
+	while( !last_line ) {
+		last_line = read_line( &buf, &line, fd );
+		if( line[0] == ' ' ) {
+			// playlist item
+			if( current_playlist == 0 ) {
+				LOG_ERROR("no playlist name given");
+				pthread_mutex_unlock( &manager->lock );
+				return 1;
+			}
+			res = playlist_add_file( manager->playlists[current_playlist], &line[1] );
+			if( res != 0 ) {
+				LOG_ERROR("failed to add item to playlist");
+				return res;
+			}
+		} else {
+			// new playlist
+			current_playlist++;
+			res = playlist_new( &manager->playlists[current_playlist], line );
+			if( res != 0 ) {
+				LOG_ERROR("failed to create new playlist");
+				return res;
+			}
+		}
 	}
 
 	sdsfree( buf );
