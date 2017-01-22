@@ -1,19 +1,21 @@
 #pragma once
 
 #include "playlist.h"
+#include "sds.h"
 
 #include <stdio.h>
 
 typedef struct PlaylistManager
 {
 	Playlist *playlists[1024];
+	sds playlistPath;
 	int len;
 	int current;
 	volatile int version;
 	pthread_mutex_t lock;
 } PlaylistManager;
 
-int playlist_manager_init( PlaylistManager *manager );
+int playlist_manager_init( PlaylistManager *manager, const char *path );
 
 void playlist_manager_lock( PlaylistManager *manager );
 void playlist_manager_unlock( PlaylistManager *manager );
@@ -31,3 +33,6 @@ int load_quick_album( PlaylistManager *manager, const char *path );
 
 int playlist_manager_next( PlaylistManager *manager );
 int playlist_manager_prev( PlaylistManager *manager );
+
+int playlist_manager_save( PlaylistManager *manager );
+int playlist_manager_load( PlaylistManager *manager );

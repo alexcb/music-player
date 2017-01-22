@@ -9,7 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 
-int playlist_manager_init( PlaylistManager *manager )
+int playlist_manager_init( PlaylistManager *manager, const char *path )
 {
 	int res;
 
@@ -17,33 +17,87 @@ int playlist_manager_init( PlaylistManager *manager )
 		return 1;
 	}
 
-	res = playlist_new( &manager->playlists[0], "Quick Album" );
-	if( res != 0 ) {
-		return res;
-	}
+	manager->playlistPath = sdsnew( path );
 
-	res = playlist_new( &manager->playlists[1], "kexp" );
-	if( res != 0 ) {
-		return res;
-	}
-	res = playlist_add_file( manager->playlists[1], "http://live-mp3-128.kexp.org:80/kexp128.mp3" );
-	if( res != 0 ) {
-		return res;
-	}
+	//res = playlist_new( &manager->playlists[0], "Quick Album" );
+	//if( res != 0 ) {
+	//	return res;
+	//}
 
-	res = playlist_new( &manager->playlists[2], "kcrw" );
-	if( res != 0 ) {
-		return res;
-	}
-	res = playlist_add_file( manager->playlists[2], "http://kcrw.streamguys1.com/kcrw_192k_mp3_e24_internet_radio" );
-	if( res != 0 ) {
-		return res;
-	}
+	//res = playlist_new( &manager->playlists[1], "kexp" );
+	//if( res != 0 ) {
+	//	return res;
+	//}
+	//res = playlist_add_file( manager->playlists[1], "http://live-mp3-128.kexp.org:80/kexp128.mp3" );
+	//if( res != 0 ) {
+	//	return res;
+	//}
+
+	//res = playlist_new( &manager->playlists[2], "kcrw" );
+	//if( res != 0 ) {
+	//	return res;
+	//}
+	//res = playlist_add_file( manager->playlists[2], "http://kcrw.streamguys1.com/kcrw_192k_mp3_e24_internet_radio" );
+	//if( res != 0 ) {
+	//	return res;
+	//}
 
 	manager->version = 0;
 	manager->current = 0;
-	manager->len = 3;
+	manager->len = 0;
 	return 0;
+}
+
+int read_line(sds *buf, sds *line, int fd)
+{
+	int i = 0;
+	char tmp[1024];
+	for(;;) {
+		if( (*buf)[i] == '\0' ) {
+			// reached end of input, read more
+			int i = read( fd, tmp, 1024 );
+			if( i == 0 ) {
+				*line = sdscpy( *line, *buf );
+				return 1;
+			}
+			*buf = sdscatlen( *buf, tmp, i );
+		}
+		if( (*buf[i]) == '\n' ) {
+			sdscpylen( *line, *buf, i - 1 );
+			int j = i + 1;
+			memmove( *buf, *buf + j, strlen(*buf + j) );
+			sdsupdatelen( *buf );
+			return 0;
+		}
+		i++;
+	}
+}
+
+int playlist_manager_load( PlaylistManager *manager )
+{
+	int res;
+	pthread_mutex_lock( &manager->lock );
+
+	int fd = open( manager->playlistPath, O_RDONLY);
+	if( fd < 0 ) {
+		LOG_ERROR("err=d failed to open playlist", fd);
+		pthread_mutex_unlock( &manager->lock );
+		return 1;
+	}
+
+	sds buf = sdsempty();
+	sds line = sdsempty();
+
+	res = 0;
+	while( !res ) {
+		res = read_line( &buf, &line, fd );
+		printf("got line %s", line );
+	}
+
+	sdsfree( buf );
+	sdsfree( line );
+
+	pthread_mutex_unlock( &manager->lock );
 }
 
 void playlist_manager_lock( PlaylistManager *manager )
