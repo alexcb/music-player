@@ -124,7 +124,7 @@ int playlist_manager_load( PlaylistManager *manager )
 				LOG_ERROR("failed to add item to playlist");
 				return res;
 			}
-		} else if( line[0] == '\n' ) {
+		} else if( line[0] == '\n' || line[0] == '\0' ) {
 			// skip
 			printf("skipping\n");
 		} else {
