@@ -16,7 +16,7 @@
 
 int playlist_manager_init( PlaylistManager *manager, const char *path )
 {
-	int res;
+	//int res;
 
     if( pthread_mutex_init( &manager->lock, NULL ) != 0 ) {
 		return 1;
@@ -103,6 +103,7 @@ int playlist_manager_load( PlaylistManager *manager )
 	sdsfree( line );
 
 	pthread_mutex_unlock( &manager->lock );
+	return 0;
 }
 
 void playlist_manager_lock( PlaylistManager *manager )
