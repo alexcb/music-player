@@ -157,6 +157,7 @@ void player_reader_thread_run( void *data )
 	char *p;
 	bool done;
 	int playlist_version;
+	int playlist_id;
 
 	size_t *decoded_size;
 	size_t buffer_free;
@@ -179,6 +180,8 @@ restart_reading:
 		}
 
 		playlist_manager_lock( player->playlist_manager );
+
+		playlist_id = player->playlist_manager->current;
 
 		res = playlist_manager_get_length( player->playlist_manager, &num_items );
 		if( res ) {
@@ -242,6 +245,9 @@ restart_reading:
 		memset( p, 0, sizeof(PlayerTrackInfo) );
 
 		id_data->is_stream = is_stream;
+		id_data->playlist_version = playlist_version;
+		id_data->playlist_id = playlist_id;
+		id_data->playlist_item = player->reading_index;
 		
 		mpg123_scan( player->mh );
 

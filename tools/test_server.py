@@ -35,6 +35,10 @@ def index():
 def albums():
     return render_template('albums.json', async_mode=socketio.async_mode)
 
+@app.route('/playlists')
+def playlists():
+    return render_template('playlists.json', async_mode=socketio.async_mode)
+
 @app.route('/static/<foo>')
 def staticfile(foo):
     return render_template(foo, async_mode=socketio.async_mode)

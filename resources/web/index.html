@@ -12,7 +12,41 @@
 
 	<body>
 
+		<!--
+						<div class="pure-u-1-2">
+							<form class="pure-form">
+								<input type="filter" placeholder="filter" id="filter">
+							</form>
+						</div>
+						<div class="pure-u-1-2">
+							<span id="currentsong">no song</span>
+						</div>
+		-->
 
+				<div class="content">
+					<div class="l-box"><span class="l-big">Play me the hits</span></div>
+
+					<div class="pure-g">
+						<div class="pure-u-1-5">
+							<div class="l-box">
+								<table class="pure-table pure-table-horizontal" id="playlists">
+									<tbody>
+									</tbody>
+								</table>
+							</div>
+						</div>
+						<div class="pure-u-4-5">
+							<div class="l-box">
+								<table class="pure-table pure-table-horizontal" id="albums">
+									<tbody>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+
+		<!--
 		<div id="layout">
 			<div id="main">
 				<div class="content">
@@ -39,99 +73,141 @@
 			</div>
 		</div>
 
+		-->
+
 		<script type="text/javascript">
 
-var albums = [];
-$.getJSON( "/albums", function( data ) {
-	albums = data.albums;
-	$.each( albums, function( i, album ) {
-		album.id = i;
-	});
-	populateTable("");
-});
+var playlists;
 
-var fuse_options = {
-	shouldSort: true,
-	threshold: 0.6,
-	location: 0,
-	distance: 100,
-	maxPatternLength: 32,
-	minMatchCharLength: 1,
-	keys: [
-		"artist",
-		"name"
-	]
-};
-
-var matches = [];
-function populateTable(filter) {
-	var tbody = jQuery("#albums tbody");
+function populatePlaylists() {
+	var tbody = jQuery("#playlists tbody");
 	var j = 0;
-	matches = [];
-	if( filter == "" ) {
-		matches = albums;
-	} else {
-		var fuse = new Fuse(albums, fuse_options);
-		matches = fuse.search(filter);
-	}
 
-	if( current_selection >= matches.length ) {
-		current_selection = matches.length - 1;
-	}
-
+	console.log("updating with playlist ver " + playlists.version);
 	tbody.empty();
-	$.each( matches, function( i, album ) {
+	$.each( playlists.playlists, function( i, playlist ) {
 		var prefix = "";
-		if( i == current_selection ) {
-			prefix = "&gt; ";
-		}
-		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td>" + album.artist + "</td><td>" + album.name + "</td></tr>");
+		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td>" + playlist.name + "</td></tr>");
 		tbody.append( x );
 	});
 }
 
-var current_selection = 0;
-$("#filter").keydown(function(e) {
-	switch(e.which) {
-		case 38: // up
-			current_selection = Math.max( current_selection-1, 0 );
-			break;
-
-		case 40: // down
-			current_selection++;
-			break;
-
-		case 13: // down
-			console.log("play song");
-			var album = matches[current_selection];
-			$.post( "/albums?album=" + album.id, function( data ) { });
-
-			break;
-
-		default:
-
-			current_selection = 0;
-			return; // exit this handler for other keys
-	}
-	e.preventDefault(); // prevent the default action (scroll / move caret)
-});
-
-
-$("#filter").keyup(function() {
-	populateTable(this.value);
-});
-
-$("#filter").attr("autocomplete", "off");
-$("#filter").select();
-
-function updateCurrentSong(msg) {
-	$("#currentsong").text(msg);
+function refreshPlaylists() {
+	$.getJSON("/playlists")
+		.then(function(data) {
+			playlists = data;
+			populatePlaylists();
+		});
 }
 
-updateCurrentSong("nothing");
 
-$(document).ready(function() {
+//var albums, playlists;
+//$.when(
+//    $.getJSON("/albums", function(data) {
+//        albums = data;
+//    }),
+//    $.getJSON("/playlists", function(data) {
+//        playlists = data;
+//    })
+//).then(function() {
+//});
+//
+//
+//var albums = [];
+//$.getJSON( "/albums", function( data ) {
+//	albums = data.albums;
+//	$.each( albums, function( i, album ) {
+//		album.id = i;
+//	});
+//	populateTable("");
+//});
+//
+//var fuse_options = {
+//	shouldSort: true,
+//	threshold: 0.6,
+//	location: 0,
+//	distance: 100,
+//	maxPatternLength: 32,
+//	minMatchCharLength: 1,
+//	keys: [
+//		"artist",
+//		"name"
+//	]
+//};
+//
+//var matches = [];
+//function populateTable(filter) {
+//	var tbody = jQuery("#albums tbody");
+//	var j = 0;
+//	matches = [];
+//	if( filter == "" ) {
+//		matches = albums;
+//	} else {
+//		var fuse = new Fuse(albums, fuse_options);
+//		matches = fuse.search(filter);
+//	}
+//
+//	if( current_selection >= matches.length ) {
+//		current_selection = matches.length - 1;
+//	}
+//
+//	tbody.empty();
+//	$.each( matches, function( i, album ) {
+//		var prefix = "";
+//		if( i == current_selection ) {
+//			prefix = "&gt; ";
+//		}
+//		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td>" + album.artist + "</td><td>" + album.name + "</td></tr>");
+//		tbody.append( x );
+//	});
+//}
+//
+//var current_selection = 0;
+//$("#filter").keydown(function(e) {
+//	switch(e.which) {
+//		case 38: // up
+//			current_selection = Math.max( current_selection-1, 0 );
+//			break;
+//
+//		case 40: // down
+//			current_selection++;
+//			break;
+//
+//		case 13: // down
+//			console.log("play song");
+//			var album = matches[current_selection];
+//			$.post( "/albums?album=" + album.id, function( data ) { });
+//
+//			break;
+//
+//		default:
+//
+//			current_selection = 0;
+//			return; // exit this handler for other keys
+//	}
+//	e.preventDefault(); // prevent the default action (scroll / move caret)
+//});
+//
+//
+//$("#filter").keyup(function() {
+//	populateTable(this.value);
+//});
+//
+//$("#filter").attr("autocomplete", "off");
+//$("#filter").select();
+//
+//function updateCurrentSong(msg) {
+//	$("#currentsong").text(msg);
+//}
+//
+//updateCurrentSong("nothing");
+//
 
+function updatePlaying(msg) {
+	if( msg.playlist_version != 
+}
+
+function createWebsocket() {
 	var exampleSocket = new WebSocket("ws://" + document.domain + ':' + location.port + "/websocket");
 	exampleSocket.onopen = function (event) {
 		console.log("websocket opened");
@@ -142,8 +218,14 @@ $(document).ready(function() {
 			return;
 		}
 		var msg = JSON.parse(event.data);
-		updateCurrentSong(msg.artist + " - " + msg.title);
+		updatePlaying(msg);
+		//updateCurrentSong(msg.artist + " - " + msg.title);
 	}
+}
+
+$(document).ready(function() {
+	refreshPlaylists();
+	createWebsocket();
 
 });
 

@@ -18,6 +18,9 @@
 typedef struct PlayerTrackInfo {
 	char artist[PLAYER_ARTIST_LEN];
 	char title[PLAYER_TITLE_LEN];
+	int playlist_id;
+	int playlist_item;
+	int playlist_version;
 	bool is_stream;
 } PlayerTrackInfo;
 

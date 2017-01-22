@@ -97,9 +97,9 @@ void update_metadata_web_clients( bool playing, const char *playlist_name, const
 
 	json_object *state = json_object_new_object();
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
-	json_object_object_add( state, "artist", json_object_new_string( track->artist ) );
-	json_object_object_add( state, "title", json_object_new_string( track->title ) );
-	json_object_object_add( state, "playlist", json_object_new_string( playlist_name ) );
+	json_object_object_add( state, "playlist_id", json_object_new_int( track->playlist_id ) );
+	json_object_object_add( state, "playlist_item", json_object_new_int( track->playlist_item ) );
+	json_object_object_add( state, "playlist_version", json_object_new_int( track->playlist_version ) );
 
 	const char *s = json_object_to_json_string( state );
 
@@ -409,13 +409,17 @@ static int web_handler_playlists(
 		json_object_array_add( playlists, playlist );
 	}
 
+	json_object *root_obj = json_object_new_object();
+	json_object_object_add( root_obj, "playlists", playlists );
+	json_object_object_add( root_obj, "version", json_object_new_int( data->playlist_manager->version ) );
+
 	playlist_manager_unlock( data->playlist_manager );
 
-	const char *s = json_object_to_json_string( playlists );
+	const char *s = json_object_to_json_string( root_obj );
 	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
 
 	// this causes the json string to be released
-	json_object_put( playlists );
+	json_object_put( root_obj );
 
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
 	MHD_destroy_response(response);
