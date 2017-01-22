@@ -95,8 +95,9 @@ int playlist_manager_load( PlaylistManager *manager )
 
 	res = 0;
 	while( !res ) {
+		LOG_INFO("reading line");
 		res = read_line( &buf, &line, fd );
-		printf("got line %s", line );
+		printf("got line %s\n", line );
 	}
 
 	sdsfree( buf );
