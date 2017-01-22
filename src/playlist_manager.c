@@ -58,22 +58,30 @@ int read_line(sds *buf, sds *line, int fd)
 	int i = 0;
 	char tmp[1024];
 	for(;;) {
+		LOG_INFO("buf=s a", *buf);
 		if( (*buf)[i] == '\0' ) {
+			LOG_INFO("b");
 			// reached end of input, read more
 			int i = read( fd, tmp, 1024 );
 			if( i == 0 ) {
+				LOG_INFO("c");
 				*line = sdscpy( *line, *buf );
 				return 1;
 			}
+			LOG_INFO("d");
 			*buf = sdscatlen( *buf, tmp, i );
 		}
 		if( (*buf[i]) == '\n' ) {
+			LOG_INFO("e");
 			sdscpylen( *line, *buf, i - 1 );
 			int j = i + 1;
+			LOG_INFO("f");
 			memmove( *buf, *buf + j, strlen(*buf + j) );
+			LOG_INFO("g");
 			sdsupdatelen( *buf );
 			return 0;
 		}
+		LOG_INFO("next", *buf);
 		i++;
 	}
 }
