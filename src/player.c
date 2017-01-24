@@ -286,7 +286,7 @@ void player_audio_thread_run( void *data )
 		if( !res ) {
 			//lock acquired
 			if( num_read_total ) {
-				player->circular_buffer.read += num_read_total;
+				buffer_mark_read_unsafe( &player->circular_buffer, num_read_total );
 				LOG_DEBUG("read=d incrased read", player->circular_buffer.read);
 				num_read_total = 0;
 			}
