@@ -40,7 +40,6 @@ typedef struct Player
 	size_t buffer_size;
 	size_t done;
 	int err;
-	bool new_track;
 
 	int reading_index;
 	int playing_index;
@@ -61,13 +60,20 @@ typedef struct Player
 	MetadataObserver *metadata_observers;
 	void **metadata_observers_data;
 
-	char artist[PLAYER_ARTIST_LEN];
-	char title[PLAYER_TITLE_LEN];
-
 	PlayerTrackInfo current_track;
 
 	// when true play, when false, pause / stop
 	volatile bool playing;
+
+	int reading_playlist_id;
+	int reading_playlist_track;
+	
+	// control over changing tracks
+	pthread_mutex_t change_track_lock;
+	int change_track; // 0 when false; 1 insert after current song; 2 change immediately
+	int change_playlist_id;
+	int change_playlist_track;
+
 } Player;
 
 
@@ -75,3 +81,5 @@ int init_player( Player *player );
 int start_player( Player *player );
 
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );
+
+int player_change_track( Player *player, int playlist, int track, int when );

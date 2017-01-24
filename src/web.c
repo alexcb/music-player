@@ -459,6 +459,43 @@ static int web_handler_albums(
 	return ret;
 }
 
+static int web_handler_play(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const char *upload_data,
+		size_t *upload_data_size,
+		void **con_cls)
+{
+	const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
+	const char *track = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
+
+	bool ok = true;
+
+	if( playlist && track ) {
+		errno = 0;
+		long int playlist_id = strtol(playlist, NULL, 10);
+		ok = ok && !errno;
+
+		long int track_id = strtol(track, NULL, 10);
+		ok = ok && !errno;
+
+		if( ok ) {
+			if( 0 <= playlist_id && playlist_id < data->album_list->len ) {
+				// TODO error handling
+				load_quick_album( data->playlist_manager, data->album_list->list[i].path );
+			}
+		}
+	}
+
+	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
 static int web_handler_albums_play(
 		WebHandlerData *data,
 		struct MHD_Connection *connection,
@@ -530,6 +567,10 @@ static int web_handler(
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/albums") == 0 ) {
 		return web_handler_albums_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+	}
+
+	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/play") == 0 ) {
+		return web_handler_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
 	}
 
 	if( strcmp( method, "GET" ) == 0 && has_prefix(url, "/static/") ) {
