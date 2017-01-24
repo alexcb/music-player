@@ -183,8 +183,11 @@ void player_reader_thread_run( void *data )
 	size_t bytes_written;
 
 
-	const char *path1 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3";
-	const char *path2 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/02 The People Tree.mp3";
+	//const char *path1 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3";
+	//const char *path2 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/02 The People Tree.mp3";
+
+	const char *path1 = "/home/alex/10 second countdown (192  kbps).mp3";
+	const char *path2 = "/home/alex/Amazing 10 Second Countdown with Male Voice (320  kbps).mp3";
 
 	for( int i = 0; i < 2; i++ ) {
 		const char *path;
