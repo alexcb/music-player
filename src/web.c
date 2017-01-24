@@ -469,26 +469,26 @@ static int web_handler_play(
 		size_t *upload_data_size,
 		void **con_cls)
 {
-	const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
-	const char *track = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
+	//const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
+	//const char *track = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
 
-	bool ok = true;
+	//bool ok = true;
 
-	if( playlist && track ) {
-		errno = 0;
-		long int playlist_id = strtol(playlist, NULL, 10);
-		ok = ok && !errno;
+	//if( playlist && track ) {
+	//	errno = 0;
+	//	long int playlist_id = strtol(playlist, NULL, 10);
+	//	ok = ok && !errno;
 
-		long int track_id = strtol(track, NULL, 10);
-		ok = ok && !errno;
+	//	long int track_id = strtol(track, NULL, 10);
+	//	ok = ok && !errno;
 
-		if( ok ) {
-			if( 0 <= playlist_id && playlist_id < data->album_list->len ) {
-				// TODO error handling
-				load_quick_album( data->playlist_manager, data->album_list->list[i].path );
-			}
-		}
-	}
+	//	if( ok ) {
+	//		if( 0 <= playlist_id && playlist_id < data->album_list->len ) {
+	//			// TODO error handling
+
+	//		}
+	//	}
+	//}
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);

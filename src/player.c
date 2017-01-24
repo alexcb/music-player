@@ -91,7 +91,7 @@ error:
 
 int player_change_track( Player *player, int playlist, int track, int when )
 {
-	if
+	return 0;
 }
 
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data )
@@ -113,63 +113,66 @@ void call_observers( Player *player ) {
 }
 
 bool get_text( Player *player ) {
-	mpg123_id3v1 *v1;
-	mpg123_id3v2 *v2;
-	char *icy_meta;
-	int res;
+	//mpg123_id3v1 *v1;
+	//mpg123_id3v2 *v2;
+	//char *icy_meta;
+	//int res;
 
-	int meta = mpg123_meta_check( player->mh );
-	if( meta & MPG123_NEW_ID3 ) {
-		if( mpg123_id3( player->mh, &v1, &v2) == MPG123_OK ) {
-			if( v2 != NULL ) {
-				strncpy( player->artist, v2->artist->p, PLAYER_ARTIST_LEN );
-				strncpy( player->title, v2->title->p, PLAYER_TITLE_LEN );
-				return true;
-			} else if( v1 != NULL ) {
-				strncpy( player->artist, v1->artist, PLAYER_ARTIST_LEN );
-				strncpy( player->title, v1->title, PLAYER_TITLE_LEN );
-				return true;
-			}
-		}
-	}
-	if( meta & MPG123_NEW_ICY ) {
-		if( mpg123_icy( player->mh, &icy_meta) == MPG123_OK ) {
-			printf("got ICY: %s\n", icy_meta);
-			char *station;
-			res = parse_icy( icy_meta, &station );
-			if( res ) {
-				LOG_ERROR( "icymeta=s failed to decode icy", icy_meta );
-			} else {
-				strncpy( player->artist, station, PLAYER_ARTIST_LEN );
-				strncpy( player->title, "", PLAYER_TITLE_LEN );
-				free( station );
-				return true;
-			}
-		}
-	}
+	//int meta = mpg123_meta_check( player->mh );
+	//if( meta & MPG123_NEW_ID3 ) {
+	//	if( mpg123_id3( player->mh, &v1, &v2) == MPG123_OK ) {
+	//		if( v2 != NULL ) {
+	//			//strncpy( player->artist, v2->artist->p, PLAYER_ARTIST_LEN );
+	//			//strncpy( player->title, v2->title->p, PLAYER_TITLE_LEN );
+	//			return true;
+	//		} else if( v1 != NULL ) {
+	//			//strncpy( player->artist, v1->artist, PLAYER_ARTIST_LEN );
+	//			//strncpy( player->title, v1->title, PLAYER_TITLE_LEN );
+	//			return true;
+	//		}
+	//	}
+	//}
+	//if( meta & MPG123_NEW_ICY ) {
+	//	if( mpg123_icy( player->mh, &icy_meta) == MPG123_OK ) {
+	//		printf("got ICY: %s\n", icy_meta);
+	//		char *station;
+	//		res = parse_icy( icy_meta, &station );
+	//		if( res ) {
+	//			LOG_ERROR( "icymeta=s failed to decode icy", icy_meta );
+	//		} else {
+	//			strncpy( player->artist, station, PLAYER_ARTIST_LEN );
+	//			strncpy( player->title, "", PLAYER_TITLE_LEN );
+	//			free( station );
+	//			return true;
+	//		}
+	//	}
+	//}
 	return false;
 }
 
 int rewind_to_next_song( Player *player )
 {
-	int res;
-	char *start;
-	char *reserved;
-	buffer_rewind_lock( &player->circular_buffer );
-	start = player->circular_buffer.p + player->circular_buffer.read;
-	reserved = player->circular_buffer.p + player->circular_buffer.read_reserved;
+	return 0;
+	//int res;
+	//char *start;
+	//char *reserved;
+	//buffer_rewind_lock( &player->circular_buffer );
+	//start = player->circular_buffer.p + player->circular_buffer.read;
+	//reserved = player->circular_buffer.p + player->circular_buffer.read_reserved;
 
-	char *p1, *p2;
-	size_t size1, size2;
+	//char *p1, *p2;
+	//size_t size1, size2;
 
-	res = get_buffer_non_reserved_reads( &player->circular_buffer, &p1, &size1, &p2, &size2 );
+	//res = get_buffer_non_reserved_reads( &player->circular_buffer, &p1, &size1, &p2, &size2 );
 }
 
 void player_reader_thread_run( void *data )
 {
 	Player *player = (Player*) data;
 	
-	char p;
+	bool done;
+	int res;
+	char *p;
 	int fd;
 	size_t buffer_free;
 	size_t min_buffer_size;
@@ -177,10 +180,11 @@ void player_reader_thread_run( void *data )
 
 	bool is_stream = false;
 	off_t icy_interval;
+	size_t bytes_written;
 
 
 	const char *path1 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3";
-	const char *path2 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/02 The People Tree.mp3"
+	const char *path2 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/02 The People Tree.mp3";
 
 	for( int i = 0; i < 2; i++ ) {
 		const char *path;
@@ -459,7 +463,7 @@ void player_audio_thread_run( void *data )
 	size_t num_read = 0;
 	size_t num_read_total = 0;
 
-	char *p[2]
+	char *p[2];
 	size_t size[2];
 
 	for(;;) {
@@ -468,12 +472,12 @@ void player_audio_thread_run( void *data )
 		if( !res ) {
 			//lock acquired
 			if( num_read_total ) {
-				player->circular_buffer->read += num_read_total;
+				player->circular_buffer.read += num_read_total;
 				num_read_total = 0;
 			}
 			get_buffer_read_unsafe2( &player->circular_buffer, 10000, &p[0], &size[0], &p[1], &size[1] );
 
-			buffer_unlock( &plater->circular_buffer );
+			buffer_unlock( &player->circular_buffer );
 			num_read = 0;
 		} else {
 			// unable to acquire lock
