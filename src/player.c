@@ -287,9 +287,11 @@ void player_audio_thread_run( void *data )
 			//lock acquired
 			if( num_read_total ) {
 				player->circular_buffer.read += num_read_total;
+				LOG_DEBUG("read=d incrased read", player->circular_buffer.read);
 				num_read_total = 0;
 			}
 			get_buffer_read_unsafe2( &player->circular_buffer, 10000, &p[0], &size[0], &p[1], &size[1] );
+			LOG_DEBUG( "p1=p size1=d p2=p size2=d get_buffer_read_unsafe2", p[0], size[0], p[1], size[1] );
 
 			buffer_unlock( &player->circular_buffer );
 			num_read = 0;
@@ -334,7 +336,7 @@ void player_audio_thread_run( void *data )
 		q += sizeof(size_t);
 		num_read += sizeof(size_t);
 
-		LOG_DEBUG( "decode_size=d reading data", decoded_size );
+		LOG_DEBUG( "q=p decode_size=d reading data", q, decoded_size );
 
 		chunk_size = 1024;
 		while( decoded_size > 0 ) {

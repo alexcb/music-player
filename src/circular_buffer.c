@@ -1,6 +1,7 @@
 #include "circular_buffer.h"
 
 #include <stdlib.h>
+#include <assert.h>
 
 int init_circular_buffer( CircularBuffer *cb, size_t buffer_size )
 {
@@ -61,7 +62,8 @@ int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, cha
 int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, size_t *reserved_size )
 {
 	int res;
-	pthread_mutex_lock( &buffer->lock );
+	res = pthread_mutex_lock( &buffer->lock );
+	assert( !res );
 	res = get_buffer_write_unsafe( buffer, min_buffer_size, p, reserved_size );
 	pthread_mutex_unlock( &buffer->lock );
 	return res;

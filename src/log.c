@@ -141,6 +141,10 @@ void _log(const char *fmt, ...)
 			int val = va_arg( arguments, int );
 			snprintf( buf+buf_i, LOG_BUF_SIZE - buf_i, "%d", val );
 			buf_i += strlen(buf+buf_i);
+		} else if( val_fmt[0] == 'p' ) {
+			void* val = va_arg( arguments, void* );
+			snprintf( buf+buf_i, LOG_BUF_SIZE - buf_i, "%p", val );
+			buf_i += strlen(buf+buf_i);
 		}
 
 		if( LOG_BUF_SIZE - buf_i > 1 ) {
