@@ -209,7 +209,11 @@ void player_reader_thread_run( void *data )
 		done = false;
 		while( !done ) {
 			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
-			assert( !res );
+			if( res ) {
+				LOG_DEBUG("buffer full");
+				sleep(1);
+				continue;
+			}
 
 			// dont read too much
 			buffer_free = min_buffer_size;
@@ -287,12 +291,14 @@ void player_audio_thread_run( void *data )
 			buffer_unlock( &player->circular_buffer );
 			num_read = 0;
 		} else {
+			LOG_DEBUG("failed to acquire lock");
 			// unable to acquire lock
 			assert( num_read <= size[0] );
 			size[0] -= num_read;
 			if( size[0] == 0 ) {
 				p[0] = p[1];
 				size[0] = size[1];
+				LOG_DEBUG("moving to pointer 2");
 			}
 			num_read = 0;
 		}
