@@ -214,6 +214,7 @@ void player_reader_thread_run( void *data )
 			// dont read too much
 			buffer_free = min_buffer_size;
 
+			LOG_DEBUG("writing header");
 			*((unsigned char*)p) = AUDIO_DATA;
 			p++;
 			buffer_free--;
@@ -243,209 +244,15 @@ void player_reader_thread_run( void *data )
 			}
 			if( *decoded_size > 0 ) {
 				bytes_written += *decoded_size;
-				//LOG_DEBUG("size=d wrote decoded data", bytes_written);
+				LOG_DEBUG("size=d wrote decoded data", bytes_written);
 				buffer_mark_written( &player->circular_buffer, bytes_written );
 			}
 		}
 		mpg123_close( player->mh );
 		close( fd );
 		player->reading_index++;
-	//}
-
-
 	}
 
-	//int res;
-	//int fd;
-	//off_t icy_interval;
-	//const char *path;
-	//int num_items;
-	//char *p;
-	//bool done;
-	//int playlist_version;
-	//int playlist_id;
-
-	//size_t *decoded_size;
-	//size_t buffer_free;
-	//size_t min_buffer_size;
-	//size_t bytes_written;
-	//bool is_stream = false;
-
-	//player->reading_index = 0;
-	//player->reading_playlist = 0;
-
-//restart_reading:
-	//playlist_manager_lock( player->playlist_manager );
-	//playlist_version = player->playlist_manager->version;
-	//playlist_manager_unlock( player->playlist_manager );
-
-	//for(;;) {
-
-
-		//playlist_manager_lock( player->playlist_manager );
-
-		////playlist_id = player->playlist_manager->current;
-
-		//res = playlist_manager_get_length( player->playlist_manager, player->reading_playlist, &num_items );
-		//if( res ) {
-		//	LOG_ERROR( "unable to get playlist length" );
-		//}
-
-		//if( player->reading_index >= num_items ) {
-		//	player->reading_index = 0;
-		//}
-
-		//res = playlist_manager_get_path( player->playlist_manager, player->reading_playlist, player->reading_index, &path );
-		//if( res ) {
-		//	LOG_ERROR( "unable to get path" );
-		//}
-
-		//LOG_DEBUG("path=s opening file in reader", path);
-		//res = open_fd( path, &fd, &is_stream, &icy_interval );
-		//if( res ) {
-		//	LOG_ERROR( "unable to open" );
-		//}
-
-		//playlist_manager_unlock( player->playlist_manager );
-
-		//if(MPG123_OK != mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0)) {
-		//	LOG_ERROR( "unable to set icy interval" );
-		//	continue;
-		//}
-
-		//if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
-		//	LOG_ERROR( "mpg123_open_fd failed" );
-		//	close( fd );
-		//	player->reading_index++;
-		//	continue;
-		//}
-
-		//LOG_DEBUG( "size=d requesting space", sizeof(PlayerTrackInfo) + 1 );
-		//for(;;) {
-
-		//	bool restart_needed = false;
-		//	pthread_mutex_lock( &player->change_track_lock );
-
-		//	if( player->change_track == 2 ) {
-		//		// immediate change needed
-		//		restart_needed = true;
-		//		reading_playlist_id = change_playlist_id;
-		//		reading_playlist_track = change_playlist_track;
-		//	} else if( player->change_track == 1 ) {
-		//		// queue up after current song
-		//		//
-		//		rewind time
-		//		buffer_rewind_lock( &player->circular_buffer );
-		//		char *p = player->circular_buffer.p + player->circular_buffer.read;
-
-		//	}
-
-		//	pthread_mutex_unlock( &player->change_track_lock );
-
-		//	if( 
-		//			playlist_version != player->playlist_manager->version || 
-		//			( !player->playing && is_stream )
-		//	) {
-		//		mpg123_close( player->mh );
-		//		close( fd );
-		//		goto restart_reading;
-		//	}
-		//	res = get_buffer_write( &player->circular_buffer, sizeof(PlayerTrackInfo) + 1, &p, &buffer_free );
-		//	if( !res ) {
-		//		break;
-		//	}
-		//	usleep(10);
-		//}
-
-		//*((unsigned char*)p) = ID_DATA;
-		//p++;
-		//PlayerTrackInfo *id_data = (PlayerTrackInfo*) p;
-		//memset( p, 0, sizeof(PlayerTrackInfo) );
-
-		//id_data->is_stream = is_stream;
-		//id_data->playlist_version = playlist_version;
-		//id_data->playlist_id = playlist_id;
-		//id_data->playlist_item = player->reading_index;
-		//
-		//mpg123_scan( player->mh );
-
-		//mpg123_id3v1 *v1;
-		//mpg123_id3v2 *v2;
-		//int meta = mpg123_meta_check( player->mh );
-		//if( meta & MPG123_NEW_ID3 ) {
-		//	if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
-		//		if( v2 != NULL ) {
-		//			LOG_DEBUG( "populating metadata with id3 v2" );
-		//			strncpy( id_data->artist, v2->artist->p, PLAYER_ARTIST_LEN );
-		//			strncpy( id_data->title, v2->title->p, PLAYER_TITLE_LEN );
-		//		} else if( v1 != NULL ) {
-		//			LOG_DEBUG( "populating metadata with id3 v1" );
-		//			strncpy( id_data->artist, v1->artist, PLAYER_ARTIST_LEN );
-		//			strncpy( id_data->title, v1->title, PLAYER_TITLE_LEN );
-		//		} else {
-		//			assert( false );
-		//		}
-		//	}
-		//} else {
-		//	LOG_INFO( "no ID3 data available" );
-		//}
-		//buffer_mark_written( &player->circular_buffer, sizeof(PlayerTrackInfo) + 1 );
-
-		//min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
-		//done = false;
-		//while( !done ) {
-		//	if( 
-		//			playlist_version != player->playlist_manager->version || 
-		//			( !player->playing && is_stream )
-		//	) {
-		//		goto restart_reading;
-		//	}
-		//	res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
-		//	if( res ) {
-		//		usleep(10);
-		//		continue;
-		//	}
-
-		//	// dont read too much
-		//	buffer_free = min_buffer_size;
-
-		//	*((unsigned char*)p) = AUDIO_DATA;
-		//	p++;
-		//	buffer_free--;
-		//	bytes_written = 1;
-
-		//	// reserve some space for number of bytes decoded
-		//	decoded_size = (size_t*) p;
-		//	p += sizeof(size_t);
-		//	buffer_free -= sizeof(size_t);
-		//	bytes_written += sizeof(size_t);
-
-		//	*decoded_size = 0;
-
-		//	res = mpg123_read( player->mh, (unsigned char *)p, buffer_free, decoded_size);
-		//	switch( res ) {
-		//		case MPG123_OK:
-		//			break;
-		//		case MPG123_NEW_FORMAT:
-		//			LOG_DEBUG("TODO handle new format");
-		//			break;
-		//		case MPG123_DONE:
-		//			done = true;
-		//			break;
-		//		default:
-		//			LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
-		//			break;
-		//	}
-		//	if( *decoded_size > 0 ) {
-		//		bytes_written += *decoded_size;
-		//		//LOG_DEBUG("size=d wrote decoded data", bytes_written);
-		//		buffer_mark_written( &player->circular_buffer, bytes_written );
-		//	}
-		//}
-		//mpg123_close( player->mh );
-		//close( fd );
-		//player->reading_index++;
-	//}
 }
 
 void player_audio_thread_run( void *data )
@@ -488,10 +295,10 @@ void player_audio_thread_run( void *data )
 				size[0] = size[1];
 			}
 			num_read = 0;
+		}
 
-			if( size[0] < 1024 ) {
-				continue;
-			}
+		if( size[0] < 1024 ) {
+			continue;
 		}
 
 		q = p[0];
@@ -500,14 +307,16 @@ void player_audio_thread_run( void *data )
 		q++;
 		num_read++;
 
-		if( payload_id == ID_DATA ) {
-			memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
+		//if( payload_id == ID_DATA ) {
+		//	memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
 
-			LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
-			call_observers( player );
-			num_read += sizeof(PlayerTrackInfo);
-			continue;
-		}
+		//	LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
+		//	call_observers( player );
+		//	num_read += sizeof(PlayerTrackInfo);
+		//	continue;
+		//}
+		
+		LOG_DEBUG( "reading header" );
 
 		// otherwise it must be audio data
 		assert( payload_id == AUDIO_DATA );
@@ -515,6 +324,8 @@ void player_audio_thread_run( void *data )
 		size_t decoded_size = *((size_t*) q);
 		q += sizeof(size_t);
 		num_read += sizeof(size_t);
+
+		LOG_DEBUG( "decode_size=d reading data", decoded_size );
 
 		chunk_size = 1024;
 		while( decoded_size > 0 ) {
