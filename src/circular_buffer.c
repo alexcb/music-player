@@ -145,35 +145,36 @@ void buffer_rewind_lock( CircularBuffer *buffer )
 
 int buffer_rewind_and_unlock( CircularBuffer *buffer, char *p )
 {
-	int res = 0;
-	int write = p - buffer->p;
-	if( buffer->read <= write && write < buffer->read_reserved ) {
-		printf("here %d %d %d\n", buffer->read, write, buffer->read_reserved);
-		res = 1;
-		goto error;
-	}
-
-	// if Writer <= Reader < Len; read from Reader to Len
-	if( buffer->write <= buffer->read ) {
-		if( write <= buffer->write ) {
-			buffer->write = write;
-		} else {
-			if( write <= buffer->read ) {
-				res = 2;
-				goto error;
-			}
-			buffer->write = write;
-			buffer->len = 0;
-		}
-	} else {
-		buffer->write = write;
-	}
-
-error:
-	pthread_mutex_lock( &buffer->lock );
-	buffer->lock_reads = 0;
-	pthread_mutex_unlock( &buffer->lock );
-	return res;
+	return 1;
+//	int res = 0;
+//	int write = p - buffer->p;
+//	if( buffer->read <= write && write < buffer->read_reserved ) {
+//		//printf("here %d %d %d\n", buffer->read, write, buffer->read_reserved);
+//		res = 1;
+//		goto error;
+//	}
+//
+//	// if Writer <= Reader < Len; read from Reader to Len
+//	if( buffer->write <= buffer->read ) {
+//		if( write <= buffer->write ) {
+//			buffer->write = write;
+//		} else {
+//			if( write <= buffer->read ) {
+//				res = 2;
+//				goto error;
+//			}
+//			buffer->write = write;
+//			buffer->len = 0;
+//		}
+//	} else {
+//		buffer->write = write;
+//	}
+//
+//error:
+//	pthread_mutex_lock( &buffer->lock );
+//	buffer->lock_reads = 0;
+//	pthread_mutex_unlock( &buffer->lock );
+//	return res;
 }
 
 int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1, size_t *size1, char **p2, size_t *size2 )
@@ -242,7 +243,6 @@ int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1,
 
 int buffer_timedlock( CircularBuffer *buffer )
 {
-	int res;
 	struct timespec tspec;
 	tspec.tv_sec = 0;
 	tspec.tv_nsec = 100;
