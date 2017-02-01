@@ -208,7 +208,7 @@ void player_reader_thread_run( void *data )
 	for( int i = 0; i < 3; i++ ) {
 		const char *path = paths[i];
 
-		if( i == 20 ) {
+		if( i == 2 ) {
 			LOG_DEBUG( "Searching for next song" );
 			pthread_mutex_lock( &player->circular_buffer.lock );
 
@@ -427,7 +427,7 @@ void player_audio_thread_run( void *data )
 		num_read++;
 
 		if( payload_id == ID_DATA ) {
-			LOG_DEBUG( "reading ID_DATA" );
+			LOG_DEBUG( " ------------ reading ID_DATA ------------ " );
 		//	memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
 
 		//	LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
