@@ -198,8 +198,8 @@ void player_reader_thread_run( void *data )
 	const char *paths[] = {
 	"/home/alex/song_a.mp3",
 	"/home/alex/song_b.mp3",
-	"/home/alex/song_c.mp3",
-	//"/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3"
+	//"/home/alex/song_c.mp3",
+	"/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3"
 	};
 
 	char *pp[2];
@@ -250,7 +250,7 @@ void player_reader_thread_run( void *data )
 			}
 
 			if( found ) {
-				LOG_DEBUG("rewinding buffer");
+				LOG_DEBUG("p=p rewinding buffer", found);
 				buffer_rewind_unsafe( &player->circular_buffer, found );
 			}
 
@@ -277,7 +277,7 @@ void player_reader_thread_run( void *data )
 				continue;
 			}
 
-			LOG_DEBUG("writing ID_DATA header");
+			LOG_DEBUG("p=p writing ID_DATA header", p);
 			*((unsigned char*)p) = ID_DATA;
 			buffer_mark_written( &player->circular_buffer, 1 );
 			break;

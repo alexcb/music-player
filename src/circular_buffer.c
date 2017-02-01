@@ -148,7 +148,7 @@ void buffer_rewind_lock( CircularBuffer *buffer )
 int buffer_rewind_unsafe( CircularBuffer *buffer, char *p )
 {
 	// TODO add assertions to verify rewind is valid and not before reader location
-	int w = buffer->p - p;
+	int w = p - buffer->p;
 	if( w <= buffer->write ) {
 		buffer->write = w;
 		return 0;
