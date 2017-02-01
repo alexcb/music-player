@@ -42,6 +42,9 @@ int init_player( Player *player )
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
 
+	// TODO ensure that ID_DATA messages are smaller than this
+	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
+
 	player->playing_index = 0;
 	player->reading_index = 0;
 	player->track_change_mode = TRACK_CHANGE_IMMEDIATE;
@@ -181,7 +184,6 @@ void player_reader_thread_run( void *data )
 	char *p;
 	int fd;
 	size_t buffer_free;
-	size_t min_buffer_size;
 	size_t *decoded_size;
 	size_t decoded_size2;
 
@@ -221,28 +223,28 @@ void player_reader_thread_run( void *data )
 
 					LOG_DEBUG( "j=d q=p here", j, q );
 					unsigned char payload_id = *(unsigned char*) q;
-					if( payload_id == ID_DATA ) {
-						if( num_read >= min_bytes_to_read ) {
-							found = q;
-							break;
-						}
-						assert( 0 ); //TODO need to skip over ID_DATA here
+					if( payload_id == ID_DATA && num_read >= min_bytes_to_read ) {
+						found = q;
+						break;
 					}
-					assert( payload_id == AUDIO_DATA );
-
 					q++;
 					num_read++;
 					size[j]--;
 
+					if( payload_id == ID_DATA ) {
+						//nothing else to do
+					} else if( payload_id == AUDIO_DATA ) {
+						decoded_size2 = *((size_t*) q);
+						q += sizeof(size_t);
+						num_read += sizeof(size_t);
+						size[j] -= sizeof(size_t);
 
-					decoded_size2 = *((size_t*) q);
-					q += sizeof(size_t);
-					num_read += sizeof(size_t);
-					size[j] -= sizeof(size_t);
-
-					q += decoded_size2;
-					num_read += decoded_size2;
-					size[j] -= decoded_size2;
+						q += decoded_size2;
+						num_read += decoded_size2;
+						size[j] -= decoded_size2;
+					} else {
+						assert( 0 ); //unsupported payload_id
+					}
 					pp[j] = q;
 				}
 			}
@@ -261,11 +263,25 @@ void player_reader_thread_run( void *data )
 			close( fd );
 			continue;
 		}
+
+		for(;;) {
+			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
+			if( res ) {
+				LOG_DEBUG("buffer full");
+				sleep(1);
+				continue;
+			}
+
+			LOG_DEBUG("writing ID_DATA header");
+			*((unsigned char*)p) = ID_DATA;
+			buffer_mark_written( &player->circular_buffer, 1 );
+			break;
+		}
+
 		
-		min_buffer_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 		done = false;
 		while( !done ) {
-			res = get_buffer_write( &player->circular_buffer, min_buffer_size, &p, &buffer_free );
+			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 			if( res ) {
 				LOG_DEBUG("buffer full");
 				sleep(1);
@@ -273,9 +289,9 @@ void player_reader_thread_run( void *data )
 			}
 
 			// dont read too much
-			buffer_free = min_buffer_size;
+			buffer_free = player->max_payload_size;
 
-			LOG_DEBUG("writing header");
+			LOG_DEBUG("writing AUDIO_DATA header");
 			*((unsigned char*)p) = AUDIO_DATA;
 			p++;
 			buffer_free--;
@@ -344,7 +360,8 @@ void player_audio_thread_run( void *data )
 	char *p[2] = {NULL, NULL};
 	size_t size[2] = {0, 0};
 
-	size_t max_size = 10000;
+	// TODO figure out how much to reserve here
+	size_t max_size = player->max_payload_size * 10;
 
 	for(;;) {
 		LOG_DEBUG("num_read=d num_read_total=d size[0]=d audio loop", num_read, num_read_total, size[0]);
@@ -393,7 +410,7 @@ void player_audio_thread_run( void *data )
 
 		LOG_DEBUG("p=p reading data", p[0]);
 
-		if( size[0] < 1024 ) {
+		if( size[0] < player->max_payload_size ) {
 			LOG_DEBUG("buffer underrun");
 			continue;
 		}
@@ -404,14 +421,14 @@ void player_audio_thread_run( void *data )
 		q++;
 		num_read++;
 
-		//if( payload_id == ID_DATA ) {
+		if( payload_id == ID_DATA ) {
 		//	memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
 
 		//	LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
 		//	call_observers( player );
 		//	num_read += sizeof(PlayerTrackInfo);
-		//	continue;
-		//}
+			continue;
+		}
 		
 		LOG_DEBUG( "reading header" );
 

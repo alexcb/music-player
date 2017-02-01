@@ -77,6 +77,8 @@ typedef struct Player
 	char *audio_thread_p[2];
 	size_t audio_thread_size[2];
 
+	size_t max_payload_size;
+
 } Player;
 
 
