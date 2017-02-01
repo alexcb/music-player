@@ -47,6 +47,12 @@ int init_player( Player *player )
 	player->track_change_mode = TRACK_CHANGE_IMMEDIATE;
 	player->next_track = NULL;
 
+
+	player->audio_thread_size[0] = 0;
+	player->audio_thread_size[1] = 0;
+	player->audio_thread_p[0] = NULL;
+	player->audio_thread_p[1] = NULL;
+
 	res = init_circular_buffer( &player->circular_buffer, 10*1024*1024 );
 	if( res ) {
 		goto error;
@@ -177,6 +183,7 @@ void player_reader_thread_run( void *data )
 	size_t buffer_free;
 	size_t min_buffer_size;
 	size_t *decoded_size;
+	size_t decoded_size2;
 
 	bool is_stream = false;
 	off_t icy_interval;
@@ -193,8 +200,52 @@ void player_reader_thread_run( void *data )
 	//"/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3"
 	};
 
+	char *pp[2];
+	size_t size[2];
+
 	for( int i = 0; i < 3; i++ ) {
 		const char *path = paths[i];
+
+		if( i == 2 ) {
+			pthread_mutex_lock( &player->circular_buffer.lock );
+
+			get_buffer_read_unsafe2( &player->circular_buffer, 0, &pp[0], &size[0], &pp[1], &size[1] );
+
+			size_t min_bytes_to_read = player->audio_thread_size[0] + player->audio_thread_size[1];
+			size_t num_read = 0;
+			char *found = NULL;
+			for( int j = 0; j < 2 && !found; j++ ) {
+				while( size[j] > 0 ) {
+					char *q = pp[j];
+
+					unsigned char payload_id = *(unsigned char*) q;
+					if( payload_id == ID_DATA ) {
+						if( num_read >= min_bytes_to_read ) {
+							found = q;
+							break;
+						}
+						assert( 0 ); //TODO need to skip over ID_DATA here
+					}
+					assert( payload_id == AUDIO_DATA );
+
+					q++;
+					num_read++;
+					size[j]--;
+
+
+					decoded_size2 = *((size_t*) q);
+					q += sizeof(size_t);
+					num_read += sizeof(size_t);
+					size[j] -= sizeof(size_t);
+
+					num_read += decoded_size2;
+					size[j] -= decoded_size2;
+					pp[j] = q;
+				}
+			}
+
+			pthread_mutex_unlock( &player->circular_buffer.lock );
+		}
 		
 		LOG_DEBUG("path=s opening file in reader", path);
 		res = open_fd( path, &fd, &is_stream, &icy_interval );
@@ -290,6 +341,8 @@ void player_audio_thread_run( void *data )
 	char *p[2];
 	size_t size[2];
 
+	size_t max_size = 10000;
+
 	for(;;) {
 		num_read_total += num_read;
 		res = buffer_timedlock( &player->circular_buffer );
@@ -300,8 +353,21 @@ void player_audio_thread_run( void *data )
 				LOG_DEBUG("read=d incrased read", player->circular_buffer.read);
 				num_read_total = 0;
 			}
-			get_buffer_read_unsafe2( &player->circular_buffer, 10000, &p[0], &size[0], &p[1], &size[1] );
+			get_buffer_read_unsafe2( &player->circular_buffer, 0, &p[0], &size[0], &p[1], &size[1] ); //TODO remove maxsize arg
 			LOG_DEBUG( "p1=p size1=d p2=p size2=d get_buffer_read_unsafe2", p[0], size[0], p[1], size[1] );
+
+			// dont consume too much at a time
+			if( size[0] > max_size ) {
+				size[0] = max_size;
+			}
+			if( size[1] > (max_size - size[0] ) ) {
+				size[1] = max_size - size[0];
+			}
+
+			player->audio_thread_p[0] = p[0];
+			player->audio_thread_size[0] = size[0];
+			player->audio_thread_p[1] = p[1];
+			player->audio_thread_size[1] = size[1];
 
 			buffer_unlock( &player->circular_buffer );
 			num_read = 0;

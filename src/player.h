@@ -73,6 +73,9 @@ typedef struct Player
 	int change_track; // 0 when false; 1 insert after current song; 2 change immediately
 	int change_playlist_id;
 	int change_playlist_track;
+	
+	char *audio_thread_p[2];
+	size_t audio_thread_size[2];
 
 } Player;
 
