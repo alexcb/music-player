@@ -336,14 +336,14 @@ void player_reader_thread_run( void *data )
 	}
 
 	LOG_DEBUG("-------- done loading songs --------");
-	for(;;) {
-		pthread_mutex_lock( &player->circular_buffer.lock );
-		LOG_DEBUG("-- get lock --");
-		sleep(5);
-		LOG_DEBUG("-- release lock --");
-		pthread_mutex_unlock( &player->circular_buffer.lock );
-		sleep(1);
-	}
+	//for(;;) {
+	//	pthread_mutex_lock( &player->circular_buffer.lock );
+	//	LOG_DEBUG("-- get lock --");
+	//	sleep(5);
+	//	LOG_DEBUG("-- release lock --");
+	//	pthread_mutex_unlock( &player->circular_buffer.lock );
+	//	sleep(1);
+	//}
 
 }
 
