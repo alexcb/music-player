@@ -24,7 +24,7 @@ void buffer_mark_written( CircularBuffer *buffer, size_t n );
 void buffer_mark_read( CircularBuffer *buffer, size_t n );
 
 void buffer_rewind_lock( CircularBuffer *buffer );
-int buffer_rewind_and_unlock( CircularBuffer *buffer, char *p );
+int buffer_rewind_unsafe( CircularBuffer *buffer, char *p );
 
 //int get_buffer_non_reserved_reads( CircularBuffer *buffer, char **p1, size_t *size1, char **p2, size_t *size2 );
 

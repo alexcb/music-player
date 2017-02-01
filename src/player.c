@@ -249,6 +249,11 @@ void player_reader_thread_run( void *data )
 				}
 			}
 
+			if( found ) {
+				LOG_DEBUG("rewinding buffer");
+				buffer_rewind_unsafe( &player->circular_buffer, found );
+			}
+
 			pthread_mutex_unlock( &player->circular_buffer.lock );
 		}
 		

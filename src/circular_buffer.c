@@ -145,9 +145,18 @@ void buffer_rewind_lock( CircularBuffer *buffer )
 	pthread_mutex_unlock( &buffer->lock );
 }
 
-int buffer_rewind_and_unlock( CircularBuffer *buffer, char *p )
+int buffer_rewind_unsafe( CircularBuffer *buffer, char *p )
 {
-	return 1;
+	// TODO add assertions to verify rewind is valid and not before reader location
+	int w = buffer->p - p;
+	if( w <= buffer->write ) {
+		buffer->write = w;
+		return 0;
+	}
+	buffer->write = w;
+	buffer->len = 0;
+	return 0;
+
 //	int res = 0;
 //	int write = p - buffer->p;
 //	if( buffer->read <= write && write < buffer->read_reserved ) {
