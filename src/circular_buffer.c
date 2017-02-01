@@ -198,7 +198,7 @@ int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1,
 		return 0;
 	}
 
-	// Reader < Writer < Len
+	// Reader < Writer
 	if( buffer->read < buffer->write ) {
 		*p1 = buffer->p + buffer->read;
 		*size1 = buffer->write - buffer->read;
@@ -207,9 +207,12 @@ int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1,
 		return 0;
 	}
 
-	// should never happen
-	assert(0);
-	return 1;
+	// nothing to read
+	*p1 = NULL;
+	*size1 = 0;
+	*p2 = NULL;
+	*size2 = 0;
+	return 0;
 }
 
 void buffer_mark_read_unsafe( CircularBuffer *buffer, size_t n )
