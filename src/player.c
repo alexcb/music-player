@@ -186,15 +186,15 @@ void player_reader_thread_run( void *data )
 	//const char *path1 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3";
 	//const char *path2 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/02 The People Tree.mp3";
 
-	const char *path1 = "/home/alex/10 second countdown (192  kbps).mp3";
-	const char *path2 = "/home/alex/Amazing 10 Second Countdown with Male Voice (320  kbps).mp3";
+	const char *paths[] = {
+	"/home/alex/song_a.mp3",
+	"/home/alex/song_b.mp3",
+	"/home/alex/song_c.mp3",
+	//"/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3"
+	};
 
-	for( int i = 0; i < 2; i++ ) {
-		const char *path;
-		if( i == 0 )
-			path = path1;
-		else
-			path = path2;
+	for( int i = 0; i < 3; i++ ) {
+		const char *path = paths[i];
 		
 		LOG_DEBUG("path=s opening file in reader", path);
 		res = open_fd( path, &fd, &is_stream, &icy_interval );
@@ -260,6 +260,16 @@ void player_reader_thread_run( void *data )
 		player->reading_index++;
 	}
 
+	LOG_DEBUG("-------- done loading songs --------");
+	for(;;) {
+		pthread_mutex_lock( &player->circular_buffer.lock );
+		LOG_DEBUG("-- get lock --");
+		sleep(5);
+		LOG_DEBUG("-- release lock --");
+		pthread_mutex_unlock( &player->circular_buffer.lock );
+		sleep(1);
+	}
+
 }
 
 void player_audio_thread_run( void *data )
@@ -300,15 +310,21 @@ void player_audio_thread_run( void *data )
 			// unable to acquire lock
 			assert( num_read <= size[0] );
 			size[0] -= num_read;
+			p[0] = p[0] + num_read;
 			if( size[0] == 0 ) {
 				p[0] = p[1];
 				size[0] = size[1];
+				p[1] = NULL;
+				size[1] = 0;
 				LOG_DEBUG("moving to pointer 2");
 			}
 			num_read = 0;
 		}
 
+		LOG_DEBUG("p=p reading data", p[0]);
+
 		if( size[0] < 1024 ) {
+			LOG_DEBUG("buffer underrun");
 			continue;
 		}
 
