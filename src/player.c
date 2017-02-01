@@ -207,6 +207,7 @@ void player_reader_thread_run( void *data )
 		const char *path = paths[i];
 
 		if( i == 2 ) {
+			LOG_DEBUG( "Searching for next song" );
 			pthread_mutex_lock( &player->circular_buffer.lock );
 
 			get_buffer_read_unsafe2( &player->circular_buffer, 0, &pp[0], &size[0], &pp[1], &size[1] );
@@ -218,6 +219,7 @@ void player_reader_thread_run( void *data )
 				while( size[j] > 0 ) {
 					char *q = pp[j];
 
+					LOG_DEBUG( "j=d q=p here", j, q );
 					unsigned char payload_id = *(unsigned char*) q;
 					if( payload_id == ID_DATA ) {
 						if( num_read >= min_bytes_to_read ) {
@@ -238,6 +240,7 @@ void player_reader_thread_run( void *data )
 					num_read += sizeof(size_t);
 					size[j] -= sizeof(size_t);
 
+					q += decoded_size2;
 					num_read += decoded_size2;
 					size[j] -= decoded_size2;
 					pp[j] = q;
@@ -338,12 +341,13 @@ void player_audio_thread_run( void *data )
 	size_t num_read = 0;
 	size_t num_read_total = 0;
 
-	char *p[2];
-	size_t size[2];
+	char *p[2] = {NULL, NULL};
+	size_t size[2] = {0, 0};
 
 	size_t max_size = 10000;
 
 	for(;;) {
+		LOG_DEBUG("num_read=d num_read_total=d size[0]=d audio loop", num_read, num_read_total, size[0]);
 		num_read_total += num_read;
 		res = buffer_timedlock( &player->circular_buffer );
 		if( !res ) {
