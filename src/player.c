@@ -307,12 +307,12 @@ void player_reader_thread_run( void *data )
 		for(;;) {
 			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 			if( res ) {
-				LOG_DEBUG("buffer full");
+				//LOG_DEBUG("buffer full");
 				sleep(1);
 				continue;
 			}
 
-			LOG_DEBUG("p=p writing ID_DATA header", p);
+			//LOG_DEBUG("p=p writing ID_DATA header", p);
 			*((unsigned char*)p) = ID_DATA;
 			buffer_mark_written( &player->circular_buffer, 1 );
 			break;
@@ -323,7 +323,7 @@ void player_reader_thread_run( void *data )
 		while( !done ) {
 			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 			if( res ) {
-				LOG_DEBUG("buffer full");
+				//LOG_DEBUG("buffer full");
 				sleep(1);
 				continue;
 			}
@@ -331,7 +331,7 @@ void player_reader_thread_run( void *data )
 			// dont read too much
 			buffer_free = player->max_payload_size;
 
-			LOG_DEBUG("writing AUDIO_DATA header");
+			//LOG_DEBUG("writing AUDIO_DATA header");
 			*((unsigned char*)p) = AUDIO_DATA;
 			p++;
 			buffer_free--;
@@ -361,7 +361,7 @@ void player_reader_thread_run( void *data )
 			}
 			if( *decoded_size > 0 ) {
 				bytes_written += *decoded_size;
-				LOG_DEBUG("size=d wrote decoded data", bytes_written);
+				//LOG_DEBUG("size=d wrote decoded data", bytes_written);
 				buffer_mark_written( &player->circular_buffer, bytes_written );
 			}
 		}
@@ -616,7 +616,7 @@ void player_audio_thread_run( void *data )
 			continue;
 		}
 		
-		LOG_DEBUG( "reading header" );
+		//LOG_DEBUG( "reading header" );
 
 		// otherwise it must be audio data
 		assert( payload_id == AUDIO_DATA );
@@ -625,7 +625,7 @@ void player_audio_thread_run( void *data )
 		q += sizeof(size_t);
 		num_read += sizeof(size_t);
 
-		LOG_DEBUG( "q=p decode_size=d reading data", q, decoded_size );
+		//LOG_DEBUG( "q=p decode_size=d reading data", q, decoded_size );
 
 		chunk_size = 1024;
 		while( decoded_size > 0 ) {
