@@ -253,6 +253,9 @@ void player_reader_thread_run( void *data )
 	bool is_stream = false;
 	off_t icy_interval;
 	size_t bytes_written;
+	
+	mpg123_id3v1 *v1;
+	mpg123_id3v2 *v2;
 
 
 	int change_track;
@@ -317,6 +320,15 @@ void player_reader_thread_run( void *data )
 			p++;
 			PlayerTrackInfo *track_info = (PlayerTrackInfo*) p;
 			memset( track_info, 0, sizeof(PlayerTrackInfo) );
+
+			res = mpg123_seek( player->mh, 0, SEEK_SET );
+			if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
+				//printf("got meta\n");
+				if( v1 != NULL ) {
+					strcpy( track_info->artist, v1->artist );
+					strcpy( track_info->title, v1->title );
+				}
+			}
 
 			buffer_mark_written( &player->circular_buffer, 1 + sizeof(PlayerTrackInfo) );
 			break;
@@ -623,7 +635,6 @@ void player_audio_thread_run( void *data )
 			LOG_DEBUG( " ------------ reading ID_DATA ------------ " );
 			player->next_track = false;
 			memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
-			printf("got %s\n", player->current_track.artist);
 			LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
 		//	call_observers( player );
 			num_read += sizeof(PlayerTrackInfo);
