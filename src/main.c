@@ -482,7 +482,7 @@ int main(int argc, char *argv[])
 	sleep(10);
 	player_change_track( &player, 0, 4, TRACK_CHANGE_IMMEDIATE );
 	sleep(10);
-	player_change_track( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );
+	player_change_track( &player, 0, 2, TRACK_CHANGE_IMMEDIATE );
 
 	LOG_DEBUG("running server");
 	res = start_http_server( &web_handler_data );

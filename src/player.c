@@ -46,7 +46,6 @@ int init_player( Player *player )
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
 	player->playing_index = 0;
-	player->reading_index = 0;
 	player->track_change_mode = TRACK_CHANGE_IMMEDIATE;
 	player->next_track = NULL;
 
@@ -367,7 +366,7 @@ void player_reader_thread_run( void *data )
 		}
 		mpg123_close( player->mh );
 		close( fd );
-		player->reading_index++;
+		player->reading_playlist_track++;
 	}
 
 
@@ -512,7 +511,6 @@ void player_reader_thread_run( void *data )
 //		}
 //		mpg123_close( player->mh );
 //		close( fd );
-//		player->reading_index++;
 //	}
 //
 //	LOG_DEBUG("-------- done loading songs --------");
