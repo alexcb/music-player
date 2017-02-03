@@ -301,6 +301,8 @@ void player_reader_thread_run( void *data )
 		}
 		playlist_manager_unlock( player->playlist_manager );
 
+		mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0);
+
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
 			LOG_ERROR( "mpg123_open_fd failed" );
 			close( fd );
