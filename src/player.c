@@ -53,6 +53,8 @@ int init_player( Player *player )
 	pthread_mutex_init( &player->change_track_lock, NULL );
 	player->change_track = 0;
 
+	player->reading_playlist_id = -1;
+	player->reading_playlist_track = -1;
 
 	player->audio_thread_size[0] = 0;
 	player->audio_thread_size[1] = 0;
