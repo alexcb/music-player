@@ -279,7 +279,7 @@ void player_reader_thread_run( void *data )
 		playlist_manager_lock( player->playlist_manager );
 		res = playlist_manager_get_path( player->playlist_manager, player->reading_playlist_id, player->reading_playlist_track, &path );
 		if( res ) {
-			LOG_ERROR( "unable to get path" );
+			LOG_ERROR( "playlist=d track=d unable to get path", player->reading_playlist_id, player->reading_playlist_track );
 			playlist_manager_unlock( player->playlist_manager );
 			sleep(1);
 			continue;
