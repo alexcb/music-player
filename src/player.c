@@ -320,6 +320,16 @@ void player_reader_thread_run( void *data )
 		
 		done = false;
 		while( !done ) {
+			pthread_mutex_lock( &player->change_track_lock );
+			if( player->change_track == TRACK_CHANGE_IMMEDIATE ) {
+				LOG_DEBUG("quiting read loop due to immediate change");
+				done = true;
+			}
+			pthread_mutex_unlock( &player->change_track_lock );
+			if( done ) {
+				break;
+			}
+
 			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 			if( res ) {
 				//LOG_DEBUG("buffer full");
