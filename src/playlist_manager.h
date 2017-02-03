@@ -23,8 +23,10 @@ void playlist_manager_unlock( PlaylistManager *manager );
 // version changes whenever the playlist needs to be re-read from
 int playlist_manager_get_version( PlaylistManager *manager, int *version );
 
-// these are specific to the current playlist
-int playlist_manager_get_path( PlaylistManager *manager, int index, const char **path );
+int playlist_manager_get_path( PlaylistManager *manager, int playlist, int track, const char **path );
+
+
+
 int playlist_manager_get_length( PlaylistManager *manager, int *len );
 
 int playlist_manager_set_playlist( PlaylistManager *manager, int id );

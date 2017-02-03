@@ -157,12 +157,12 @@ void playlist_manager_unlock( PlaylistManager *manager )
 	pthread_mutex_unlock( &manager->lock );
 }
 
-int playlist_manager_get_path( PlaylistManager *manager, int index, const char **path )
+int playlist_manager_get_path( PlaylistManager *manager, int playlist_id, int track, const char **path )
 {
-	if( 0 <= manager->current && manager->current < manager->len ) {
-		Playlist *playlist = manager->playlists[manager->current];
-		if( 0 <= index && index <= playlist->len ) {
-			*path = playlist->list[index].path;
+	if( 0 <= playlist_id && playlist_id < manager->len ) {
+		Playlist *playlist = manager->playlists[playlist_id];
+		if( 0 <= track && track <= playlist->len ) {
+			*path = playlist->list[track].path;
 			return 0;
 		}
 	}
