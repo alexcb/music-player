@@ -107,6 +107,7 @@ int player_change_track( Player *player, int playlist, int track, int when )
 		return 1;
 	}
 
+	LOG_DEBUG("playlist=d track=d changing player track", playlist, track);
 	pthread_mutex_lock( &player->change_track_lock );
 	player->change_track = when;
 	player->change_playlist_id = playlist;
