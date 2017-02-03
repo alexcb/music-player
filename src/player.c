@@ -105,7 +105,7 @@ error:
 
 int player_change_track( Player *player, int playlist, int track, int when )
 {
-	if( when != TRACK_CHANGE_IMMEDIATE || when != TRACK_CHANGE_NEXT ) {
+	if( when != TRACK_CHANGE_IMMEDIATE && when != TRACK_CHANGE_NEXT ) {
 		return 1;
 	}
 
