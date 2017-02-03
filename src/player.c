@@ -623,6 +623,7 @@ void player_audio_thread_run( void *data )
 			LOG_DEBUG( " ------------ reading ID_DATA ------------ " );
 			player->next_track = false;
 			memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
+			printf("got %s\n", player->current_track.artist);
 			LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
 		//	call_observers( player );
 			num_read += sizeof(PlayerTrackInfo);
