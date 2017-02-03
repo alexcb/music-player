@@ -46,8 +46,6 @@ int init_player( Player *player )
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
 	player->playing_index = 0;
-	player->track_change_mode = TRACK_CHANGE_IMMEDIATE;
-	player->next_track = NULL;
 
 	pthread_mutex_init( &player->change_track_lock, NULL );
 	player->change_track = 0;
@@ -59,6 +57,8 @@ int init_player( Player *player )
 	player->audio_thread_size[1] = 0;
 	player->audio_thread_p[0] = NULL;
 	player->audio_thread_p[1] = NULL;
+
+	player->next_track = false;
 
 	res = init_circular_buffer( &player->circular_buffer, 10*1024*1024 );
 	if( res ) {
@@ -272,6 +272,7 @@ void player_reader_thread_run( void *data )
 			rewind_to_next_message( player );
 			change_track = 0;
 			//TODO send a signal to the player to skip the current buffer (for now it'll be a short lag)
+			player->next_track = true;
 		} else if( change_track == TRACK_CHANGE_NEXT ) {
 			rewind_to_next_song( player );
 			change_track = 0;
@@ -616,6 +617,7 @@ void player_audio_thread_run( void *data )
 
 		if( payload_id == ID_DATA ) {
 			LOG_DEBUG( " ------------ reading ID_DATA ------------ " );
+			player->next_track = false;
 		//	memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
 
 		//	LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
@@ -640,7 +642,9 @@ void player_audio_thread_run( void *data )
 			if( decoded_size < chunk_size ) {
 				chunk_size = decoded_size;
 			}
-			ao_play( player->dev, q, chunk_size );
+			if( !player->next_track ) {
+				ao_play( player->dev, q, chunk_size );
+			}
 			q += chunk_size;
 			decoded_size -= chunk_size;
 			num_read += chunk_size;
