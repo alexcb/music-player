@@ -314,7 +314,11 @@ void player_reader_thread_run( void *data )
 
 			//LOG_DEBUG("p=p writing ID_DATA header", p);
 			*((unsigned char*)p) = ID_DATA;
-			buffer_mark_written( &player->circular_buffer, 1 );
+			p++;
+			PlayerTrackInfo *track_info = (PlayerTrackInfo*) p;
+			memset( track_info, 0, sizeof(PlayerTrackInfo) );
+
+			buffer_mark_written( &player->circular_buffer, 1 + sizeof(PlayerTrackInfo) );
 			break;
 		}
 
@@ -618,11 +622,10 @@ void player_audio_thread_run( void *data )
 		if( payload_id == ID_DATA ) {
 			LOG_DEBUG( " ------------ reading ID_DATA ------------ " );
 			player->next_track = false;
-		//	memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
-
-		//	LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
+			memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
+			LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
 		//	call_observers( player );
-		//	num_read += sizeof(PlayerTrackInfo);
+			num_read += sizeof(PlayerTrackInfo);
 			continue;
 		}
 		
