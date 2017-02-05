@@ -274,132 +274,129 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 
 	PlayQueueItem *pqi = NULL;
 
-	for(;;) {
-		LOG_DEBUG("path=s opening file in reader", playlist_item->path);
-		res = open_fd( playlist_item->path, &fd, &is_stream, &icy_interval );
-		if( res ) {
-			LOG_ERROR( "unable to open" );
-			playlist_manager_unlock( player->playlist_manager );
-			return;
-		}
-
-		mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0);
-
-		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
-			LOG_ERROR( "mpg123_open_fd failed" );
-			close( fd );
-			return;
-		}
-
-		for(;;) {
-			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
-			if( res ) {
-				//LOG_DEBUG("buffer full");
-				sleep(1);
-				continue;
-			}
-			break;
-		}
-
-		for(;;) {
-			pthread_mutex_lock( &player->play_queue_lock );
-			res = play_queue_add( &player->play_queue, &pqi );
-			pthread_mutex_unlock( &player->play_queue_lock );
-			if( res ) {
-				LOG_DEBUG( "play queue full" );
-				sleep(1);
-				continue;
-			}
-			break;
-		}
-
-		pqi->buf_start = p;
-		pqi->playlist_item = playlist_item;
-		pqi = NULL;
-
-		//LOG_DEBUG("p=p writing ID_DATA_START header", p);
-		*((unsigned char*)p) = ID_DATA_START;
-		p++;
-		PlayerTrackInfo *track_info = (PlayerTrackInfo*) p;
-		memset( track_info, 0, sizeof(PlayerTrackInfo) );
-
-		res = mpg123_seek( player->mh, 0, SEEK_SET );
-		if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
-			if( v1 != NULL ) {
-				strcpy( track_info->artist, v1->artist );
-				strcpy( track_info->title, v1->title );
-			}
-		}
-
-		buffer_mark_written( &player->circular_buffer, 1 + sizeof(PlayerTrackInfo) );
-
-		
-		done = false;
-		while( !done ) {
-			pthread_mutex_lock( &player->change_track_lock );
-			if( player->change_track == TRACK_CHANGE_IMMEDIATE ) {
-				LOG_DEBUG("quiting read loop due to immediate change");
-				done = true;
-			}
-			pthread_mutex_unlock( &player->change_track_lock );
-			if( done ) {
-				break;
-			}
-
-			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
-			if( res ) {
-				//LOG_DEBUG("buffer full");
-				sleep(1);
-				continue;
-			}
-
-			// dont read too much
-			buffer_free = player->max_payload_size;
-
-			//LOG_DEBUG("writing AUDIO_DATA header");
-			*((unsigned char*)p) = AUDIO_DATA;
-			p++;
-			buffer_free--;
-			bytes_written = 1;
-
-			// reserve some space for number of bytes decoded
-			decoded_size = (size_t*) p;
-			p += sizeof(size_t);
-			buffer_free -= sizeof(size_t);
-			bytes_written += sizeof(size_t);
-
-			*decoded_size = 0;
-
-			res = mpg123_read( player->mh, (unsigned char *)p, buffer_free, decoded_size);
-			switch( res ) {
-				case MPG123_OK:
-					break;
-				case MPG123_NEW_FORMAT:
-					LOG_DEBUG("TODO handle new format");
-					break;
-				case MPG123_DONE:
-					done = true;
-					break;
-				default:
-					LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
-					break;
-			}
-			p += *decoded_size;
-			if( *decoded_size > 0 ) {
-				bytes_written += *decoded_size;
-				//LOG_DEBUG("size=d wrote decoded data", bytes_written);
-				buffer_mark_written( &player->circular_buffer, bytes_written );
-			}
-		}
-		mpg123_close( player->mh );
-		close( fd );
-
-		LOG_DEBUG("writting end data msg");
-		*((unsigned char*)p) = ID_DATA_END;
-		p++;
-		buffer_mark_written( &player->circular_buffer, 1 );
+	LOG_DEBUG("path=s opening file in reader", playlist_item->path);
+	res = open_fd( playlist_item->path, &fd, &is_stream, &icy_interval );
+	if( res ) {
+		LOG_ERROR( "unable to open" );
+		playlist_manager_unlock( player->playlist_manager );
 		return;
 	}
+
+	mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0);
+
+	if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
+		LOG_ERROR( "mpg123_open_fd failed" );
+		close( fd );
+		return;
+	}
+
+	for(;;) {
+		res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
+		if( res ) {
+			//LOG_DEBUG("buffer full");
+			sleep(1);
+			continue;
+		}
+		break;
+	}
+
+	for(;;) {
+		pthread_mutex_lock( &player->play_queue_lock );
+		res = play_queue_add( &player->play_queue, &pqi );
+		pthread_mutex_unlock( &player->play_queue_lock );
+		if( res ) {
+			LOG_DEBUG( "play queue full" );
+			sleep(1);
+			continue;
+		}
+		break;
+	}
+
+	pqi->buf_start = p;
+	pqi->playlist_item = playlist_item;
+	pqi = NULL;
+
+	//LOG_DEBUG("p=p writing ID_DATA_START header", p);
+	*((unsigned char*)p) = ID_DATA_START;
+	p++;
+	PlayerTrackInfo *track_info = (PlayerTrackInfo*) p;
+	memset( track_info, 0, sizeof(PlayerTrackInfo) );
+
+	res = mpg123_seek( player->mh, 0, SEEK_SET );
+	if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
+		if( v1 != NULL ) {
+			strcpy( track_info->artist, v1->artist );
+			strcpy( track_info->title, v1->title );
+		}
+	}
+
+	buffer_mark_written( &player->circular_buffer, 1 + sizeof(PlayerTrackInfo) );
+
+	
+	done = false;
+	while( !done ) {
+		pthread_mutex_lock( &player->change_track_lock );
+		if( player->change_track == TRACK_CHANGE_IMMEDIATE ) {
+			LOG_DEBUG("quiting read loop due to immediate change");
+			done = true;
+		}
+		pthread_mutex_unlock( &player->change_track_lock );
+		if( done ) {
+			break;
+		}
+
+		res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
+		if( res ) {
+			//LOG_DEBUG("buffer full");
+			sleep(1);
+			continue;
+		}
+
+		// dont read too much
+		buffer_free = player->max_payload_size;
+
+		//LOG_DEBUG("writing AUDIO_DATA header");
+		*((unsigned char*)p) = AUDIO_DATA;
+		p++;
+		buffer_free--;
+		bytes_written = 1;
+
+		// reserve some space for number of bytes decoded
+		decoded_size = (size_t*) p;
+		p += sizeof(size_t);
+		buffer_free -= sizeof(size_t);
+		bytes_written += sizeof(size_t);
+
+		*decoded_size = 0;
+
+		res = mpg123_read( player->mh, (unsigned char *)p, buffer_free, decoded_size);
+		switch( res ) {
+			case MPG123_OK:
+				break;
+			case MPG123_NEW_FORMAT:
+				LOG_DEBUG("TODO handle new format");
+				break;
+			case MPG123_DONE:
+				done = true;
+				break;
+			default:
+				LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
+				break;
+		}
+		p += *decoded_size;
+		if( *decoded_size > 0 ) {
+			bytes_written += *decoded_size;
+			//LOG_DEBUG("size=d wrote decoded data", bytes_written);
+			buffer_mark_written( &player->circular_buffer, bytes_written );
+		}
+	}
+	mpg123_close( player->mh );
+	close( fd );
+
+	LOG_DEBUG("writting end data msg");
+	*((unsigned char*)p) = ID_DATA_END;
+	p++;
+	buffer_mark_written( &player->circular_buffer, 1 );
 }
 
 //void player_mark_deleted( void *data )
