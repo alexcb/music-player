@@ -388,6 +388,12 @@ int main(int argc, char *argv[])
 	//x = 805; //cramps
 	load_quick_album( &playlist_manager, album_list.list[x].path );
 
+	playlist_clear( playlist_manager.playlists[0] );
+	playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_a.mp3" );
+	playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_b.mp3" );
+	playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_c.mp3" );
+
+
 	LOG_DEBUG("changing track");
 	player_change_track_by_id( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );
 
