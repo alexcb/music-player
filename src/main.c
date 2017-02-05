@@ -357,7 +357,6 @@ int main(int argc, char *argv[])
 
 	init_player( &player );
 
-
 	AlbumList album_list;
 	res = album_list_init( &album_list );
 	if( res ) {
@@ -372,6 +371,7 @@ int main(int argc, char *argv[])
 
 	PlaylistManager playlist_manager;
 	playlist_manager_init( &playlist_manager, "/home/alex/the_playlist.txt" );
+	player.playlist_manager = &playlist_manager;
 
 	LOG_DEBUG("calling load");
 	res = playlist_manager_load( &playlist_manager );
@@ -387,6 +387,8 @@ int main(int argc, char *argv[])
 	//x = 740; //sun kil moon
 	//x = 805; //cramps
 	load_quick_album( &playlist_manager, album_list.list[x].path );
+
+	LOG_DEBUG("changing track");
 	player_change_track_by_id( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );
 
 	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
@@ -434,7 +436,6 @@ int main(int argc, char *argv[])
 	writeText(&lcd_state, "Play me the hits");
 
 	LOG_DEBUG("starting");
-	player.playlist_manager = &playlist_manager;
 
 	res = start_player( &player );
 	if( res ) {

@@ -109,8 +109,9 @@ error:
 
 int player_change_track_by_id( Player *player, int playlist, int track, int when )
 {
-	PlaylistItem *item;
+	PlaylistItem *item = NULL;
 	playlist_manager_get_item( player->playlist_manager, playlist, track, &item );
+	LOG_DEBUG("item=p calling player_change_track", item);
 	return player_change_track( player, item, when );
 }
 
@@ -309,6 +310,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 				sleep(1);
 				continue;
 			}
+			break;
 		}
 
 		pqi->buf_start = p;

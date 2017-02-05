@@ -171,9 +171,11 @@ void playlist_manager_unlock( PlaylistManager *manager )
 
 int playlist_manager_get_item( PlaylistManager *manager, int playlist_id, int track, PlaylistItem **item )
 {
-	//assert( track == 0 ); //TODO
+	LOG_DEBUG("here0");
 	if( 0 <= playlist_id && playlist_id < manager->len ) {
+		LOG_DEBUG("here1");
 		Playlist *playlist = manager->playlists[playlist_id];
+		LOG_DEBUG("here2");
 		*item = playlist->root;
 		return 0;
 	}
