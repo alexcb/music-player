@@ -169,13 +169,38 @@ void playlist_manager_unlock( PlaylistManager *manager )
 //	return 1;
 //}
 
+int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p )
+{
+	for( int i = 0; i < manager->len; i++ ) {
+		Playlist *playlist = manager->playlists[i];
+		if( strcmp(playlist->name, name) == 0 ) {
+			*p = playlist;
+			return 0;
+		}
+	}
+	return 1;
+}
+
+int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, Playlist **p )
+{
+	int res;
+	res = playlist_manager_get_playlist( manager, name, p );
+	if( res == 0 ) {
+		return 1;
+	}
+	if( manager->len >= 1024 ) {
+		return 2;
+	}
+
+	playlist_new( p, name );
+	manager->playlists[manager->len++] = *p;
+	return 0;
+}
+
 int playlist_manager_get_item( PlaylistManager *manager, int playlist_id, int track, PlaylistItem **item )
 {
-	LOG_DEBUG("here0");
 	if( 0 <= playlist_id && playlist_id < manager->len ) {
-		LOG_DEBUG("here1");
 		Playlist *playlist = manager->playlists[playlist_id];
-		LOG_DEBUG("here2");
 		*item = playlist->root;
 		return 0;
 	}
