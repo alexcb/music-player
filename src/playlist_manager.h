@@ -25,6 +25,8 @@ int playlist_manager_get_version( PlaylistManager *manager, int *version );
 
 int playlist_manager_get_path( PlaylistManager *manager, int playlist, int track, const char **path );
 
+int playlist_manager_get_item( PlaylistManager *manager, int playlist, int track, PlaylistItem **item );
+
 
 
 int playlist_manager_get_length( PlaylistManager *manager, int *len );

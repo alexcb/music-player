@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <stdbool.h>
 
+#include "circular_buffer.h"
+#include "play_queue.h"
 #include "playlist_manager.h"
 #include "httpget.h"
 
@@ -51,6 +53,9 @@ typedef struct Player
 
 	CircularBuffer circular_buffer;
 
+	PlayQueue play_queue;
+	pthread_mutex_t play_queue_lock;
+
 	struct httpdata hd;
 
 	PlaylistManager *playlist_manager;
@@ -71,8 +76,7 @@ typedef struct Player
 	// control over changing tracks
 	pthread_mutex_t change_track_lock;
 	int change_track; // 0 when false; 1 insert after current song; 2 change immediately
-	int change_playlist_id;
-	int change_playlist_track;
+	PlaylistItem *change_playlist_item;
 	
 	char *audio_thread_p[2];
 	size_t audio_thread_size[2];
@@ -87,4 +91,5 @@ int start_player( Player *player );
 
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );
 
-int player_change_track( Player *player, int playlist, int track, int when );
+int player_change_track( Player *player, PlaylistItem *playlist_item, int when );
+int player_notify_item_change( Player *player, PlaylistItem *playlist_item );

@@ -269,6 +269,11 @@ void buffer_mark_read_unsafe( CircularBuffer *buffer, size_t n )
 //	return 1;
 //}
 
+int buffer_lock( CircularBuffer *buffer )
+{
+	return pthread_mutex_lock( &buffer->lock );
+}
+
 int buffer_timedlock( CircularBuffer *buffer )
 {
 	struct timespec tspec;

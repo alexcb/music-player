@@ -17,7 +17,8 @@
 #include <ao/ao.h>
 
 #define AUDIO_DATA 1
-#define ID_DATA 2
+#define ID_DATA_START 2
+#define ID_DATA_END 3
 
 #define BITS 8
 
@@ -42,13 +43,14 @@ int init_player( Player *player )
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
 
-	// TODO ensure that ID_DATA messages are smaller than this
+	// TODO ensure that ID_DATA_START messages are smaller than this
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
 	player->playing_index = 0;
 
 	pthread_mutex_init( &player->change_track_lock, NULL );
 	player->change_track = 0;
+	player->change_playlist_item = NULL
 
 	player->reading_playlist_id = -1;
 	player->reading_playlist_track = -1;
@@ -64,6 +66,9 @@ int init_player( Player *player )
 	if( res ) {
 		goto error;
 	}
+
+	play_queue_init( &player->play_queue );
+	pthread_mutex_init( &player->play_queue_lock, NULL );
 
 	player->metadata_observers_num = 0;
 	player->metadata_observers_cap = 2;
@@ -102,19 +107,24 @@ error:
 	return 1;
 }
 
-int player_change_track( Player *player, int playlist, int track, int when )
+int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 {
 	if( when != TRACK_CHANGE_IMMEDIATE && when != TRACK_CHANGE_NEXT ) {
 		return 1;
 	}
 
-	LOG_DEBUG("playlist=d track=d changing player track", playlist, track);
+	LOG_DEBUG("changing player track");
 	pthread_mutex_lock( &player->change_track_lock );
 	player->change_track = when;
-	player->change_playlist_id = playlist;
-	player->change_playlist_track = track;
+	player->change_playlist_item = playlist_item;
 	pthread_mutex_unlock( &player->change_track_lock );
 
+	return 0;
+}
+
+int player_notify_item_change( Player *player, PlaylistItem *playlist_item )
+{
+	// TODO trigger a reload buffer event if required
 	return 0;
 }
 
@@ -195,7 +205,7 @@ void rewind_to_next( Player *player, bool next_song )
 			LOG_DEBUG( "j=d q=p here", j, q );
 			unsigned char payload_id = *(unsigned char*) q;
 			if( num_read >= min_bytes_to_read ) {
-				if( !next_song || payload_id == ID_DATA ) {
+				if( !next_song || payload_id == ID_DATA_START ) {
 					found = q;
 					break;
 				}
@@ -238,10 +248,8 @@ void rewind_to_next_song( Player *player )
 	rewind_to_next( player, true );
 }
 
-void player_reader_thread_run( void *data )
+void player_load_into_buffer( player, playlist_item )
 {
-	Player *player = (Player*) data;
-	
 	bool done;
 	int res;
 	char *p;
@@ -257,56 +265,23 @@ void player_reader_thread_run( void *data )
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
 
-
-	int change_track;
+	PlayQueueItem *pqi = NULL;
 
 	for(;;) {
-		change_track = 0;
-		pthread_mutex_lock( &player->change_track_lock );
-		if( player->change_track ) {
-			change_track = player->change_track;
-			player->reading_playlist_id = player->change_playlist_id;
-			player->reading_playlist_track = player->change_playlist_track;
-			player->change_track = 0;
-		}
-		pthread_mutex_unlock( &player->change_track_lock );
-
-		if( change_track == TRACK_CHANGE_IMMEDIATE ) {
-			rewind_to_next_message( player );
-			change_track = 0;
-			//TODO send a signal to the player to skip the current buffer (for now it'll be a short lag)
-			player->next_track = true;
-		} else if( change_track == TRACK_CHANGE_NEXT ) {
-			rewind_to_next_song( player );
-			change_track = 0;
-		}
-
-		// Get song to play
-		playlist_manager_lock( player->playlist_manager );
-		res = playlist_manager_get_path( player->playlist_manager, player->reading_playlist_id, player->reading_playlist_track, &path );
-		if( res ) {
-			LOG_ERROR( "playlist=d track=d unable to get path", player->reading_playlist_id, player->reading_playlist_track );
-			playlist_manager_unlock( player->playlist_manager );
-			sleep(1);
-			continue;
-		}
-
-		LOG_DEBUG("path=s opening file in reader", path);
-		res = open_fd( path, &fd, &is_stream, &icy_interval );
+		LOG_DEBUG("path=s opening file in reader", playlist_item->path);
+		res = open_fd( playlist_item->path, &fd, &is_stream, &icy_interval );
 		if( res ) {
 			LOG_ERROR( "unable to open" );
 			playlist_manager_unlock( player->playlist_manager );
-			sleep(1);
-			continue;
+			return;
 		}
-		playlist_manager_unlock( player->playlist_manager );
 
 		mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0);
 
 		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
 			LOG_ERROR( "mpg123_open_fd failed" );
 			close( fd );
-			continue;
+			return;
 		}
 
 		for(;;) {
@@ -316,25 +291,39 @@ void player_reader_thread_run( void *data )
 				sleep(1);
 				continue;
 			}
-
-			//LOG_DEBUG("p=p writing ID_DATA header", p);
-			*((unsigned char*)p) = ID_DATA;
-			p++;
-			PlayerTrackInfo *track_info = (PlayerTrackInfo*) p;
-			memset( track_info, 0, sizeof(PlayerTrackInfo) );
-
-			res = mpg123_seek( player->mh, 0, SEEK_SET );
-			if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
-				//printf("got meta\n");
-				if( v1 != NULL ) {
-					strcpy( track_info->artist, v1->artist );
-					strcpy( track_info->title, v1->title );
-				}
-			}
-
-			buffer_mark_written( &player->circular_buffer, 1 + sizeof(PlayerTrackInfo) );
-			break;
+			break
 		}
+
+		for(;;) {
+			pthread_mutex_lock( &player->play_queue_lock );
+			res = play_queue_add( &player->play_queue, &pqi );
+			pthread_mutex_unlock( &player->play_queue_lock );
+			if( res ) {
+				LOG_DEBUG( "play queue full" );
+				sleep(1);
+				continue;
+			}
+		}
+
+		pqi->buf_start = p;
+		pqi->playlist_item = playlist_item;
+		pqi = NULL;
+
+		//LOG_DEBUG("p=p writing ID_DATA_START header", p);
+		*((unsigned char*)p) = ID_DATA_START;
+		p++;
+		PlayerTrackInfo *track_info = (PlayerTrackInfo*) p;
+		memset( track_info, 0, sizeof(PlayerTrackInfo) );
+
+		res = mpg123_seek( player->mh, 0, SEEK_SET );
+		if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
+			if( v1 != NULL ) {
+				strcpy( track_info->artist, v1->artist );
+				strcpy( track_info->title, v1->title );
+			}
+		}
+
+		buffer_mark_written( &player->circular_buffer, 1 + sizeof(PlayerTrackInfo) );
 
 		
 		done = false;
@@ -395,108 +384,211 @@ void player_reader_thread_run( void *data )
 		}
 		mpg123_close( player->mh );
 		close( fd );
-		player->reading_playlist_track++;
+
+		*((unsigned char*)p) = ID_DATA_END;
+		p++;
+		buffer_mark_written( &player->circular_buffer, 1 );
+	}
+}
+
+void player_mark_deleted( void *data )
+{
+	// scan through all songs in playqueue
+	if any of the song->next references the deleted
+	song, update the reference
+	then mark the buffer after the song as invalidated, and force a reload
+}
+
+void player_reader_thread_run( void *data )
+{
+	Player *player = (Player*) data;
+	PlaylistItem *playlist_item = NULL;
+	int change_track = 0;;
+	int res;
+	PlayQueueItem *pqi = NULL;
+	char *p;
+
+	for(;;) {
+
+		pthread_mutex_lock( &player->change_track_lock );
+		if( player->change_track ) {
+			player->change_track = 0;
+			playlist_item = player->change_playlist_item;
+			change_track = player->change_track;
+		}
+		pthread_mutex_unlock( &player->change_track_lock );
+
+		if( change_track == TRACK_CHANGE_IMMEDIATE ) {
+			// TODO
+			assert(0);
+		} else if( change_track == TRACK_CHANGE_NEXT ) {
+			pthread_mutex_lock( &player->play_queue_lock );
+			res = play_queue_head( &player->play_queue, &pqi );
+			if( !res ) {
+				buffer_lock( CircularBuffer *buffer );
+				buffer_rewind_unsafe( &player->circular_buffer, p );
+				buffer_unlock( CircularBuffer *buffer );
+			}
+			play_queue_clear( &player->play_queue );
+			pthread_mutex_unlock( &player->play_queue_lock );
+		}
+
+		if( playlist_item ) {
+			player_load_into_buffer( player, playlist_item );
+		} else {
+			usleep(1000);
+		}
+
+		playlist_manager_lock( player->playlist_manager );
+		if( playlist_item ) {
+			playlist_item = playlist_item->next;
+		}
+		playlist_manager_unlock( player->playlist_manager );
+
 	}
 
-
-
-//	//const char *path1 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3";
-//	//const char *path2 = "/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/02 The People Tree.mp3";
+}
 //
-//	const char *paths[] = {
-//	"/home/alex/song_a.mp3",
-//	"/home/alex/song_b.mp3",
-//	//"/home/alex/song_c.mp3",
-//	"/media/nugget_share/music/alex-beet/N.A.S.A_/The Spirit of Apollo/01 Intro.mp3"
-//	};
+//void player_reader_thread_run( void *data )
+//{
+//	Player *player = (Player*) data;
+//	
+//	bool done;
+//	int res;
+//	char *p;
+//	const char *path;
+//	int fd;
+//	size_t buffer_free;
+//	size_t *decoded_size;
 //
-//	char *pp[2];
-//	size_t size[2];
+//	bool is_stream = false;
+//	off_t icy_interval;
+//	size_t bytes_written;
+//	
+//	mpg123_id3v1 *v1;
+//	mpg123_id3v2 *v2;
 //
-//	for( int i = 0; i < 3; i++ ) {
-//		const char *path = paths[i];
+//	PlayQueueItem *pqi = NULL;
+//	PlaylistItem *item = NULL;
 //
-//		if( i == 2 ) {
-//			LOG_DEBUG( "Searching for next song" );
-//			pthread_mutex_lock( &player->circular_buffer.lock );
 //
-//			get_buffer_read_unsafe2( &player->circular_buffer, 0, &pp[0], &size[0], &pp[1], &size[1] );
+//	int change_track;
 //
-//			size_t min_bytes_to_read = player->audio_thread_size[0] + player->audio_thread_size[1];
-//			size_t num_read = 0;
-//			char *found = NULL;
-//			for( int j = 0; j < 2 && !found; j++ ) {
-//				while( size[j] > 0 ) {
-//					char *q = pp[j];
-//
-//					LOG_DEBUG( "j=d q=p here", j, q );
-//					unsigned char payload_id = *(unsigned char*) q;
-//					if( payload_id == ID_DATA && num_read >= min_bytes_to_read ) {
-//						found = q;
-//						break;
-//					}
-//					q++;
-//					num_read++;
-//					size[j]--;
-//
-//					if( payload_id == ID_DATA ) {
-//						//nothing else to do
-//					} else if( payload_id == AUDIO_DATA ) {
-//						decoded_size2 = *((size_t*) q);
-//						q += sizeof(size_t);
-//						num_read += sizeof(size_t);
-//						size[j] -= sizeof(size_t);
-//
-//						q += decoded_size2;
-//						num_read += decoded_size2;
-//						size[j] -= decoded_size2;
-//					} else {
-//						assert( 0 ); //unsupported payload_id
-//					}
-//					pp[j] = q;
-//				}
-//			}
-//
-//			if( found ) {
-//				LOG_DEBUG("p=p rewinding buffer", found);
-//				buffer_rewind_unsafe( &player->circular_buffer, found );
-//			}
-//
-//			pthread_mutex_unlock( &player->circular_buffer.lock );
+//	for(;;) {
+//		change_track = 0;
+//		pthread_mutex_lock( &player->change_track_lock );
+//		if( player->change_track ) {
+//			change_track = player->change_track;
+//			player->reading_playlist_id = player->change_playlist_id;
+//			player->reading_playlist_track = player->change_playlist_track;
+//			player->change_track = 0;
 //		}
-//		
-//		LOG_DEBUG("path=s opening file in reader", path);
-//		res = open_fd( path, &fd, &is_stream, &icy_interval );
+//		pthread_mutex_unlock( &player->change_track_lock );
+//
+//		if( change_track == TRACK_CHANGE_IMMEDIATE ) {
+//			rewind_to_next_message( player );
+//			change_track = 0;
+//			//TODO send a signal to the player to skip the current buffer (for now it'll be a short lag)
+//			player->next_track = true;
+//		} else if( change_track == TRACK_CHANGE_NEXT ) {
+//			rewind_to_next_song( player );
+//			change_track = 0;
+//		}
+//
+//		// Get song to play
+//		playlist_manager_lock( player->playlist_manager );
+//
+//		playlist_manager
+//		res = playlist_manager_get_item( player->playlist_manager, player->reading_playlist_id, player->reading_playlist_track, &playlist_item );
+//		if( res ) {
+//			LOG_ERROR( "playlist=d track=d unable to get playlist item", player->reading_playlist_id, player->reading_playlist_track );
+//			playlist_manager_unlock( player->playlist_manager );
+//			sleep(1);
+//			continue;
+//		}
+//
+//		playlist_manager_unlock( player->playlist_manager );
+//
+//		LOG_DEBUG("path=s opening file in reader", playlist_item->path);
+//		res = open_fd( playlist_item->path, &fd, &is_stream, &icy_interval );
 //		if( res ) {
 //			LOG_ERROR( "unable to open" );
+//			playlist_manager_unlock( player->playlist_manager );
+//			sleep(1);
+//			//TODO deref playlist_item
+//			continue;
 //		}
+//
+//		mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0);
 //
 //		if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
 //			LOG_ERROR( "mpg123_open_fd failed" );
 //			close( fd );
+//			//TODO deref playlist_item
 //			continue;
 //		}
 //
 //		for(;;) {
+//			if( pqi == NULL ) {
+//				res = play_queue_add( &player->play_queue, &pqi );
+//				if( res ) {
+//					LOG_DEBUG( "play queue full" );
+//					sleep(1);
+//					continue;
+//				}
+//			}
+//
 //			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 //			if( res ) {
-//				LOG_DEBUG("buffer full");
+//				//LOG_DEBUG("buffer full");
 //				sleep(1);
 //				continue;
 //			}
-//
-//			LOG_DEBUG("p=p writing ID_DATA header", p);
-//			*((unsigned char*)p) = ID_DATA;
-//			buffer_mark_written( &player->circular_buffer, 1 );
-//			break;
+//			break
 //		}
+//
+//		pqi->buf_start = p;
+//		pqi->playlist_item = playlist_item;
+//
+//		pqi = NULL;
+//
+//		playlist_manager_lock( player->playlist_manager );
+//		playlist_item = playlist_item->next;
+//		playlist_manager_unlock( player->playlist_manager );
+//
+//		//LOG_DEBUG("p=p writing ID_DATA_START header", p);
+//		*((unsigned char*)p) = ID_DATA_START;
+//		p++;
+//		PlayerTrackInfo *track_info = (PlayerTrackInfo*) p;
+//		memset( track_info, 0, sizeof(PlayerTrackInfo) );
+//
+//		res = mpg123_seek( player->mh, 0, SEEK_SET );
+//		if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
+//			//printf("got meta\n");
+//			if( v1 != NULL ) {
+//				strcpy( track_info->artist, v1->artist );
+//				strcpy( track_info->title, v1->title );
+//			}
+//		}
+//
+//		buffer_mark_written( &player->circular_buffer, 1 + sizeof(PlayerTrackInfo) );
 //
 //		
 //		done = false;
 //		while( !done ) {
+//			pthread_mutex_lock( &player->change_track_lock );
+//			if( player->change_track == TRACK_CHANGE_IMMEDIATE ) {
+//				LOG_DEBUG("quiting read loop due to immediate change");
+//				done = true;
+//			}
+//			pthread_mutex_unlock( &player->change_track_lock );
+//			if( done ) {
+//				break;
+//			}
+//
 //			res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 //			if( res ) {
-//				LOG_DEBUG("buffer full");
+//				//LOG_DEBUG("buffer full");
 //				sleep(1);
 //				continue;
 //			}
@@ -504,7 +596,7 @@ void player_reader_thread_run( void *data )
 //			// dont read too much
 //			buffer_free = player->max_payload_size;
 //
-//			LOG_DEBUG("writing AUDIO_DATA header");
+//			//LOG_DEBUG("writing AUDIO_DATA header");
 //			*((unsigned char*)p) = AUDIO_DATA;
 //			p++;
 //			buffer_free--;
@@ -534,25 +626,14 @@ void player_reader_thread_run( void *data )
 //			}
 //			if( *decoded_size > 0 ) {
 //				bytes_written += *decoded_size;
-//				LOG_DEBUG("size=d wrote decoded data", bytes_written);
+//				//LOG_DEBUG("size=d wrote decoded data", bytes_written);
 //				buffer_mark_written( &player->circular_buffer, bytes_written );
 //			}
 //		}
 //		mpg123_close( player->mh );
 //		close( fd );
 //	}
-//
-//	LOG_DEBUG("-------- done loading songs --------");
-	//for(;;) {
-	//	pthread_mutex_lock( &player->circular_buffer.lock );
-	//	LOG_DEBUG("-- get lock --");
-	//	sleep(5);
-	//	LOG_DEBUG("-- release lock --");
-	//	pthread_mutex_unlock( &player->circular_buffer.lock );
-	//	sleep(1);
-	//}
-
-}
+//}
 
 void player_audio_thread_run( void *data )
 {
@@ -622,7 +703,7 @@ void player_audio_thread_run( void *data )
 
 		//LOG_DEBUG("p=p reading data", p[0]);
 
-		if( size[0] < player->max_payload_size ) {
+		if( size[0] == 0 ) {
 			//LOG_DEBUG("buffer underrun");
 			continue;
 		}
@@ -633,8 +714,14 @@ void player_audio_thread_run( void *data )
 		q++;
 		num_read++;
 
-		if( payload_id == ID_DATA ) {
-			LOG_DEBUG( " ------------ reading ID_DATA ------------ " );
+		if( payload_id == ID_DATA_END ) {
+			LOG_DEBUG( " ----- trigger end of song ----- " );
+			continue;
+		}
+
+
+		if( payload_id == ID_DATA_START ) {
+			LOG_DEBUG( " ------------ reading ID_DATA_START ------------ " );
 			player->next_track = false;
 			memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
 			LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );

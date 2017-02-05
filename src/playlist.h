@@ -6,6 +6,8 @@
 typedef struct PlaylistItem
 {
 	char *path;
+	struct PlaylistItem *next;
+	struct PlaylistItem *prev;
 } PlaylistItem;
 
 typedef struct Playlist
