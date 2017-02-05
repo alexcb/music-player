@@ -393,6 +393,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 		mpg123_close( player->mh );
 		close( fd );
 
+		LOG_DEBUG("writting end data msg");
 		*((unsigned char*)p) = ID_DATA_END;
 		p++;
 		buffer_mark_written( &player->circular_buffer, 1 );
@@ -437,6 +438,7 @@ void player_reader_thread_run( void *data )
 			pthread_mutex_lock( &player->play_queue_lock );
 			res = play_queue_head( &player->play_queue, &pqi );
 			if( !res ) {
+				LOG_DEBUG("rewinding");
 				buffer_lock( &player->circular_buffer );
 				buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
 				buffer_unlock( &player->circular_buffer );
@@ -757,6 +759,7 @@ void player_audio_thread_run( void *data )
 			//LOG_DEBUG( "reading header" );
 
 			// otherwise it must be audio data
+			LOG_DEBUG( "pload=d foo", payload_id );
 			assert( payload_id == AUDIO_DATA );
 
 			size_t decoded_size = *((size_t*) q);
