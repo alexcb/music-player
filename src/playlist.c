@@ -61,6 +61,17 @@ int playlist_add_file( Playlist *playlist, const char *path )
 	return OK;
 }
 
+int playlist_remove_item( Playlist *playlist, PlaylistItem *item )
+{
+	if( item->prev ) {
+		item->prev->next = item->next;
+	}
+	if( item->next ) {
+		item->next->prev = item->prev;
+	}
+	return 0;
+}
+
 int playlist_clear( Playlist *playlist )
 {
 	//TODO massive memory leak

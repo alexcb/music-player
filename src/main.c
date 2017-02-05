@@ -393,6 +393,8 @@ int main(int argc, char *argv[])
 	playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_b.mp3" );
 	playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_c.mp3" );
 
+	playlist_remove_item( playlist_manager.playlists[0], playlist_manager.playlists[0]->root->next ); 
+
 
 	LOG_DEBUG("changing track");
 	player_change_track_by_id( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );

@@ -736,7 +736,6 @@ void player_audio_thread_run( void *data )
 			q = p[0];
 
 			payload_id = *(unsigned char*) q;
-			LOG_DEBUG( "p=p payload=d foo", q, payload_id );
 			q++;
 			num_read++;
 
