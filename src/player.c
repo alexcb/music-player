@@ -398,6 +398,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 		*((unsigned char*)p) = ID_DATA_END;
 		p++;
 		buffer_mark_written( &player->circular_buffer, 1 );
+		return;
 	}
 }
 
@@ -451,11 +452,11 @@ void player_reader_thread_run( void *data )
 		player_load_into_buffer( player, playlist_item );
 
 		playlist_manager_lock( player->playlist_manager );
+		LOG_DEBUG("playlist_item=p next=p setting next song", playlist_item, playlist_item->next);
 		playlist_item = playlist_item->next;
 		playlist_manager_unlock( player->playlist_manager );
 
 	}
-
 }
 //
 //void player_reader_thread_run( void *data )
