@@ -16,7 +16,7 @@ typedef struct Playlist
 	int len;
 	int cap;
 	int current;
-	PlaylistItem *list;
+	PlaylistItem *root;
 } Playlist;
 
 int playlist_new( Playlist **playlist, const char *name );

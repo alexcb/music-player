@@ -4,11 +4,14 @@
 #include <pthread.h>
 #include <stdbool.h>
 
+#include "playlist.h"
+
 #define PLAY_QUEUE_CAP 32
 
 typedef struct PlayQueueItem
 {
-	int data;
+	char *buf_start;
+	PlaylistItem *playlist_item;
 } PlayQueueItem;
 
 

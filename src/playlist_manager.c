@@ -157,14 +157,25 @@ void playlist_manager_unlock( PlaylistManager *manager )
 	pthread_mutex_unlock( &manager->lock );
 }
 
-int playlist_manager_get_path( PlaylistManager *manager, int playlist_id, int track, const char **path )
+//int playlist_manager_get_path( PlaylistManager *manager, int playlist_id, int track, const char **path )
+//{
+//	if( 0 <= playlist_id && playlist_id < manager->len ) {
+//		Playlist *playlist = manager->playlists[playlist_id];
+//		if( 0 <= track && track <= playlist->len ) {
+//			*path = playlist->list[track].path;
+//			return 0;
+//		}
+//	}
+//	return 1;
+//}
+
+int playlist_manager_get_item( PlaylistManager *manager, int playlist_id, int track, PlaylistItem **item )
 {
+	//assert( track == 0 ); //TODO
 	if( 0 <= playlist_id && playlist_id < manager->len ) {
 		Playlist *playlist = manager->playlists[playlist_id];
-		if( 0 <= track && track <= playlist->len ) {
-			*path = playlist->list[track].path;
-			return 0;
-		}
+		*item = playlist->root;
+		return 0;
 	}
 	return 1;
 }

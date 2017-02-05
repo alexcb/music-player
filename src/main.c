@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
 	//x = 740; //sun kil moon
 	//x = 805; //cramps
 	load_quick_album( &playlist_manager, album_list.list[x].path );
-	player_change_track( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );
+	player_change_track_by_id( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );
 
 	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
 	if( res ) {

@@ -91,5 +91,6 @@ int start_player( Player *player );
 
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );
 
+int player_change_track_by_id( Player *player, int playlist, int track, int when );
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when );
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item );

@@ -3,6 +3,7 @@
 int play_queue_init( PlayQueue *pq )
 {
 	pq->front = pq->rear = -1;
+	return 0;
 }
 
 int play_queue_add( PlayQueue *pq, PlayQueueItem **item )

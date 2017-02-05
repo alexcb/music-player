@@ -50,7 +50,7 @@ int init_player( Player *player )
 
 	pthread_mutex_init( &player->change_track_lock, NULL );
 	player->change_track = 0;
-	player->change_playlist_item = NULL
+	player->change_playlist_item = NULL;
 
 	player->reading_playlist_id = -1;
 	player->reading_playlist_track = -1;
@@ -105,6 +105,13 @@ int start_player( Player *player )
 
 error:
 	return 1;
+}
+
+int player_change_track_by_id( Player *player, int playlist, int track, int when )
+{
+	PlaylistItem *item;
+	playlist_manager_get_item( player->playlist_manager, playlist, track, &item );
+	return player_change_track( player, item, when );
 }
 
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
@@ -248,12 +255,11 @@ void rewind_to_next_song( Player *player )
 	rewind_to_next( player, true );
 }
 
-void player_load_into_buffer( player, playlist_item )
+void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 {
 	bool done;
 	int res;
 	char *p;
-	const char *path;
 	int fd;
 	size_t buffer_free;
 	size_t *decoded_size;
@@ -291,7 +297,7 @@ void player_load_into_buffer( player, playlist_item )
 				sleep(1);
 				continue;
 			}
-			break
+			break;
 		}
 
 		for(;;) {
@@ -391,13 +397,13 @@ void player_load_into_buffer( player, playlist_item )
 	}
 }
 
-void player_mark_deleted( void *data )
-{
-	// scan through all songs in playqueue
-	if any of the song->next references the deleted
-	song, update the reference
-	then mark the buffer after the song as invalidated, and force a reload
-}
+//void player_mark_deleted( void *data )
+//{
+//	// scan through all songs in playqueue
+//	//if any of the song->next references the deleted
+//	//song, update the reference
+//	//then mark the buffer after the song as invalidated, and force a reload
+//}
 
 void player_reader_thread_run( void *data )
 {
@@ -406,7 +412,6 @@ void player_reader_thread_run( void *data )
 	int change_track = 0;;
 	int res;
 	PlayQueueItem *pqi = NULL;
-	char *p;
 
 	for(;;) {
 
@@ -418,6 +423,11 @@ void player_reader_thread_run( void *data )
 		}
 		pthread_mutex_unlock( &player->change_track_lock );
 
+		if( !playlist_item ) {
+			usleep(1000);
+			continue;
+		}
+
 		if( change_track == TRACK_CHANGE_IMMEDIATE ) {
 			// TODO
 			assert(0);
@@ -425,24 +435,18 @@ void player_reader_thread_run( void *data )
 			pthread_mutex_lock( &player->play_queue_lock );
 			res = play_queue_head( &player->play_queue, &pqi );
 			if( !res ) {
-				buffer_lock( CircularBuffer *buffer );
-				buffer_rewind_unsafe( &player->circular_buffer, p );
-				buffer_unlock( CircularBuffer *buffer );
+				buffer_lock( &player->circular_buffer );
+				buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
+				buffer_unlock( &player->circular_buffer );
 			}
 			play_queue_clear( &player->play_queue );
 			pthread_mutex_unlock( &player->play_queue_lock );
 		}
 
-		if( playlist_item ) {
-			player_load_into_buffer( player, playlist_item );
-		} else {
-			usleep(1000);
-		}
+		player_load_into_buffer( player, playlist_item );
 
 		playlist_manager_lock( player->playlist_manager );
-		if( playlist_item ) {
-			playlist_item = playlist_item->next;
-		}
+		playlist_item = playlist_item->next;
 		playlist_manager_unlock( player->playlist_manager );
 
 	}
@@ -656,102 +660,121 @@ void player_audio_thread_run( void *data )
 	// TODO figure out how much to reserve here
 	size_t max_size = player->max_payload_size * 10;
 
+	PlayQueueItem *pqi = NULL;
+	//PlaylistItem *playlist_item = NULL;
+
 	for(;;) {
-		//LOG_DEBUG("num_read=d num_read_total=d size[0]=d audio loop", num_read, num_read_total, size[0]);
-		num_read_total += num_read;
-		res = buffer_timedlock( &player->circular_buffer );
+		pthread_mutex_lock( &player->play_queue_lock );
+		res = play_queue_head( &player->play_queue, &pqi );
 		if( !res ) {
-			//lock acquired
-			if( num_read_total ) {
-				buffer_mark_read_unsafe( &player->circular_buffer, num_read_total );
-				//LOG_DEBUG("read=d incrased read", player->circular_buffer.read);
-				num_read_total = 0;
-			}
-			get_buffer_read_unsafe2( &player->circular_buffer, 0, &p[0], &size[0], &p[1], &size[1] ); //TODO remove maxsize arg
-			//LOG_DEBUG( "p1=p size1=d p2=p size2=d get_buffer_read_unsafe2", p[0], size[0], p[1], size[1] );
+			//playlist_item = pqi->playlist_item;
+			play_queue_pop( &player->play_queue );
+			pqi = NULL;
+		}
+		pthread_mutex_unlock( &player->play_queue_lock );
+		if( res ) {
+			// no track available
+			usleep(1000);
+			continue;
+		}
 
-			// dont consume too much at a time
-			if( size[0] > max_size ) {
-				size[0] = max_size;
-			}
-			if( size[1] > (max_size - size[0] ) ) {
-				size[1] = max_size - size[0];
+		for(;;) {
+			//LOG_DEBUG("num_read=d num_read_total=d size[0]=d audio loop", num_read, num_read_total, size[0]);
+			num_read_total += num_read;
+			res = buffer_timedlock( &player->circular_buffer );
+			if( !res ) {
+				//lock acquired
+				if( num_read_total ) {
+					buffer_mark_read_unsafe( &player->circular_buffer, num_read_total );
+					//LOG_DEBUG("read=d incrased read", player->circular_buffer.read);
+					num_read_total = 0;
+				}
+				get_buffer_read_unsafe2( &player->circular_buffer, 0, &p[0], &size[0], &p[1], &size[1] ); //TODO remove maxsize arg
+				//LOG_DEBUG( "p1=p size1=d p2=p size2=d get_buffer_read_unsafe2", p[0], size[0], p[1], size[1] );
+
+				// dont consume too much at a time
+				if( size[0] > max_size ) {
+					size[0] = max_size;
+				}
+				if( size[1] > (max_size - size[0] ) ) {
+					size[1] = max_size - size[0];
+				}
+
+				player->audio_thread_p[0] = p[0];
+				player->audio_thread_size[0] = size[0];
+				player->audio_thread_p[1] = p[1];
+				player->audio_thread_size[1] = size[1];
+
+				buffer_unlock( &player->circular_buffer );
+				num_read = 0;
+			} else {
+				//LOG_DEBUG("failed to acquire lock");
+				// unable to acquire lock
+				assert( num_read <= size[0] );
+				size[0] -= num_read;
+				p[0] = p[0] + num_read;
+				if( size[0] == 0 ) {
+					p[0] = p[1];
+					size[0] = size[1];
+					p[1] = NULL;
+					size[1] = 0;
+					//LOG_DEBUG("moving to pointer 2");
+				}
+				num_read = 0;
 			}
 
-			player->audio_thread_p[0] = p[0];
-			player->audio_thread_size[0] = size[0];
-			player->audio_thread_p[1] = p[1];
-			player->audio_thread_size[1] = size[1];
+			//LOG_DEBUG("p=p reading data", p[0]);
 
-			buffer_unlock( &player->circular_buffer );
-			num_read = 0;
-		} else {
-			//LOG_DEBUG("failed to acquire lock");
-			// unable to acquire lock
-			assert( num_read <= size[0] );
-			size[0] -= num_read;
-			p[0] = p[0] + num_read;
 			if( size[0] == 0 ) {
-				p[0] = p[1];
-				size[0] = size[1];
-				p[1] = NULL;
-				size[1] = 0;
-				//LOG_DEBUG("moving to pointer 2");
+				//LOG_DEBUG("buffer underrun");
+				continue;
 			}
-			num_read = 0;
-		}
 
-		//LOG_DEBUG("p=p reading data", p[0]);
+			q = p[0];
 
-		if( size[0] == 0 ) {
-			//LOG_DEBUG("buffer underrun");
-			continue;
-		}
+			payload_id = *(unsigned char*) q;
+			q++;
+			num_read++;
 
-		q = p[0];
-
-		payload_id = *(unsigned char*) q;
-		q++;
-		num_read++;
-
-		if( payload_id == ID_DATA_END ) {
-			LOG_DEBUG( " ----- trigger end of song ----- " );
-			continue;
-		}
-
-
-		if( payload_id == ID_DATA_START ) {
-			LOG_DEBUG( " ------------ reading ID_DATA_START ------------ " );
-			player->next_track = false;
-			memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
-			LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
-		//	call_observers( player );
-			num_read += sizeof(PlayerTrackInfo);
-			continue;
-		}
-		
-		//LOG_DEBUG( "reading header" );
-
-		// otherwise it must be audio data
-		assert( payload_id == AUDIO_DATA );
-
-		size_t decoded_size = *((size_t*) q);
-		q += sizeof(size_t);
-		num_read += sizeof(size_t);
-
-		//LOG_DEBUG( "q=p decode_size=d reading data", q, decoded_size );
-
-		chunk_size = 1024;
-		while( decoded_size > 0 ) {
-			if( decoded_size < chunk_size ) {
-				chunk_size = decoded_size;
+			if( payload_id == ID_DATA_END ) {
+				LOG_DEBUG( " ----- trigger end of song ----- " );
+				break;
 			}
-			if( !player->next_track ) {
-				ao_play( player->dev, q, chunk_size );
+
+
+			if( payload_id == ID_DATA_START ) {
+				LOG_DEBUG( " ------------ reading ID_DATA_START ------------ " );
+				player->next_track = false;
+				memcpy( &player->current_track, q, sizeof(PlayerTrackInfo) );
+				LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
+			//	call_observers( player );
+				num_read += sizeof(PlayerTrackInfo);
+				continue;
 			}
-			q += chunk_size;
-			decoded_size -= chunk_size;
-			num_read += chunk_size;
+			
+			//LOG_DEBUG( "reading header" );
+
+			// otherwise it must be audio data
+			assert( payload_id == AUDIO_DATA );
+
+			size_t decoded_size = *((size_t*) q);
+			q += sizeof(size_t);
+			num_read += sizeof(size_t);
+
+			//LOG_DEBUG( "q=p decode_size=d reading data", q, decoded_size );
+
+			chunk_size = 1024;
+			while( decoded_size > 0 ) {
+				if( decoded_size < chunk_size ) {
+					chunk_size = decoded_size;
+				}
+				if( !player->next_track ) {
+					ao_play( player->dev, q, chunk_size );
+				}
+				q += chunk_size;
+				decoded_size -= chunk_size;
+				num_read += chunk_size;
+			}
 		}
 	}
 }
