@@ -384,6 +384,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 					LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
 					break;
 			}
+			p += *decoded_size;
 			if( *decoded_size > 0 ) {
 				bytes_written += *decoded_size;
 				//LOG_DEBUG("size=d wrote decoded data", bytes_written);
@@ -737,6 +738,7 @@ void player_audio_thread_run( void *data )
 			q = p[0];
 
 			payload_id = *(unsigned char*) q;
+			LOG_DEBUG( "p=p payload=d foo", q, payload_id );
 			q++;
 			num_read++;
 
@@ -759,7 +761,6 @@ void player_audio_thread_run( void *data )
 			//LOG_DEBUG( "reading header" );
 
 			// otherwise it must be audio data
-			LOG_DEBUG( "pload=d foo", payload_id );
 			assert( payload_id == AUDIO_DATA );
 
 			size_t decoded_size = *((size_t*) q);
