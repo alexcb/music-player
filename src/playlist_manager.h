@@ -7,11 +7,8 @@
 
 typedef struct PlaylistManager
 {
-	Playlist *playlists[1024];
+	Playlist *root;
 	sds playlistPath;
-	int len;
-	int current;
-	volatile int version;
 	pthread_mutex_t lock;
 } PlaylistManager;
 
@@ -20,23 +17,11 @@ int playlist_manager_init( PlaylistManager *manager, const char *path );
 void playlist_manager_lock( PlaylistManager *manager );
 void playlist_manager_unlock( PlaylistManager *manager );
 
-// version changes whenever the playlist needs to be re-read from
-int playlist_manager_get_version( PlaylistManager *manager, int *version );
-
-//int playlist_manager_get_path( PlaylistManager *manager, int playlist, int track, const char **path );
-
-int playlist_manager_get_item( PlaylistManager *manager, int playlist, int track, PlaylistItem **item );
-
 int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, Playlist **p );
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p );
 int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name );
 
-int playlist_manager_get_length( PlaylistManager *manager, int *len );
-
 int load_quick_album( PlaylistManager *manager, const char *path );
-
-int playlist_manager_next( PlaylistManager *manager );
-int playlist_manager_prev( PlaylistManager *manager );
 
 int playlist_manager_save( PlaylistManager *manager );
 int playlist_manager_load( PlaylistManager *manager );
