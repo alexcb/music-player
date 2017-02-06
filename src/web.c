@@ -347,6 +347,28 @@ static int web_handler_websocket(
 	return ret;
 }
 
+static int web_handler_playlists_delete(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const char *upload_data,
+		size_t *upload_data_size,
+		void **con_cls)
+{
+	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
+
+	if( name != NULL && *name ) {
+		playlist_manager_delete_playlist( data->playlist_manager, name );
+	}
+
+	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
 static int web_handler_playlists_load(
 		WebHandlerData *data,
 		struct MHD_Connection *connection,
@@ -589,6 +611,10 @@ static int web_handler(
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/playlists/load") == 0 ) {
 		return web_handler_playlists_load( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+	}
+
+	if( strcmp( method, "DELETE" ) == 0 && strcmp(url, "/playlists") == 0 ) {
+		return web_handler_playlists_delete( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
 	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/playlists") == 0 ) {

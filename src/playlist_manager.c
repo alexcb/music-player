@@ -169,6 +169,21 @@ void playlist_manager_unlock( PlaylistManager *manager )
 //	return 1;
 //}
 
+int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name )
+{
+	for( int i = 0; i < manager->len; i++ ) {
+		Playlist *playlist = manager->playlists[i];
+		if( strcmp(playlist->name, name) == 0 ) {
+			if( i < (manager->len - 1) ) {
+				manager->playlists[i] = manager->playlists[manager->len - 1];
+			}
+			manager->len--;
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p )
 {
 	for( int i = 0; i < manager->len; i++ ) {

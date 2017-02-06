@@ -29,6 +29,7 @@ int playlist_manager_get_item( PlaylistManager *manager, int playlist, int track
 
 int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, Playlist **p );
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p );
+int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name );
 
 int playlist_manager_get_length( PlaylistManager *manager, int *len );
 
