@@ -340,9 +340,9 @@ void* gpio_input_thread_run( void *p )
 
 		data->player->playing = play_switch;
 		if( rotation_switch > 0 ) {
-			playlist_manager_next( data->playlist_manager );
+			//playlist_manager_next( data->playlist_manager );
 		} else if( rotation_switch < 0 ) {
-			playlist_manager_prev( data->playlist_manager );
+			//playlist_manager_prev( data->playlist_manager );
 		}
 		rotation_switch = 0;
 	}
@@ -396,8 +396,8 @@ int main(int argc, char *argv[])
 	//playlist_remove_item( playlist_manager.playlists[0], playlist_manager.playlists[0]->root->next ); 
 
 
-	LOG_DEBUG("changing track");
-	player_change_track_by_id( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );
+	//LOG_DEBUG("changing track");
+	//player_change_track_by_id( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );
 
 	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
 	if( res ) {

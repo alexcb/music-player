@@ -3,11 +3,14 @@
 #include <pthread.h>
 #include "circular_buffer.h"
 
+struct Playlist;
+
 typedef struct PlaylistItem
 {
 	char *path;
 	struct PlaylistItem *next;
 	struct PlaylistItem *prev;
+	struct Playlist *parent;
 } PlaylistItem;
 
 typedef struct Playlist

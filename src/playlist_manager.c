@@ -146,17 +146,11 @@ void playlist_manager_unlock( PlaylistManager *manager )
 
 int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name )
 {
-	Playlist **prev = &(manager->root);
-	while( *prev->next ) {
-		if( *prev->next
-	}
-
-
 	Playlist *prev = NULL;
 	Playlist **p = &(manager->root);
 	while( *p != NULL ) {
-		if( strcmp(p->name, name) == 0 ) {
-			*prev = (*p)->next;
+		if( strcmp((*p)->name, name) == 0 ) {
+			prev->next = (*p)->next;
 			//memory leak
 		} else {
 			prev = *p;
@@ -164,7 +158,7 @@ int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name
 		p = &((*p)->next);
 	}
 
-	return 1;
+	return 0;
 }
 
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p )
@@ -185,12 +179,9 @@ int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, P
 	if( res == 0 ) {
 		return 1;
 	}
-	if( manager->len >= 1024 ) {
-		return 2;
-	}
 
 	playlist_new( p, name );
-	p->next = manager->root;
+	(*p)->next = manager->root;
 	manager->root = *p;
 	return 0;
 }
@@ -254,40 +245,4 @@ int load_quick_album( PlaylistManager *manager, const char *path )
 	//manager->version++;
 	//pthread_mutex_unlock( &manager->lock );
 	return OK;
-}
-
-int playlist_manager_next( PlaylistManager *manager )
-{
-	int res;
-    res = pthread_mutex_lock( &manager->lock );
-	if( res ) {
-		return res;
-	}
-
-	manager->current++;
-	if( manager->current >= manager->len ) {
-		manager->current = 0;
-	}
-
-	manager->version++;
-    pthread_mutex_unlock( &manager->lock );
-	return res;
-}
-
-int playlist_manager_prev( PlaylistManager *manager )
-{
-	int res;
-    res = pthread_mutex_lock( &manager->lock );
-	if( res ) {
-		return res;
-	}
-
-	manager->current--;
-	if( manager->current < 0 ) {
-		manager->current = manager->len - 1;
-	}
-
-	manager->version++;
-    pthread_mutex_unlock( &manager->lock );
-	return res;
 }

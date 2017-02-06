@@ -47,6 +47,7 @@ int playlist_add_file( Playlist *playlist, const char *path )
 	PlaylistItem *item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
 	item->path = strdup( path );
 	item->next = NULL;
+	item->parent = playlist;
 
 	PlaylistItem *prev = NULL;
 	PlaylistItem **p = &(playlist->root);

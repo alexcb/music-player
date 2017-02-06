@@ -383,6 +383,8 @@ static int web_handler_playlists_load(
 	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
 	const char *paths = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "paths" );
 
+	LOG_DEBUG( "size=d here1", *upload_data_size);
+
 	if( name != NULL && *name && paths != NULL && paths ) {
 		playlist_manager_new_playlist( data->playlist_manager, name, &playlist );
 		playlist_clear( playlist );
@@ -440,10 +442,8 @@ static int web_handler_playlists(
 
 	playlist_manager_lock( data->playlist_manager );
 
-	Playlist *p;
-	for( int i = 0; i < data->playlist_manager->len; i++ ) {
+	for( Playlist *p = data->playlist_manager->root; p; p = p->next ) {
 		LOG_DEBUG("iter playlist");
-		p = data->playlist_manager->playlists[i];
 		json_object *playlist = json_object_new_object();
 		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
 		json_object *items = json_object_new_array();
@@ -460,7 +460,6 @@ static int web_handler_playlists(
 
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "playlists", playlists );
-	json_object_object_add( root_obj, "version", json_object_new_int( data->playlist_manager->version ) );
 
 	playlist_manager_unlock( data->playlist_manager );
 
@@ -518,26 +517,26 @@ static int web_handler_play(
 		size_t *upload_data_size,
 		void **con_cls)
 {
-	const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
-	const char *track = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
-	const char *enqueue = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "enqueue" );
+	//const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
+	//const char *track = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
+	//const char *enqueue = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "enqueue" );
 
-	bool ok = true;
+	//bool ok = true;
 
-	if( playlist && track ) {
-		errno = 0;
-		long int playlist_id = strtol(playlist, NULL, 10);
-		ok = ok && !errno;
+	//if( playlist && track ) {
+	//	errno = 0;
+	//	long int playlist_id = strtol(playlist, NULL, 10);
+	//	ok = ok && !errno;
 
-		long int track_id = strtol(track, NULL, 10);
-		ok = ok && !errno;
+	//	long int track_id = strtol(track, NULL, 10);
+	//	ok = ok && !errno;
 
-		int change_mode = enqueue ? TRACK_CHANGE_NEXT : TRACK_CHANGE_IMMEDIATE;
+	//	int change_mode = enqueue ? TRACK_CHANGE_NEXT : TRACK_CHANGE_IMMEDIATE;
 
-		if( ok ) {
-			player_change_track_by_id( data->player, playlist_id, track_id, change_mode );
-		}
-	}
+	//	if( ok ) {
+	//		player_change_track_by_id( data->player, playlist_id, track_id, change_mode );
+	//	}
+	//}
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);

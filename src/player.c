@@ -107,14 +107,6 @@ error:
 	return 1;
 }
 
-int player_change_track_by_id( Player *player, int playlist, int track, int when )
-{
-	PlaylistItem *item = NULL;
-	playlist_manager_get_item( player->playlist_manager, playlist, track, &item );
-	LOG_DEBUG("item=p calling player_change_track", item);
-	return player_change_track( player, item, when );
-}
-
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 {
 	if( when != TRACK_CHANGE_IMMEDIATE && when != TRACK_CHANGE_NEXT ) {
@@ -244,70 +236,6 @@ void rewind2( Player *player )
 	}
 
 	pthread_mutex_unlock( &player->circular_buffer.lock );
-}
-
-void rewind_to_next( Player *player, bool next_song )
-{
-	size_t decoded_size2;
-	char *pp[2];
-	size_t size[2];
-
-	LOG_DEBUG( "Searching for next song" );
-	pthread_mutex_lock( &player->circular_buffer.lock );
-
-	get_buffer_read_unsafe2( &player->circular_buffer, 0, &pp[0], &size[0], &pp[1], &size[1] );
-
-	size_t min_bytes_to_read = player->audio_thread_size[0] + player->audio_thread_size[1];
-	size_t num_read = 0;
-	char *found = NULL;
-	for( int j = 0; j < 2 && !found; j++ ) {
-		while( size[j] > 0 ) {
-			char *q = pp[j];
-
-			LOG_DEBUG( "j=d q=p here", j, q );
-			unsigned char payload_id = *(unsigned char*) q;
-			if( num_read >= min_bytes_to_read ) {
-				if( !next_song || payload_id == ID_DATA_START ) {
-					found = q;
-					break;
-				}
-			}
-			q++;
-			num_read++;
-			size[j]--;
-
-			if( payload_id == AUDIO_DATA ) {
-				decoded_size2 = *((size_t*) q);
-				q += sizeof(size_t);
-				num_read += sizeof(size_t);
-				size[j] -= sizeof(size_t);
-
-				q += decoded_size2;
-				num_read += decoded_size2;
-				size[j] -= decoded_size2;
-			} else {
-				assert( 0 ); //unsupported payload_id
-			}
-			pp[j] = q;
-		}
-	}
-
-	if( found ) {
-		LOG_DEBUG("p=p rewinding buffer", found);
-		buffer_rewind_unsafe( &player->circular_buffer, found );
-	}
-
-	pthread_mutex_unlock( &player->circular_buffer.lock );
-}
-
-void rewind_to_next_message( Player *player )
-{
-	rewind_to_next( player, false );
-}
-
-void rewind_to_next_song( Player *player )
-{
-	rewind_to_next( player, true );
 }
 
 void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
@@ -490,6 +418,7 @@ void player_reader_thread_run( void *data )
 			rewind2( player );
 			player->next_track = true;
 			pthread_mutex_unlock( &player->play_queue_lock );
+			change_track = 0;
 		} else if( change_track == TRACK_CHANGE_NEXT ) {
 			LOG_DEBUG("handling TRACK_CHANGE_NEXT");
 			pthread_mutex_lock( &player->play_queue_lock );
@@ -502,13 +431,18 @@ void player_reader_thread_run( void *data )
 			}
 			play_queue_clear( &player->play_queue );
 			pthread_mutex_unlock( &player->play_queue_lock );
+			change_track = 0;
 		}
 
 		player_load_into_buffer( player, playlist_item );
 
 		playlist_manager_lock( player->playlist_manager );
 		LOG_DEBUG("playlist_item=p next=p setting next song", playlist_item, playlist_item->next);
-		playlist_item = playlist_item->next;
+		if( playlist_item->next ) {
+			playlist_item = playlist_item->next;
+		} else {
+			playlist_item = playlist_item->parent->root;
+		}
 		playlist_manager_unlock( player->playlist_manager );
 	}
 }
