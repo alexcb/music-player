@@ -405,15 +405,16 @@ static int web_handler_playlists_play(
 		size_t *upload_data_size,
 		void **con_cls)
 {
-	const char *id = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
+	Playlist *playlist;
+	int res;
+	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
 
-	if( id != NULL ) {
-		errno = 0;
-		long int i = strtol(id, NULL, 10);
-		bool ok = !errno;
-
-		if( ok ) {
-			playlist_manager_set_playlist( data->playlist_manager, i );
+	if( name != NULL ) {
+		res = playlist_manager_get_playlist( data->playlist_manager, name, &playlist );
+		if( !res ) {
+			if( playlist->root ) {
+				player_change_track( data->player, playlist->root, TRACK_CHANGE_IMMEDIATE );
+			}
 		}
 	}
 

@@ -416,7 +416,6 @@ void player_reader_thread_run( void *data )
 	PlayQueueItem *pqi = NULL;
 
 	for(;;) {
-
 		pthread_mutex_lock( &player->change_track_lock );
 		if( player->change_track ) {
 			player->change_track = 0;
@@ -452,7 +451,6 @@ void player_reader_thread_run( void *data )
 		LOG_DEBUG("playlist_item=p next=p setting next song", playlist_item, playlist_item->next);
 		playlist_item = playlist_item->next;
 		playlist_manager_unlock( player->playlist_manager );
-
 	}
 }
 //

@@ -33,8 +33,6 @@ int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name
 
 int playlist_manager_get_length( PlaylistManager *manager, int *len );
 
-int playlist_manager_set_playlist( PlaylistManager *manager, int id );
-
 int load_quick_album( PlaylistManager *manager, const char *path );
 
 int playlist_manager_next( PlaylistManager *manager );
