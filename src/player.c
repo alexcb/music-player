@@ -194,45 +194,47 @@ bool get_text( Player *player ) {
 
 void rewind2( Player *player )
 {
-	size_t decoded_size2;
+	size_t decoded_size;
 	char *pp[2];
 	size_t size[2];
 
-	LOG_DEBUG( "Searching for next song" );
 	pthread_mutex_lock( &player->circular_buffer.lock );
 
 	get_buffer_read_unsafe2( &player->circular_buffer, 0, &pp[0], &size[0], &pp[1], &size[1] );
 
-	size_t min_bytes_to_read = player->audio_thread_size[0] + player->audio_thread_size[1];
-	size_t num_read = 0;
+	size_t num_read;
+	int num_messages = 0;
 	char *found = NULL;
 	for( int j = 0; j < 2 && !found; j++ ) {
+		LOG_DEBUG( "j=d size=d here", j, size[j] );
 		while( size[j] > 0 ) {
 			char *q = pp[j];
-
-			LOG_DEBUG( "j=d q=p here", j, q );
 			unsigned char payload_id = *(unsigned char*) q;
-			if( num_read >= min_bytes_to_read || (payload_id == ID_DATA_START && num_read > 0) ) {
+
+			if( ++num_messages == 2 ) {
 				found = q;
 				break;
 			}
+
 			q++;
-			num_read++;
-			size[j]--;
+			num_read = 1;
 
-			if( payload_id == AUDIO_DATA ) {
-				decoded_size2 = *((size_t*) q);
-				q += sizeof(size_t);
-				num_read += sizeof(size_t);
-				size[j] -= sizeof(size_t);
-
-				q += decoded_size2;
-				num_read += decoded_size2;
-				size[j] -= decoded_size2;
-			} else {
-				assert( 0 ); //unsupported payload_id
+			switch( payload_id ) {
+				case ID_DATA_START:
+					num_read += sizeof(PlayerTrackInfo);
+					break;
+				case ID_DATA_END:
+					break;
+				case AUDIO_DATA:
+					decoded_size = *((size_t*) q);
+					num_read += sizeof(size_t) + decoded_size;
+					break;
+				default:
+					assert( 0 ); //unsupported payload_id
 			}
-			pp[j] = q;
+
+			size[j] -= num_read;
+			pp[j] += num_read;
 		}
 	}
 
@@ -482,14 +484,14 @@ void player_reader_thread_run( void *data )
 		}
 
 		if( change_track == TRACK_CHANGE_IMMEDIATE ) {
+			LOG_DEBUG("handling TRACK_CHANGE_IMMEDIATE");
 			pthread_mutex_lock( &player->play_queue_lock );
 			play_queue_clear( &player->play_queue );
-
 			rewind2( player );
-			buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
-
+			player->next_track = true;
 			pthread_mutex_unlock( &player->play_queue_lock );
 		} else if( change_track == TRACK_CHANGE_NEXT ) {
+			LOG_DEBUG("handling TRACK_CHANGE_NEXT");
 			pthread_mutex_lock( &player->play_queue_lock );
 			res = play_queue_head( &player->play_queue, &pqi );
 			if( !res ) {
@@ -517,10 +519,9 @@ void player_audio_thread_run( void *data )
 	Player *player = (Player*) data;
 
 	size_t chunk_size;
-	char *q;
 	unsigned char payload_id;
 
-	size_t num_read = 0;
+	size_t num_read;
 
 	PlayQueueItem *pqi = NULL;
 	//PlaylistItem *playlist_item = NULL;
@@ -544,9 +545,10 @@ void player_audio_thread_run( void *data )
 		}
 
 		for(;;) {
+			num_read = 0;
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
-				usleep(10);
+				usleep(1000);
 				continue;
 			}
 

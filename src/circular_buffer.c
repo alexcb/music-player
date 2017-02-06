@@ -70,7 +70,7 @@ int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, 
 }
 
 
-int get_buffer_read_unsafe( CircularBuffer *buffer, size_t max_size, char **p, size_t *reserved_size )
+int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_size )
 {
 	if( buffer->read == buffer->len ) {
 		buffer->read = 0;
@@ -81,10 +81,6 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, size_t max_size, char **p, s
 	if( buffer->write <= buffer->read && buffer->read < buffer->len ) {
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->len - buffer->read;
-		if( *reserved_size > max_size ) {
-			*reserved_size = max_size;
-			buffer->read_reserved = buffer->read + *reserved_size;
-		}
 		return 0;
 	}
 
@@ -92,10 +88,6 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, size_t max_size, char **p, s
 	if( buffer->read < buffer->write ) {
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->write - buffer->read;
-		if( *reserved_size > max_size ) {
-			*reserved_size = max_size;
-			buffer->read_reserved = buffer->read + *reserved_size;
-		}
 		return 0;
 	}
 
@@ -103,22 +95,11 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, size_t max_size, char **p, s
 	return 1;
 }
 
-int get_buffer_read( CircularBuffer *buffer, size_t max_size, char **p, size_t *reserved_size )
+int get_buffer_read( CircularBuffer *buffer, char **p, size_t *reserved_size )
 {
 	int res;
-	struct timespec tspec;
-	tspec.tv_sec = 0;
-	tspec.tv_nsec = 100;
-	res = pthread_mutex_timedlock( &buffer->lock, &tspec );
-	if( res ) {
-		return res;
-	}
-
-	if( buffer->lock_reads == 1 ) {
-		res = 1;
-	} else {
-		res = get_buffer_read_unsafe( buffer, max_size, p, reserved_size );
-	}
+	pthread_mutex_lock( &buffer->lock );
+	res = get_buffer_read_unsafe( buffer, p, reserved_size );
 	pthread_mutex_unlock( &buffer->lock );
 	return res;
 }
