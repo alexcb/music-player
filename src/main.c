@@ -381,19 +381,19 @@ int main(int argc, char *argv[])
 	LOG_DEBUG("load done");
 
 	srand(time(NULL));
-	int x = rand() % album_list.len;
+	//int x = rand() % album_list.len;
 	//x = 123; //bob dylan
 	//x = 514; //nasa -- first song is short and has a playback bug -- it starts on track 2
 	//x = 740; //sun kil moon
 	//x = 805; //cramps
-	load_quick_album( &playlist_manager, album_list.list[x].path );
+	//load_quick_album( &playlist_manager, album_list.list[x].path );
 
-	playlist_clear( playlist_manager.playlists[0] );
-	playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_a.mp3" );
-	playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_b.mp3" );
-	playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_c.mp3" );
+	//playlist_clear( playlist_manager.playlists[0] );
+	//playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_a.mp3" );
+	//playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_b.mp3" );
+	//playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_c.mp3" );
 
-	playlist_remove_item( playlist_manager.playlists[0], playlist_manager.playlists[0]->root->next ); 
+	//playlist_remove_item( playlist_manager.playlists[0], playlist_manager.playlists[0]->root->next ); 
 
 
 	LOG_DEBUG("changing track");

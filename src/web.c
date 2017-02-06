@@ -413,33 +413,33 @@ static int web_handler_playlists(
 {
 	LOG_DEBUG("in web_handler_playlists");
 
-	//json_object *playlists = json_object_new_array();
+	json_object *playlists = json_object_new_array();
 
-	//playlist_manager_lock( data->playlist_manager );
+	playlist_manager_lock( data->playlist_manager );
 
-	//Playlist *p;
-	//for( int i = 0; i < data->playlist_manager->len; i++ ) {
-	//	LOG_DEBUG("playlist=d here", i);
-	//	p = data->playlist_manager->playlists[i];
-	//	json_object *playlist = json_object_new_object();
-	//	json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
-	//	json_object *items = json_object_new_array();
-	//	for( int j = 0; j < p->len; j++ ) {
-	//		LOG_DEBUG("song=d there", j);
-	//		json_object *item = json_object_new_object();
-	//		json_object_object_add( item, "path", json_object_new_string( p->list[j].path ) );
-	//		json_object_array_add( items, item );
-	//	}
-	//	json_object_object_add( playlist, "items", items );
+	Playlist *p;
+	for( int i = 0; i < data->playlist_manager->len; i++ ) {
+		LOG_DEBUG("iter playlist");
+		p = data->playlist_manager->playlists[i];
+		json_object *playlist = json_object_new_object();
+		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
+		json_object *items = json_object_new_array();
+		for( PlaylistItem *item = p->root; item != NULL; item = item->next ) {
+			LOG_DEBUG("iter item");
+			json_object *item_obj = json_object_new_object();
+			json_object_object_add( item_obj, "path", json_object_new_string( item->path ) );
+			json_object_array_add( items, item_obj );
+		}
+		json_object_object_add( playlist, "items", items );
 
-	//	json_object_array_add( playlists, playlist );
-	//}
+		json_object_array_add( playlists, playlist );
+	}
 
 	json_object *root_obj = json_object_new_object();
-	//json_object_object_add( root_obj, "playlists", playlists );
-	//json_object_object_add( root_obj, "version", json_object_new_int( data->playlist_manager->version ) );
+	json_object_object_add( root_obj, "playlists", playlists );
+	json_object_object_add( root_obj, "version", json_object_new_int( data->playlist_manager->version ) );
 
-	//playlist_manager_unlock( data->playlist_manager );
+	playlist_manager_unlock( data->playlist_manager );
 
 	const char *s = json_object_to_json_string( root_obj );
 	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
