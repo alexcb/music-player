@@ -188,8 +188,7 @@ static int web_handler_static(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
 	url = trim_prefix( url, "/static/" );
@@ -327,8 +326,7 @@ static int web_handler_websocket(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
 	const char *client_key = MHD_lookup_connection_value( connection, MHD_HEADER_KIND, "Sec-WebSocket-Key" );
@@ -357,8 +355,7 @@ static int web_handler_playlists_delete(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
 	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
@@ -379,23 +376,43 @@ static int web_handler_playlists_load(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
+	const char *name;
+	const char *s;
+	json_object *root_obj, *playlist_obj, *element_obj, *name_obj;
 	Playlist *playlist;
-	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
-	const char *paths = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "paths" );
 
-	if( *upload_data_size ) {
-		// parse json
+	root_obj = json_tokener_parse( request_body );
+	if( !json_object_is_type( root_obj, json_type_object ) ) {
+		return error_handler( connection, "failed decoding json" );
 	}
-	LOG_DEBUG( "size=d here1", *upload_data_size);
 
-	if( name != NULL && *name && paths != NULL && paths ) {
-		playlist_manager_new_playlist( data->playlist_manager, name, &playlist );
-		playlist_clear( playlist );
-		playlist_add_file( playlist, paths );
+	if( !json_object_object_get_ex( root_obj, "name", &name_obj ) ) {
+		return error_handler( connection, "failed decoding json" );
+	}
+	name = json_object_get_string( name_obj );
+	if( !name ) {
+		return error_handler( connection, "failed decoding json" );
+	}
+
+	if( !json_object_object_get_ex( root_obj, "playlist", &playlist_obj ) ) {
+		return error_handler( connection, "failed decoding json" );
+	}
+
+	// create new playlist (or get pre-existing)
+	playlist_manager_new_playlist( data->playlist_manager, name, &playlist );
+	playlist_clear( playlist );
+
+	int len = json_object_array_length( playlist_obj );
+	for( int i = 0; i < len; i++ ) {
+		element_obj = json_object_array_get_idx( playlist_obj, i );
+		if( !json_object_is_type( element_obj, json_type_string ) ) {
+			return error_handler( connection, "expected json array with string elements" );
+		}
+		s = json_object_get_string( element_obj );
+		playlist_add_file( playlist, s );
 	}
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
@@ -410,8 +427,7 @@ static int web_handler_playlists_play(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
 	Playlist *playlist;
@@ -439,8 +455,7 @@ static int web_handler_playlists(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
 	LOG_DEBUG("in web_handler_playlists");
@@ -487,8 +502,7 @@ static int web_handler_albums(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
 	LOG_DEBUG("in web_handler_albums");
@@ -520,8 +534,7 @@ static int web_handler_play(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
 	//const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
@@ -557,8 +570,7 @@ static int web_handler_albums_play(
 		const char *url,
 		const char *method,
 		const char *version,
-		const char *upload_data,
-		size_t *upload_data_size,
+		const sds request_body,
 		void **con_cls)
 {
 	const char *id = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
@@ -608,63 +620,49 @@ static int web_handler(
 		*upload_data_size = 0;
 		return MHD_YES;
 	}
-	
-	printf("got %d: %s\n", sdslen(request_session->body), request_session->body);
-	//int ret = error_handler( connection, "uploaded %d bytes", sdslen(request_session->body) );
-	//sdsfree( request_session->body );
-	//free( request_session );
-	//*con_cls = NULL;
-	//return ret;
 
-	//static int dummy;
-	//if (&dummy != *con_cls)
-	//{
-	//	LOG_INFO("url=s method=s handling request", url, method);
-	//	/* never respond on first call -- not sure why, but libhttpd does this everywhere */
-	//	*con_cls = &dummy;
-	//	return MHD_YES;
-	//}
-	*con_cls = NULL; /* reset when done -- again, not sure what this does */
+	// TODO free memory for request_session and request_session->body
+	*con_cls = NULL; // reset to signal we are done
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/websocket") == 0 ) {
-		return web_handler_websocket( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_websocket( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/albums") == 0 ) {
-		return web_handler_albums( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_albums( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/playlists") == 0 ) {
-		return web_handler_playlists( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_playlists( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/playlists/load") == 0 ) {
-		return web_handler_playlists_load( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_playlists_load( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "DELETE" ) == 0 && strcmp(url, "/playlists") == 0 ) {
-		return web_handler_playlists_delete( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_playlists_delete( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/playlists") == 0 ) {
-		return web_handler_playlists_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_playlists_play( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/albums") == 0 ) {
-		return web_handler_albums_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_albums_play( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/play") == 0 ) {
-		return web_handler_play( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_play( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "GET" ) == 0 && has_prefix(url, "/static/") ) {
-		return web_handler_static( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_static( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/") == 0 ) {
 		url = "/static/index.html";
-		return web_handler_static( data, connection, url, method, version, upload_data, upload_data_size, con_cls );
+		return web_handler_static( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	return error_handler( connection, "unable to dispatch url: %s", url );
