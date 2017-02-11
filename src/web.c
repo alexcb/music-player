@@ -22,6 +22,10 @@
 #include <json-c/json.h>
 #include <openssl/sha.h>
 
+typedef struct RequestSession {
+	sds body;
+} RequestSession;
+
 // from mhd upgrade example
 //static void make_blocking( MHD_socket fd )
 //{
@@ -383,6 +387,9 @@ static int web_handler_playlists_load(
 	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
 	const char *paths = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "paths" );
 
+	if( *upload_data_size ) {
+		// parse json
+	}
 	LOG_DEBUG( "size=d here1", *upload_data_size);
 
 	if( name != NULL && *name && paths != NULL && paths ) {
@@ -587,14 +594,36 @@ static int web_handler(
 {
 	WebHandlerData *data = (WebHandlerData*) cls;
 
-	static int dummy;
-	if (&dummy != *con_cls)
-	{
-		LOG_INFO("url=s method=s handling request", url, method);
-		/* never respond on first call -- not sure why, but libhttpd does this everywhere */
-		*con_cls = &dummy;
+	RequestSession *request_session;
+	if( *con_cls == NULL ) {
+		request_session = malloc(sizeof(RequestSession));
+		request_session->body = sdsempty();
+		*con_cls = (void*) request_session;
 		return MHD_YES;
 	}
+
+	request_session = (RequestSession*) *con_cls;
+	if( *upload_data_size ) {
+		request_session->body = sdscatlen( request_session->body, upload_data, *upload_data_size );
+		*upload_data_size = 0;
+		return MHD_YES;
+	}
+	
+	printf("got %d: %s\n", sdslen(request_session->body), request_session->body);
+	//int ret = error_handler( connection, "uploaded %d bytes", sdslen(request_session->body) );
+	//sdsfree( request_session->body );
+	//free( request_session );
+	//*con_cls = NULL;
+	//return ret;
+
+	//static int dummy;
+	//if (&dummy != *con_cls)
+	//{
+	//	LOG_INFO("url=s method=s handling request", url, method);
+	//	/* never respond on first call -- not sure why, but libhttpd does this everywhere */
+	//	*con_cls = &dummy;
+	//	return MHD_YES;
+	//}
 	*con_cls = NULL; /* reset when done -- again, not sure what this does */
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/websocket") == 0 ) {
