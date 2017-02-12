@@ -248,7 +248,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	char *p;
 	int fd;
 	size_t buffer_free;
-	size_t *decoded_size;
+	size_t decoded_size;
 
 	bool is_stream = false;
 	off_t icy_interval;
@@ -337,24 +337,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 			continue;
 		}
 
-		// dont read too much
-		buffer_free = player->max_payload_size;
-
-		//LOG_DEBUG("writing AUDIO_DATA header");
-		*((unsigned char*)p) = AUDIO_DATA;
-		p++;
-		buffer_free--;
-		bytes_written = 1;
-
-		// reserve some space for number of bytes decoded
-		decoded_size = (size_t*) p;
-		p += sizeof(size_t);
-		buffer_free -= sizeof(size_t);
-		bytes_written += sizeof(size_t);
-
-		*decoded_size = 0;
-
-		res = mpg123_read( player->mh, (unsigned char *)player->decode_buffer, player->decode_buffer_size, decoded_size);
+		res = mpg123_read( player->mh, (unsigned char *)player->decode_buffer, player->decode_buffer_size, &decoded_size);
 		switch( res ) {
 			case MPG123_OK:
 				break;
@@ -368,10 +351,26 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 				LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
 				break;
 		}
-		memcpy( p, player->decode_buffer, *decoded_size );
-		p += *decoded_size;
-		if( *decoded_size > 0 ) {
-			bytes_written += *decoded_size;
+
+		// dont read too much
+		buffer_free = player->max_payload_size;
+
+		//LOG_DEBUG("writing AUDIO_DATA header");
+		*((unsigned char*)p) = AUDIO_DATA;
+		p++;
+		buffer_free--;
+		bytes_written = 1;
+
+		// reserve some space for number of bytes decoded
+		*((size_t*)p) = decoded_size;
+		p += sizeof(size_t);
+		buffer_free -= sizeof(size_t);
+		bytes_written += sizeof(size_t);
+
+		memcpy( p, player->decode_buffer, decoded_size );
+		p += decoded_size;
+		if( decoded_size > 0 ) {
+			bytes_written += decoded_size;
 			//LOG_DEBUG("size=d wrote decoded data", bytes_written);
 			buffer_mark_written( &player->circular_buffer, bytes_written );
 		}
