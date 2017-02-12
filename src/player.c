@@ -260,6 +260,13 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 
 	PlayQueueItem *pqi = NULL;
 
+	// dont start loading a stream if paused
+	if( strstr(playlist_item->path, "http://") ) {
+		while( !player->playing ) {
+			usleep(100);
+		}
+	}
+
 	LOG_DEBUG("path=s opening file in reader", playlist_item->path);
 	res = open_fd( playlist_item->path, &fd, &is_stream, &icy_interval );
 	if( res ) {
@@ -307,6 +314,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	p++;
 	track_info = (PlayerTrackInfo*) p;
 	memset( track_info, 0, sizeof(PlayerTrackInfo) );
+	track_info->is_stream = is_stream;
 
 	res = mpg123_seek( player->mh, 0, SEEK_SET );
 	if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
@@ -333,6 +341,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 
 		if( !player->playing && is_stream ) {
 			// can't pause a stream; just quit
+			LOG_DEBUG("quit buffering due to pause of stream");
 			break;
 		}
 
@@ -374,6 +383,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 					bytes_written += 1 + sizeof(PlayerTrackInfo);
 
 					memset( track_info, 0, sizeof(PlayerTrackInfo) );
+					track_info->is_stream = is_stream;
 					strcpy( track_info->artist, "" );
 					strcpy( track_info->title, icy_title );
 					free( icy_title );
@@ -486,6 +496,7 @@ void player_audio_thread_run( void *data )
 	size_t buffer_avail;
 	char *p;
 	bool notified_no_songs = false;
+	bool last_play_state;
 	
 	for(;;) {
 		pthread_mutex_lock( &player->play_queue_lock );
@@ -507,6 +518,7 @@ void player_audio_thread_run( void *data )
 			continue;
 		}
 		notified_no_songs = false;
+		last_play_state = !player->playing;
 
 		for(;;) {
 			num_read = 0;
@@ -546,21 +558,30 @@ void player_audio_thread_run( void *data )
 			num_read += sizeof(size_t);
 
 			chunk_size = 1024;
-			bool last_play_state = !player->playing;
 			while( decoded_size > 0 ) {
 				if( last_play_state != player->playing ) {
+					LOG_DEBUG("calling obs here");
 					call_observers( player );
 					last_play_state = player->playing;
 				}
-				if( !player->playing && !player->next_track ) {
-					usleep(100);
-					continue;
-				}
+
 				if( decoded_size < chunk_size ) {
 					chunk_size = decoded_size;
 				}
+
 				if( !player->next_track ) {
-					ao_play( player->dev, p, chunk_size );
+					bool should_play = true;
+					if( !player->playing ) {
+						if( !player->current_track.is_stream) {
+							usleep(100);
+							continue;
+						}
+						should_play = false;
+					}
+
+					if( should_play ) {
+						ao_play( player->dev, p, chunk_size );
+					}
 				}
 				p += chunk_size;
 				decoded_size -= chunk_size;
