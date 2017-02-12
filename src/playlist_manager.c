@@ -53,6 +53,19 @@ int read_line(sds *buf, sds *line, int fd)
 	}
 }
 
+int playlist_manager_save( PlaylistManager *manager )
+{
+	FILE *fp = fopen ( manager->playlistPath, "w" );
+	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
+		fprintf( fp, "%s\n", x->name );
+		for( PlaylistItem *i = x->root; i != NULL; i = i->next ) {
+			fprintf( fp, " %s\n", i->path );
+		}
+	}
+	fclose( fp );
+	return 0;
+}
+
 int playlist_manager_load( PlaylistManager *manager )
 {
 	//int res;

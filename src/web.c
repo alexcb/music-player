@@ -402,6 +402,7 @@ static int web_handler_playlists_load(
 	}
 
 	// create new playlist (or get pre-existing)
+	playlist_manager_lock( data->playlist_manager );
 	playlist_manager_new_playlist( data->playlist_manager, name, &playlist );
 	playlist_clear( playlist );
 
@@ -414,6 +415,8 @@ static int web_handler_playlists_load(
 		s = json_object_get_string( element_obj );
 		playlist_add_file( playlist, s );
 	}
+	playlist_manager_save( data->playlist_manager );
+	playlist_manager_unlock( data->playlist_manager );
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
