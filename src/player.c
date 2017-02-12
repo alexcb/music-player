@@ -314,6 +314,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	p++;
 	track_info = (PlayerTrackInfo*) p;
 	memset( track_info, 0, sizeof(PlayerTrackInfo) );
+	track_info->playlist_item = playlist_item;
 	track_info->is_stream = is_stream;
 
 	res = mpg123_seek( player->mh, 0, SEEK_SET );
@@ -383,6 +384,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 					bytes_written += 1 + sizeof(PlayerTrackInfo);
 
 					memset( track_info, 0, sizeof(PlayerTrackInfo) );
+					track_info->playlist_item = playlist_item;
 					track_info->is_stream = is_stream;
 					strcpy( track_info->artist, "" );
 					strcpy( track_info->title, icy_title );

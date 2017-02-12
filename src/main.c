@@ -16,6 +16,7 @@
 #include "player.h"
 #include "albums.h"
 #include "playlist_manager.h"
+#include "playlist.h"
 #include "string_utils.h"
 #include "log.h"
 #include "errors.h"
@@ -87,11 +88,11 @@ void rotaryIntHandler()
 	int pin2 = digitalRead( PIN_ROTARY_2 );
 	int res = updateRotary(&rotary_state, pin1, pin2);
 	if( res > 0 ) {
-		//LOG_DEBUG( "clockwise" );
+		LOG_DEBUG( "clockwise" );
 		rotation_switch = 1;
 		pthread_cond_signal( &gpio_input_changed_cond );
 	} else if( res < 0 ) {
-		//LOG_DEBUG( "counter-clockwise" );
+		LOG_DEBUG( "counter-clockwise" );
 		rotation_switch = -1;
 		pthread_cond_signal( &gpio_input_changed_cond );
 	}
@@ -322,6 +323,40 @@ int load_albums( AlbumList *album_list, const char *path, mpg123_handle *mh )
 	return album_list_sort( album_list );
 }
 
+void change_playlist( Player *player, PlaylistManager *manager, int dir )
+{
+	LOG_DEBUG("player=p manager=p change_playlist", player, manager);
+	PlaylistItem *x = player->current_track.playlist_item;
+	if( !x ) {
+		LOG_ERROR("no playlist item");
+		return;
+	}
+	Playlist *p = x->parent;
+	if( !p ) {
+		LOG_ERROR("no parent playlist");
+		return;
+	}
+	if( dir > 0 ) {
+		p = p->next;
+		if( p == NULL ) {
+			p = manager->root;
+		}
+	} else if( dir < 0 ) {
+		p = p->prev;
+		if( p == NULL ) {
+			p = manager->root;
+			if( p ) {
+				while( p->next ) {
+					p = p->next;
+				}
+			}
+		}
+	}
+	if( p ) {
+		player_change_track( player, p->root, TRACK_CHANGE_IMMEDIATE );
+	}
+}
+
 void* gpio_input_thread_run( void *p )
 {
 	int res;
@@ -339,10 +374,8 @@ void* gpio_input_thread_run( void *p )
 		LOG_DEBUG("process GPIO input");
 
 		data->player->playing = play_switch;
-		if( rotation_switch > 0 ) {
-			//playlist_manager_next( data->playlist_manager );
-		} else if( rotation_switch < 0 ) {
-			//playlist_manager_prev( data->playlist_manager );
+		if( rotation_switch ) {
+			change_playlist( data->player, data->playlist_manager, rotation_switch );
 		}
 		rotation_switch = 0;
 	}

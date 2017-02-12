@@ -356,6 +356,7 @@ static int web_handler_playlists_delete(
 		void **con_cls)
 {
 	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
+	LOG_DEBUG("in web_handler_playlists_delete");
 
 	if( name != NULL && *name ) {
 		playlist_manager_delete_playlist( data->playlist_manager, name );
