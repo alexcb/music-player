@@ -13,6 +13,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdio.h>
+
 
 
 int playlist_manager_init( PlaylistManager *manager, const char *path )
@@ -28,34 +30,13 @@ int playlist_manager_init( PlaylistManager *manager, const char *path )
 	return 0;
 }
 
-int read_line(sds *buf, sds *line, int fd)
-{
-	int i = 0;
-	char tmp[1024];
-	for(;;) {
-		if( (*buf)[i] == '\0' ) {
-			// reached end of input, read more
-			int j = read( fd, tmp, 1024 );
-			if( j == 0 ) {
-				*line = sdscpy( *line, *buf );
-				return 1;
-			}
-			*buf = sdscatlen( *buf, tmp, j );
-		}
-		if( (*buf)[i] == '\n' ) {
-			*line = sdscpylen( *line, *buf, i );
-			int j = i + 1;
-			memmove( *buf, *buf + j, strlen(*buf + j) + 1 );
-			sdsupdatelen( *buf );
-			return 0;
-		}
-		i++;
-	}
-}
-
 int playlist_manager_save( PlaylistManager *manager )
 {
 	FILE *fp = fopen ( manager->playlistPath, "w" );
+	if( !fp ) {
+		LOG_ERROR("path=s failed to open playlist for writing", manager->playlistPath);
+		return 1;
+	}
 	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
 		fprintf( fp, "%s\n", x->name );
 		for( PlaylistItem *i = x->root; i != NULL; i = i->next ) {
@@ -68,70 +49,27 @@ int playlist_manager_save( PlaylistManager *manager )
 
 int playlist_manager_load( PlaylistManager *manager )
 {
-	//int res;
-	//pthread_mutex_lock( &manager->lock );
 
-	//if( manager->len )
-	//	LOG_WARN("memory leak");
-	//manager->len = 0;
+	FILE *fp = fopen ( manager->playlistPath, "r" );
+	if( !fp ) {
+		LOG_ERROR("path=s failed to open playlist for reading", manager->playlistPath);
+		return 1;
+	}
 
-	//// first playlist is always quick album
-	//res = playlist_new( &manager->playlists[0], "Quick Album" );
-	//if( res != 0 ) {
-	//	pthread_mutex_unlock( &manager->lock );
-	//	return res;
-	//}
-	//manager->len++;
-
-	//int fd = open( manager->playlistPath, O_RDONLY);
-	//if( fd < 0 ) {
-	//	LOG_ERROR("err=d failed to open playlist", fd);
-	//	pthread_mutex_unlock( &manager->lock );
-	//	return 1;
-	//}
-
-	//sds buf = sdsempty();
-	//sds line = sdsempty();
-
-	//int current_playlist = 0;
-	//int last_line = 0;
-	//while( !last_line ) {
-	//	printf("reading\n");
-	//	last_line = read_line( &buf, &line, fd );
-	//	printf("got line: '%s'\n", line);
-	//	if( line[0] == ' ' ) {
-	//		printf("adding\n");
-	//		// playlist item
-	//		if( current_playlist == 0 ) {
-	//			LOG_ERROR("no playlist name given");
-	//			pthread_mutex_unlock( &manager->lock );
-	//			return 1;
-	//		}
-	//		res = playlist_add_file( manager->playlists[current_playlist], &line[1] );
-	//		if( res != 0 ) {
-	//			LOG_ERROR("failed to add item to playlist");
-	//			return res;
-	//		}
-	//	} else if( line[0] == '\n' || line[0] == '\0' ) {
-	//		// skip
-	//		printf("skipping\n");
-	//	} else {
-	//		printf("new list\n");
-	//		// new playlist
-	//		current_playlist++;
-	//		res = playlist_new( &manager->playlists[current_playlist], line );
-	//		if( res != 0 ) {
-	//			LOG_ERROR("failed to create new playlist");
-	//			return res;
-	//		}
-	//	}
-	//}
-	//manager->len += current_playlist;
-
-	//sdsfree( buf );
-	//sdsfree( line );
-
-	//pthread_mutex_unlock( &manager->lock );
+	Playlist *playlist = NULL;
+	char *line = NULL;
+	size_t len = 0;
+	while( (read = getline(&line, &len, fp)) != -1 ) {
+		if( !line[0] )
+			continue;
+		if( line[0] == ' ' && playlist ) {
+			playlist_add_file( playlist, line[1] );
+		}
+		else if( line[0] != ' ' ) {
+			playlist = playlist_manager_new_playlist( manager, line );
+		}
+	}
+	fclose( fp );
 	return 0;
 }
 
@@ -144,18 +82,6 @@ void playlist_manager_unlock( PlaylistManager *manager )
 {
 	pthread_mutex_unlock( &manager->lock );
 }
-
-//int playlist_manager_get_path( PlaylistManager *manager, int playlist_id, int track, const char **path )
-//{
-//	if( 0 <= playlist_id && playlist_id < manager->len ) {
-//		Playlist *playlist = manager->playlists[playlist_id];
-//		if( 0 <= track && track <= playlist->len ) {
-//			*path = playlist->list[track].path;
-//			return 0;
-//		}
-//	}
-//	return 1;
-//}
 
 int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name )
 {
