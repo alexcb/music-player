@@ -49,8 +49,6 @@ int init_player( Player *player )
 	// TODO ensure that ID_DATA_START messages are smaller than this
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
-	player->playing_index = 0;
-
 	pthread_mutex_init( &player->change_track_lock, NULL );
 	player->change_track = 0;
 	player->change_playlist_item = NULL;
@@ -333,6 +331,11 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 			break;
 		}
 
+		if( !player->playing && is_stream ) {
+			// can't pause a stream; just quit
+			break;
+		}
+
 		// TODO ensure there is enough room for audio + potential ICY data; FIXME for now just multiply by 2
 		res = get_buffer_write( &player->circular_buffer, player->max_payload_size * 2, &p, &buffer_free );
 		if( res ) {
@@ -409,14 +412,6 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	buffer_mark_written( &player->circular_buffer, 1 );
 }
 
-//void player_mark_deleted( void *data )
-//{
-//	// scan through all songs in playqueue
-//	//if any of the song->next references the deleted
-//	//song, update the reference
-//	//then mark the buffer after the song as invalidated, and force a reload
-//}
-
 void player_reader_thread_run( void *data )
 {
 	Player *player = (Player*) data;
@@ -429,8 +424,8 @@ void player_reader_thread_run( void *data )
 		pthread_mutex_lock( &player->change_track_lock );
 		if( player->change_track ) {
 			change_track = player->change_track;
-			player->change_track = 0;
 			playlist_item = player->change_playlist_item;
+			player->change_track = 0;
 		}
 		pthread_mutex_unlock( &player->change_track_lock );
 
@@ -490,21 +485,28 @@ void player_audio_thread_run( void *data )
 	
 	size_t buffer_avail;
 	char *p;
+	bool notified_no_songs = false;
 	
 	for(;;) {
 		pthread_mutex_lock( &player->play_queue_lock );
 		res = play_queue_head( &player->play_queue, &pqi );
 		if( !res ) {
-			//playlist_item = pqi->playlist_item;
 			play_queue_pop( &player->play_queue );
 			pqi = NULL;
 		}
 		pthread_mutex_unlock( &player->play_queue_lock );
 		if( res ) {
+			//TODO call observers saying we're not playing anything. but only the first time.
 			// no track available
+			if( !notified_no_songs ) {
+				memset( &player->current_track, 0, sizeof(PlayerTrackInfo) );
+				call_observers( player );
+				notified_no_songs = true;
+			}
 			usleep(1000);
 			continue;
 		}
+		notified_no_songs = false;
 
 		for(;;) {
 			num_read = 0;
@@ -535,8 +537,6 @@ void player_audio_thread_run( void *data )
 				buffer_mark_read( &player->circular_buffer, num_read );
 				continue;
 			}
-			
-			//LOG_DEBUG( "reading header" );
 
 			// otherwise it must be audio data
 			assert( payload_id == AUDIO_DATA );
@@ -545,10 +545,17 @@ void player_audio_thread_run( void *data )
 			p += sizeof(size_t);
 			num_read += sizeof(size_t);
 
-			//LOG_DEBUG( "q=p decode_size=d reading data", q, decoded_size );
-
 			chunk_size = 1024;
+			bool last_play_state = !player->playing;
 			while( decoded_size > 0 ) {
+				if( last_play_state != player->playing ) {
+					call_observers( player );
+					last_play_state = player->playing;
+				}
+				if( !player->playing && !player->next_track ) {
+					usleep(100);
+					continue;
+				}
 				if( decoded_size < chunk_size ) {
 					chunk_size = decoded_size;
 				}
