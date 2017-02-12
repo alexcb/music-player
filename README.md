@@ -43,3 +43,15 @@ cd libmicrohttpd-0.9.52
 ./configure
 make
 make install
+
+
+
+
+
+
+# To load a new playlist
+POST /playlists/load
+{name: "foo", playlist: ["path/a", "path/b", ...]
+
+# To play a playlist
+curl -s -XPOST 'raspberrypi.local/playlists?name=foo&track=0'

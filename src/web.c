@@ -435,21 +435,29 @@ static int web_handler_playlists_play(
 {
 	Playlist *playlist;
 	int res;
+	int track = 0;
 	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
-
-	if( name != NULL ) {
-		res = playlist_manager_get_playlist( data->playlist_manager, name, &playlist );
-		if( !res ) {
-			if( playlist->root ) {
-				player_change_track( data->player, playlist->root, TRACK_CHANGE_IMMEDIATE );
-			}
-		}
+	const char *trackStr = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
+	if( trackStr ) {
+		track = atoi( trackStr );
+	}
+	if( !name ) {
+		return error_handler( connection, "no name given" );
 	}
 
-	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
-	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-	MHD_destroy_response(response);
-	return ret;
+	res = playlist_manager_get_playlist( data->playlist_manager, name, &playlist );
+	if( res ) {
+		return error_handler( connection, "failed to find playlist" );
+	}
+
+	PlaylistItem *x;
+	for( x = playlist->root; x && track > 0; x = x->next, track-- );
+	if( track > 0 ) {
+		return error_handler( connection, "track greater than playlist length" );
+	}
+	player_change_track( data->player, x, TRACK_CHANGE_IMMEDIATE );
+
+	return error_handler( connection, "ok" );
 }
 
 static int web_handler_playlists(
