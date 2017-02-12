@@ -20,13 +20,10 @@
 typedef struct PlayerTrackInfo {
 	char artist[PLAYER_ARTIST_LEN];
 	char title[PLAYER_TITLE_LEN];
-	int playlist_id;
-	int playlist_item;
-	int playlist_version;
-	bool is_stream;
+	PlaylistItem *playlist_item;
 } PlayerTrackInfo;
 
-typedef void (*MetadataObserver)(bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *data);
+typedef void (*MetadataObserver)(bool playing, const PlayerTrackInfo *track, void *data);
 
 typedef struct Player
 {

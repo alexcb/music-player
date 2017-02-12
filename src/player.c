@@ -145,7 +145,7 @@ int player_add_metadata_observer( Player *player, MetadataObserver observer, voi
 
 void call_observers( Player *player ) {
 	for( int i = 0; i < player->metadata_observers_num; i++ ) {
-		player->metadata_observers[i]( player->playing, "todo:playlist_name", &player->current_track, player->metadata_observers_data[i] );
+		player->metadata_observers[i]( player->playing, &player->current_track, player->metadata_observers_data[i] );
 	}
 }
 
@@ -530,7 +530,7 @@ void player_audio_thread_run( void *data )
 				player->next_track = false;
 				memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
 				LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
-			//	call_observers( player );
+				call_observers( player );
 				num_read += sizeof(PlayerTrackInfo);
 				buffer_mark_read( &player->circular_buffer, num_read );
 				continue;

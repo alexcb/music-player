@@ -94,16 +94,13 @@ int websocket_send( WebsocketData *ws, const char *payload )
 	return res;
 }
 
-void update_metadata_web_clients( bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *d )
+void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, void *d )
 {
 	WebHandlerData *data = (WebHandlerData*) d;
-	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_web_clients", playlist_name, track->artist, track->title );
+	LOG_DEBUG( "artist=s title=s update_metadata_web_clients", track->artist, track->title );
 
 	json_object *state = json_object_new_object();
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
-	json_object_object_add( state, "playlist_id", json_object_new_int( track->playlist_id ) );
-	json_object_object_add( state, "playlist_item", json_object_new_int( track->playlist_item ) );
-	json_object_object_add( state, "playlist_version", json_object_new_int( track->playlist_version ) );
 
 	const char *s = json_object_to_json_string( state );
 

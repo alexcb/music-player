@@ -45,7 +45,7 @@
 
 #define BITS 8
 
-void update_metadata_lcd(bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *data);
+void update_metadata_lcd(bool playing, const PlayerTrackInfo *track, void *data);
 
 //typedef struct Playlist
 //{
@@ -498,13 +498,18 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void update_metadata_lcd(bool playing, const char *playlist_name, const PlayerTrackInfo *track, void *data)
+void update_metadata_lcd(bool playing, const PlayerTrackInfo *track, void *data)
 {
+	char buf[1024];
 	LCDState *lcd_state = (LCDState*) data;
-	LOG_DEBUG( "playlist=s artist=s title=s update_metadata_lcd", playlist_name, track->artist, track->title );
+	LOG_DEBUG( "artist=s title=s update_metadata_lcd", track->artist, track->title );
 	if( playing ) {
-		char buf[1024];
-		snprintf( buf, 1024, "%s %s-%s", playlist_name, track->artist, track->title );
+		if( track->artist[0] ) {
+			snprintf( buf, 1024, "%s - %s", track->artist, track->title );
+		} else {
+			// streams do not include artist; it is already pre-formatted in title
+			snprintf( buf, 1024, "%s", track->title );
+		}
 		writeText( lcd_state, buf );
 	} else {
 		writeText( lcd_state, "paused" );
