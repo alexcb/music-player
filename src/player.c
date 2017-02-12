@@ -252,6 +252,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 
 	bool is_stream = false;
 	off_t icy_interval;
+	char *icy_meta;
 	size_t bytes_written;
 	
 	mpg123_id3v1 *v1;
@@ -350,6 +351,12 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 			default:
 				LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
 				break;
+		}
+		int meta = mpg123_meta_check( player->mh );
+		if( meta & MPG123_NEW_ICY ) {
+			if( mpg123_icy( player->mh, &icy_meta) == MPG123_OK ) {
+				printf("got ICY: %s\n", icy_meta);
+			}
 		}
 
 		// dont read too much
