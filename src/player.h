@@ -83,6 +83,8 @@ typedef struct Player
 
 	size_t max_payload_size;
 
+	size_t decode_buffer_size;
+	char *decode_buffer;
 } Player;
 
 

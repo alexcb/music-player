@@ -43,6 +43,9 @@ int init_player( Player *player )
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
 
+	player->decode_buffer_size = mpg123_outblock( player->mh );
+	player->decode_buffer = malloc(player->decode_buffer_size);
+
 	// TODO ensure that ID_DATA_START messages are smaller than this
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
@@ -351,7 +354,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 
 		*decoded_size = 0;
 
-		res = mpg123_read( player->mh, (unsigned char *)p, buffer_free, decoded_size);
+		res = mpg123_read( player->mh, (unsigned char *)player->decode_buffer, player->decode_buffer_size, decoded_size);
 		switch( res ) {
 			case MPG123_OK:
 				break;
@@ -365,6 +368,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 				LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
 				break;
 		}
+		memcpy( p, player->decode_buffer, *decoded_size );
 		p += *decoded_size;
 		if( *decoded_size > 0 ) {
 			bytes_written += *decoded_size;
