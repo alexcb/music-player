@@ -47,9 +47,17 @@ int playlist_manager_save( PlaylistManager *manager )
 	return 0;
 }
 
+void trim_suffix_newline(char *s)
+{
+	int i = strlen(s) - 1;
+	while( i >= 0 && s[i] == '\n' ) {
+		s[i] = '\0';
+		i--;
+	}
+}
+
 int playlist_manager_load( PlaylistManager *manager )
 {
-
 	FILE *fp = fopen ( manager->playlistPath, "r" );
 	if( !fp ) {
 		LOG_ERROR("path=s failed to open playlist for reading", manager->playlistPath);
@@ -59,14 +67,16 @@ int playlist_manager_load( PlaylistManager *manager )
 	Playlist *playlist = NULL;
 	char *line = NULL;
 	size_t len = 0;
-	while( (read = getline(&line, &len, fp)) != -1 ) {
+	while( getline( &line, &len, fp ) != -1 ) {
+		trim_suffix_newline( line );
+		LOG_DEBUG("line=s got line", line);
 		if( !line[0] )
 			continue;
 		if( line[0] == ' ' && playlist ) {
-			playlist_add_file( playlist, line[1] );
+			playlist_add_file( playlist, &line[1] );
 		}
 		else if( line[0] != ' ' ) {
-			playlist = playlist_manager_new_playlist( manager, line );
+			playlist_manager_new_playlist( manager, line, &playlist );
 		}
 	}
 	fclose( fp );
