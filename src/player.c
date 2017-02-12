@@ -253,7 +253,9 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	bool is_stream = false;
 	off_t icy_interval;
 	char *icy_meta;
+	char *icy_title;
 	size_t bytes_written;
+	PlayerTrackInfo *track_info;
 	
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
@@ -305,7 +307,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	//LOG_DEBUG("p=p writing ID_DATA_START header", p);
 	*((unsigned char*)p) = ID_DATA_START;
 	p++;
-	PlayerTrackInfo *track_info = (PlayerTrackInfo*) p;
+	track_info = (PlayerTrackInfo*) p;
 	memset( track_info, 0, sizeof(PlayerTrackInfo) );
 
 	res = mpg123_seek( player->mh, 0, SEEK_SET );
@@ -331,13 +333,15 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 			break;
 		}
 
-		res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
+		// TODO ensure there is enough room for audio + potential ICY data; FIXME for now just multiply by 2
+		res = get_buffer_write( &player->circular_buffer, player->max_payload_size * 2, &p, &buffer_free );
 		if( res ) {
 			//LOG_DEBUG("buffer full");
 			sleep(1);
 			continue;
 		}
 
+		bytes_written = 0;
 		res = mpg123_read( player->mh, (unsigned char *)player->decode_buffer, player->decode_buffer_size, &decoded_size);
 		switch( res ) {
 			case MPG123_OK:
@@ -355,30 +359,44 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 		int meta = mpg123_meta_check( player->mh );
 		if( meta & MPG123_NEW_ICY ) {
 			if( mpg123_icy( player->mh, &icy_meta) == MPG123_OK ) {
-				printf("got ICY: %s\n", icy_meta);
+				res = parse_icy( icy_meta, &icy_title );
+				if( res ) {
+					LOG_ERROR( "icymeta=s failed to decode icy", icy_meta );
+				} else {
+					*((unsigned char*)p) = ID_DATA_START;
+					p++;
+					track_info = (PlayerTrackInfo*) p;
+					p += sizeof(PlayerTrackInfo);
+
+					bytes_written += 1 + sizeof(PlayerTrackInfo);
+
+					memset( track_info, 0, sizeof(PlayerTrackInfo) );
+					strcpy( track_info->artist, "" );
+					strcpy( track_info->title, icy_title );
+					free( icy_title );
+				}
 			}
 		}
 
-		// dont read too much
-		buffer_free = player->max_payload_size;
-
-		//LOG_DEBUG("writing AUDIO_DATA header");
-		*((unsigned char*)p) = AUDIO_DATA;
-		p++;
-		buffer_free--;
-		bytes_written = 1;
-
-		// reserve some space for number of bytes decoded
-		*((size_t*)p) = decoded_size;
-		p += sizeof(size_t);
-		buffer_free -= sizeof(size_t);
-		bytes_written += sizeof(size_t);
-
-		memcpy( p, player->decode_buffer, decoded_size );
-		p += decoded_size;
 		if( decoded_size > 0 ) {
+			//LOG_DEBUG("writing AUDIO_DATA header");
+			*((unsigned char*)p) = AUDIO_DATA;
+			p++;
+			bytes_written += 1;
+			buffer_free--;
+
+			// reserve some space for number of bytes decoded
+			*((size_t*)p) = decoded_size;
+			p += sizeof(size_t);
+			buffer_free -= sizeof(size_t);
+			bytes_written += sizeof(size_t);
+
+			memcpy( p, player->decode_buffer, decoded_size );
+			p += decoded_size;
 			bytes_written += decoded_size;
-			//LOG_DEBUG("size=d wrote decoded data", bytes_written);
+		}
+
+		if( bytes_written > 0 ) {
 			buffer_mark_written( &player->circular_buffer, bytes_written );
 		}
 	}
