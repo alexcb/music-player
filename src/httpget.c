@@ -318,7 +318,7 @@ int fill_request(mpg123_string *request, mpg123_string *host, mpg123_string *por
 	if((ttemp = strchr(request->p,'\n')) != NULL){ *ttemp = 0; request->fill = ttemp-request->p+1; }
 
 	/* Fill out the request further... */
-	if(   !mpg123_add_string(request, " HTTP/1.0\r\nUser-Agent: musicplayer-dev")
+	if(   !mpg123_add_string(request, " HTTP/1.0\r\nUser-Agent: musicplayer-dev\r\nicy-metadata: 1\r\n")
 		 || !mpg123_add_string(request, "\r\n") )
 	return FALSE;
 

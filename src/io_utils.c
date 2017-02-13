@@ -44,15 +44,6 @@ int open_stream( const char *url, int *fd, long int *icy_interval )
 	LOG_DEBUG( "url=s open_stream", url );
 	*fd = http_open(url, &hd);
 	*icy_interval = hd.icy_interval;
-	//printf("setting icy %ld\n", hd.icy_interval);
-	//if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, hd.icy_interval, 0)) {
-	//	printf("unable to set icy interval\n");
-	//	return 1;
-	//}
-	//if(mpg123_open_fd(mh, *fd) != MPG123_OK) {
-	//	printf("error\n");
-	//	return 1;
-	//}
 
 	return 0;
 }
