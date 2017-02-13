@@ -413,25 +413,6 @@ int main(int argc, char *argv[])
 	}
 	LOG_DEBUG("load done");
 
-	srand(time(NULL));
-	//int x = rand() % album_list.len;
-	//x = 123; //bob dylan
-	//x = 514; //nasa -- first song is short and has a playback bug -- it starts on track 2
-	//x = 740; //sun kil moon
-	//x = 805; //cramps
-	//load_quick_album( &playlist_manager, album_list.list[x].path );
-
-	//playlist_clear( playlist_manager.playlists[0] );
-	//playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_a.mp3" );
-	//playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_b.mp3" );
-	//playlist_add_file( playlist_manager.playlists[0], "/home/alex/song_c.mp3" );
-
-	//playlist_remove_item( playlist_manager.playlists[0], playlist_manager.playlists[0]->root->next ); 
-
-
-	//LOG_DEBUG("changing track");
-	//player_change_track_by_id( &player, 0, 0, TRACK_CHANGE_IMMEDIATE );
-
 	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
 	if( res ) {
 		LOG_ERROR("failed to init gpio_input_changed_cond");
@@ -518,6 +499,11 @@ int main(int argc, char *argv[])
 	if( res ) {
 		LOG_ERROR("failed to register observer");
 		return 1;
+	}
+
+	if( playlist_manager.root ) {
+		PlaylistItem *x = playlist_manager.root->root;
+		player_change_track( &player, x, TRACK_CHANGE_IMMEDIATE );
 	}
 
 	LOG_DEBUG("running server");
