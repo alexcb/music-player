@@ -482,6 +482,8 @@ static int web_handler_playlists(
 			LOG_DEBUG("iter item");
 			json_object *item_obj = json_object_new_object();
 			json_object_object_add( item_obj, "path", json_object_new_string( item->path ) );
+			json_object_object_add( item_obj, "artist", json_object_new_string( item->artist ) );
+			json_object_object_add( item_obj, "title", json_object_new_string( item->title ) );
 			json_object_array_add( items, item_obj );
 		}
 		json_object_object_add( playlist, "items", items );
