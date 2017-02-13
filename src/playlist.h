@@ -2,12 +2,18 @@
 
 #include <pthread.h>
 #include "circular_buffer.h"
+#include "sds.h"
+#include <stdbool.h>
 
 struct Playlist;
 
 typedef struct PlaylistItem
 {
-	char *path;
+	int ref_count;
+	sds path;
+	sds artist;
+	sds title;
+	bool is_stream;
 	struct PlaylistItem *next;
 	struct PlaylistItem *prev;
 	struct Playlist *parent;
@@ -15,10 +21,8 @@ typedef struct PlaylistItem
 
 typedef struct Playlist
 {
-	char *name;
-	int len;
-	int cap;
-	int current;
+	int ref_count;
+	sds name;
 	PlaylistItem *root;
 	struct Playlist *next;
 	struct Playlist *prev;
@@ -30,5 +34,11 @@ int playlist_clear( Playlist *playlist );
 int playlist_add_file( Playlist *playlist, const char *path );
 int playlist_remove_item( Playlist *playlist, PlaylistItem *item );
 void playlist_sort_by_path( Playlist *playlist );
+
+int playlist_ref_up( Playlist *playlist );
+int playlist_ref_down( Playlist *playlist );
+
+int playlist_item_ref_up( PlaylistItem *item );
+int playlist_item_ref_down( PlaylistItem *item );
 
 int open_file( const char *path, int *fd );

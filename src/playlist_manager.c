@@ -95,32 +95,22 @@ void playlist_manager_unlock( PlaylistManager *manager )
 
 int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name )
 {
-	LOG_DEBUG("playlist_manager_delete_playlist");
 	Playlist *p = manager->root;
 	while( p != NULL ) {
-		LOG_DEBUG("name=s here", name);
 		if( strcmp(p->name, name) == 0 ) {
-			LOG_DEBUG("prev=p next=p here2", p->prev, p->next);
 			if( p->prev ) {
-				LOG_DEBUG("a");
 				p->prev->next = p->next;
 			} else {
-				LOG_DEBUG("b");
 				manager->root = p->next;
 			}
 			if( p->next ) {
-				LOG_DEBUG("c");
 				p->next->prev = p->prev;
 			}
-			//TODO delete p FIXME memory leak
-			LOG_DEBUG("d");
+			playlist_ref_down( p );
 			break;
 		}
-		LOG_DEBUG("e");
 		p = p->next;
 	}
-	LOG_DEBUG("done");
-
 	return 0;
 }
 

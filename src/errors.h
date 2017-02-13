@@ -4,6 +4,7 @@
 
 typedef enum {
 	OK = 0,
+	UNKNOWN_ERROR,
 	OUT_OF_MEMORY,
 	MUTEX_ERROR,
 	FILESYSTEM_ERROR,
