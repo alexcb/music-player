@@ -2,4 +2,4 @@
 
 #include <stdbool.h>
 
-int open_fd( const char *path, int *fd, bool *is_stream, long int *icy_interval );
+int open_fd( const char *path, int *fd, bool *is_stream, long int *icy_interval, char **icy_name );

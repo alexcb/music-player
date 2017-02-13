@@ -252,6 +252,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	off_t icy_interval;
 	char *icy_meta;
 	char *icy_title;
+	char *icy_name = NULL;
 	size_t bytes_written;
 	PlayerTrackInfo *track_info;
 	
@@ -268,7 +269,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	}
 
 	LOG_DEBUG("path=s opening file in reader", playlist_item->path);
-	res = open_fd( playlist_item->path, &fd, &is_stream, &icy_interval );
+	res = open_fd( playlist_item->path, &fd, &is_stream, &icy_interval, &icy_name );
 	if( res ) {
 		LOG_ERROR( "unable to open" );
 		playlist_manager_unlock( player->playlist_manager );
@@ -316,6 +317,9 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	memset( track_info, 0, sizeof(PlayerTrackInfo) );
 	track_info->playlist_item = playlist_item;
 	track_info->is_stream = is_stream;
+	if( icy_name ) {
+		strcpy( track_info->icy_name, icy_name );
+	}
 
 	res = mpg123_seek( player->mh, 0, SEEK_SET );
 	if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
@@ -388,6 +392,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 					track_info->is_stream = is_stream;
 					strcpy( track_info->artist, "" );
 					strcpy( track_info->title, icy_title );
+					strcpy( track_info->icy_name, icy_name );
 					free( icy_title );
 				}
 			}

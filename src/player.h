@@ -22,6 +22,7 @@ typedef struct PlayerTrackInfo {
 	char title[PLAYER_TITLE_LEN];
 	PlaylistItem *playlist_item;
 	bool is_stream;
+	char icy_name[PLAYER_TITLE_LEN];
 } PlayerTrackInfo;
 
 typedef void (*MetadataObserver)(bool playing, const PlayerTrackInfo *track, void *data);

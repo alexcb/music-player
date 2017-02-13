@@ -527,7 +527,11 @@ void update_metadata_lcd(bool playing, const PlayerTrackInfo *track, void *data)
 			snprintf( buf, 1024, "%s - %s", track->artist, track->title );
 		} else {
 			// streams do not include artist; it is already pre-formatted in title
-			snprintf( buf, 1024, "%s", track->title );
+			if( track->title[0] ) {
+				snprintf( buf, 1024, "%s", track->title );
+			} else {
+				snprintf( buf, 1024, "%s", track->icy_name );
+			}
 		}
 		writeText( lcd_state, buf );
 	} else {
