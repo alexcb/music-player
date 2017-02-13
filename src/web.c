@@ -473,6 +473,8 @@ static int web_handler_playlists(
 
 	playlist_manager_lock( data->playlist_manager );
 
+	char pointer[16];
+
 	for( Playlist *p = data->playlist_manager->root; p; p = p->next ) {
 		LOG_DEBUG("iter playlist");
 		json_object *playlist = json_object_new_object();
@@ -484,6 +486,8 @@ static int web_handler_playlists(
 			json_object_object_add( item_obj, "path", json_object_new_string( item->path ) );
 			json_object_object_add( item_obj, "artist", json_object_new_string( item->artist ) );
 			json_object_object_add( item_obj, "title", json_object_new_string( item->title ) );
+			sprintf( pointer, "%p", item );
+			json_object_object_add( item_obj, "id", json_object_new_string( pointer ) );
 			json_object_array_add( items, item_obj );
 		}
 		json_object_object_add( playlist, "items", items );
