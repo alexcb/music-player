@@ -24,6 +24,7 @@ typedef struct Playlist
 	int ref_count;
 	sds name;
 	PlaylistItem *root;
+	PlaylistItem *current;
 	struct Playlist *next;
 	struct Playlist *prev;
 } Playlist;

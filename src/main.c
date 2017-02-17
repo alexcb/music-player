@@ -353,7 +353,11 @@ void change_playlist( Player *player, PlaylistManager *manager, int dir )
 		}
 	}
 	if( p ) {
-		player_change_track( player, p->root, TRACK_CHANGE_IMMEDIATE );
+		PlaylistItem *x = p->root;
+		if( p->current && p->current->next ) {
+			x = p->current->next;
+		}
+		player_change_track( player, x, TRACK_CHANGE_IMMEDIATE );
 	}
 }
 

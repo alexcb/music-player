@@ -28,6 +28,7 @@ int playlist_new( Playlist **playlist, const char *name )
 	}
 
 	(*playlist)->root = NULL;
+	(*playlist)->current = NULL;
 
 	return OK;
 }

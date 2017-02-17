@@ -117,7 +117,11 @@ int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 	LOG_DEBUG("changing player track");
 	pthread_mutex_lock( &player->change_track_lock );
 	player->change_track = when;
+	if( player->change_playlist_item ) {
+		playlist_item_ref_down( player->change_playlist_item );
+	}
 	player->change_playlist_item = playlist_item;
+	playlist_item_ref_up( player->change_playlist_item );
 	pthread_mutex_unlock( &player->change_track_lock );
 
 	return 0;
@@ -145,44 +149,6 @@ void call_observers( Player *player ) {
 	for( int i = 0; i < player->metadata_observers_num; i++ ) {
 		player->metadata_observers[i]( player->playing, &player->current_track, player->metadata_observers_data[i] );
 	}
-}
-
-bool get_text( Player *player ) {
-	//mpg123_id3v1 *v1;
-	//mpg123_id3v2 *v2;
-	//char *icy_meta;
-	//int res;
-
-	//int meta = mpg123_meta_check( player->mh );
-	//if( meta & MPG123_NEW_ID3 ) {
-	//	if( mpg123_id3( player->mh, &v1, &v2) == MPG123_OK ) {
-	//		if( v2 != NULL ) {
-	//			//strncpy( player->artist, v2->artist->p, PLAYER_ARTIST_LEN );
-	//			//strncpy( player->title, v2->title->p, PLAYER_TITLE_LEN );
-	//			return true;
-	//		} else if( v1 != NULL ) {
-	//			//strncpy( player->artist, v1->artist, PLAYER_ARTIST_LEN );
-	//			//strncpy( player->title, v1->title, PLAYER_TITLE_LEN );
-	//			return true;
-	//		}
-	//	}
-	//}
-	//if( meta & MPG123_NEW_ICY ) {
-	//	if( mpg123_icy( player->mh, &icy_meta) == MPG123_OK ) {
-	//		printf("got ICY: %s\n", icy_meta);
-	//		char *station;
-	//		res = parse_icy( icy_meta, &station );
-	//		if( res ) {
-	//			LOG_ERROR( "icymeta=s failed to decode icy", icy_meta );
-	//		} else {
-	//			strncpy( player->artist, station, PLAYER_ARTIST_LEN );
-	//			strncpy( player->title, "", PLAYER_TITLE_LEN );
-	//			free( station );
-	//			return true;
-	//		}
-	//	}
-	//}
-	return false;
 }
 
 void rewind2( Player *player )
@@ -550,6 +516,7 @@ void player_audio_thread_run( void *data )
 				LOG_DEBUG( " ------------ reading ID_DATA_START ------------ " );
 				player->next_track = false;
 				memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
+				player->current_track.playlist_item->parent->current = player->current_track.playlist_item;
 				LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
 				call_observers( player );
 				num_read += sizeof(PlayerTrackInfo);
