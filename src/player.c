@@ -146,9 +146,11 @@ int player_add_metadata_observer( Player *player, MetadataObserver observer, voi
 }
 
 void call_observers( Player *player ) {
+	LOG_DEBUG("start call observers");
 	for( int i = 0; i < player->metadata_observers_num; i++ ) {
 		player->metadata_observers[i]( player->playing, &player->current_track, player->metadata_observers_data[i] );
 	}
+	LOG_DEBUG("done call observers");
 }
 
 void rewind2( Player *player )
