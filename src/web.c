@@ -98,23 +98,17 @@ void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, vo
 {
 	char pointer[16];
 	WebHandlerData *data = (WebHandlerData*) d;
-	LOG_DEBUG( "artist=s title=s update_metadata_web_clients", track->artist, track->title );
-	LOG_DEBUG( "playlistitem=p here 0", track->playlist_item );
+	LOG_DEBUG( "playlistitem=p update_metadata_web_clients", track->playlist_item );
 
 	json_object *state = json_object_new_object();
-	LOG_DEBUG( "here 1" );
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
-	LOG_DEBUG( "here 2" );
-	json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->title ) );
-	LOG_DEBUG( "here 3" );
-	json_object_object_add( state, "title", json_object_new_string( track->playlist_item->title ) );
-	LOG_DEBUG( "here 4" );
+	if( track->playlist_item ) {
+		json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->title ) );
+		json_object_object_add( state, "title", json_object_new_string( track->playlist_item->title ) );
+	}
 	sprintf( pointer, "%p", track->playlist_item );
-	LOG_DEBUG( "here 5" );
 	json_object_object_add( state, "id", json_object_new_string( pointer ) );
 
-
-	LOG_DEBUG( "here 6" );
 	const char *s = json_object_to_json_string( state );
 
 	pthread_mutex_lock( &data->current_track_payload_lock );
