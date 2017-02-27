@@ -9,6 +9,7 @@ struct Playlist;
 
 typedef struct PlaylistItem
 {
+	int id;
 	int ref_count;
 	sds path;
 	sds artist;
@@ -21,6 +22,7 @@ typedef struct PlaylistItem
 
 typedef struct Playlist
 {
+	int id;
 	int ref_count;
 	sds name;
 	PlaylistItem *root;

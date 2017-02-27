@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+int playlist_id_next = 0;
 
 int playlist_new( Playlist **playlist, const char *name )
 {
@@ -29,6 +30,7 @@ int playlist_new( Playlist **playlist, const char *name )
 
 	(*playlist)->root = NULL;
 	(*playlist)->current = NULL;
+	(*playlist)->id = playlist_id_next++;
 
 	return OK;
 }
@@ -115,6 +117,7 @@ int playlist_add_file( Playlist *playlist, const char *path )
 
 	*p = item;
 	item->prev = prev;
+	item->id = playlist_id_next++;
 
 	return OK;
 }

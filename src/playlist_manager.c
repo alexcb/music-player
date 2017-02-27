@@ -203,3 +203,16 @@ int load_quick_album( PlaylistManager *manager, const char *path )
 	//pthread_mutex_unlock( &manager->lock );
 	return OK;
 }
+
+int playlist_manager_get_item_by_id( PlaylistManager *manager, int id, PlaylistItem **i )
+{
+	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
+		for( PlaylistItem *j = x->root; j != NULL; j = j->next ) {
+			if( j->id == id ) {
+				*i = j;
+				return OK;
+			}
+		}
+	}
+	return NOT_FOUND;
+}

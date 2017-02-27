@@ -480,21 +480,17 @@ static int web_handler_playlists(
 
 	playlist_manager_lock( data->playlist_manager );
 
-	char pointer[16];
-
 	for( Playlist *p = data->playlist_manager->root; p; p = p->next ) {
-		LOG_DEBUG("iter playlist");
 		json_object *playlist = json_object_new_object();
 		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
+		json_object_object_add( playlist, "id", json_object_new_int( p->id ) );
 		json_object *items = json_object_new_array();
 		for( PlaylistItem *item = p->root; item != NULL; item = item->next ) {
-			LOG_DEBUG("iter item");
 			json_object *item_obj = json_object_new_object();
 			json_object_object_add( item_obj, "path", json_object_new_string( item->path ) );
 			json_object_object_add( item_obj, "artist", json_object_new_string( item->artist ) );
 			json_object_object_add( item_obj, "title", json_object_new_string( item->title ) );
-			sprintf( pointer, "%p", item );
-			json_object_object_add( item_obj, "id", json_object_new_string( pointer ) );
+			json_object_object_add( item_obj, "id", json_object_new_int( item->id ) );
 			json_object_array_add( items, item_obj );
 		}
 		json_object_object_add( playlist, "items", items );
@@ -559,26 +555,21 @@ static int web_handler_play(
 		const sds request_body,
 		void **con_cls)
 {
-	//const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
-	//const char *track = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
-	//const char *enqueue = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "enqueue" );
-
-	//bool ok = true;
-
-	//if( playlist && track ) {
-	//	errno = 0;
-	//	long int playlist_id = strtol(playlist, NULL, 10);
-	//	ok = ok && !errno;
-
-	//	long int track_id = strtol(track, NULL, 10);
-	//	ok = ok && !errno;
-
-	//	int change_mode = enqueue ? TRACK_CHANGE_NEXT : TRACK_CHANGE_IMMEDIATE;
-
-	//	if( ok ) {
-	//		player_change_track_by_id( data->player, playlist_id, track_id, change_mode );
-	//	}
-	//}
+	int res;
+	const char *id_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "id" );
+	if( id_str ) {
+		LOG_DEBUG("id=s got id", id_str);
+		errno = 0;
+		long int id = strtol( id_str, NULL, 10 );
+		if( !errno ) {
+			LOG_DEBUG("id=d got id", id);
+			PlaylistItem *x;
+			res = playlist_manager_get_item_by_id( data->playlist_manager, id, &x );
+			if( res == OK ) {
+				player_change_track( data->player, x, TRACK_CHANGE_IMMEDIATE );
+			}
+		}
+	}
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
