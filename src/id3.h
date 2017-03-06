@@ -28,7 +28,10 @@ typedef struct ID3Cache
 {
 	mpg123_handle *mh;
 	ID3CacheItem *root;
+	const char *path;
 } ID3Cache;
 
-int id3_cache_new( ID3Cache **cache, mpg123_handle *mh );
+int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh );
 int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item );
+int id3_cache_add( ID3Cache *cache, const char *path );
+int id3_cache_save( ID3Cache *cache );

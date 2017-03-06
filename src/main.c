@@ -27,6 +27,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "id3.h"
+
 
 #define PIN_ROTARY_1 8
 #define PIN_ROTARY_2 9
@@ -386,13 +388,58 @@ void* gpio_input_thread_run( void *p )
 	return NULL;
 }
 
+void find_tracks( ID3Cache *cache, const char *path )
+{
+	struct dirent *dirent;
+
+	sds s = sdsnew(path);
+
+	LOG_DEBUG( "path=s opening dir", path );
+	DIR *dir = opendir(path);
+	if( dir == NULL ) {
+		LOG_ERROR( "path=s err=s opendir failed", path, strerror(errno) );
+		sdsfree(s);
+	}
+
+	while( (dirent = readdir(dir)) != NULL) {
+		if( strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0 ) {
+			continue;
+		}
+
+		sdsclear( s );
+		s = sdscatfmt( s, "%s/%s", path, dirent->d_name );
+
+		if( dirent->d_type == DT_DIR ) {
+			find_tracks( cache, s );
+			continue;
+		}
+
+
+		if( has_suffix( s, ".mp3" ) ) {
+			LOG_DEBUG( "path=s opening file", s );
+			id3_cache_add( cache, s );
+		}
+	}
+	closedir( dir );
+}
 
 int main(int argc, char *argv[])
 {
 	int res;
 	Player player;
+	ID3Cache *cache;
 
 	init_player( &player );
+
+	res = id3_cache_new( &cache, "/tmp/id3_cache", player.mh );
+	if( res ) {
+		LOG_ERROR("failed to load cache");
+		return 1;
+	}
+
+	find_tracks( cache, "/media/nugget_share/music/alex-beet" );
+	id3_cache_save( cache );
+	return 0;
 
 	AlbumList album_list;
 	res = album_list_init( &album_list );

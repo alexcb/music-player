@@ -1,5 +1,3 @@
-#include <stdbool.h>
-#include <mpg123.h>
 
 #include "id3.h"
 #include "log.h"
@@ -10,6 +8,8 @@
 #include "io_utils.h"
 
 #include <stdio.h>
+#include <stdbool.h>
+#include <mpg123.h>
 
 
 
@@ -60,29 +60,69 @@ error:
 	return res;
 }
 
-int id3_cache_new( ID3Cache **cache, mpg123_handle *mh )
+int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh )
 {
 	*cache = (ID3Cache*) malloc(sizeof(ID3Cache));
 	(*cache)->root = NULL;
 	(*cache)->mh = mh;
+	(*cache)->path = path;
 	return 0;
 }
 
 int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 {
+	LOG_INFO( "path=s cache_get", path );
 	int res;
 	ID3CacheItem id;
 	id.path = (char*) path;
 	*item = sglib_ID3CacheItem_find_member( cache->root, &id );
-	if( item == NULL ) {
+	if( *item == NULL ) {
+		LOG_INFO( "path=s adding", cache->path );
 		*item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
 		res = id3_get( cache, path, *item );
 		if( !res ) {
+			LOG_INFO( "path=s failed to read mp3 id3", cache->path );
 			free( *item );
 			return 1;
 		}
+		LOG_INFO( "path=s adding done", cache->path );
 		sglib_ID3CacheItem_add( &(cache->root), *item );
 	}
 	return 0;
 }
 
+int id3_cache_add( ID3Cache *cache, const char *path )
+{
+	ID3CacheItem *item;
+	return id3_cache_get( cache, path, &item );
+}
+
+void write_str( FILE *fp, const char *s )
+{
+	int n = strlen( s );
+	fwrite( &n, sizeof(int), 1, fp );
+	fwrite( s, 1, n, fp );
+}
+
+int id3_cache_save( ID3Cache *cache )
+{
+	LOG_INFO( "path=s saving id3 cache", cache->path );
+	FILE *fp = fopen ( cache->path, "wb" );
+	if( !fp ) {
+		LOG_ERROR( "path=s failed to open library for writing", cache->path );
+		return 1;
+	}
+	struct sglib_ID3CacheItem_iterator it;
+	ID3CacheItem *te;
+	for( te=sglib_ID3CacheItem_it_init_inorder(&it, cache->root); te!=NULL; te=sglib_ID3CacheItem_it_next(&it) ) {
+		write_str( fp, te->path );
+		write_str( fp, te->album );
+		write_str( fp, te->artist );
+		write_str( fp, te->title );
+	}
+	LOG_INFO( "path=s done saving id3 cache", cache->path );
+
+	fclose( fp );
+	return 0;
+
+}
