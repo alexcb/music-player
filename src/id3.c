@@ -62,12 +62,69 @@ error:
 	return res;
 }
 
+int read_str( FILE *fp, sds *s )
+{
+	int res;
+	int n;
+	res = fread( &n, sizeof(int), 1, fp );
+	if( res != 1 ) {
+		return 1;
+	}
+	*s = sdsnewlen( fp, n+1 );
+	fread( *s, 1, n, fp );
+	sdsrange( *s, 0, n-1 );
+	return 0;
+}
+
+int id3_cache_load( ID3Cache *cache )
+{
+	int res;
+	LOG_INFO( "path=s saving id3 cache", cache->path );
+	FILE *fp = fopen ( cache->path, "rb" );
+	if( !fp ) {
+		LOG_ERROR( "path=s failed to open library for reading", cache->path );
+		return 1;
+	}
+	// Versioning
+	sds version;
+	res = read_str( fp, &version );
+	if( res ) {
+		LOG_ERROR( "unable to read version" );
+	}
+	printf("got -%s-\n", version);
+	sdsfree(version);
+
+	ID3CacheItem *item;
+
+	for(;;) {
+		item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
+		res = read_str( fp, &item->path);
+		if( res ) {
+			free(item);
+			break;
+		}
+
+		res = read_str( fp, &item->album  ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_str( fp, &item->artist ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_str( fp, &item->title  ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		
+		LOG_INFO( "path=s adding cache entry", item->path );
+		sglib_ID3CacheItem_add( &(cache->root), item );
+	}
+	LOG_INFO( "path=s done reading cache", cache->path );
+
+	fclose( fp );
+	return 0;
+}
+
 int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh )
 {
 	*cache = (ID3Cache*) malloc(sizeof(ID3Cache));
 	(*cache)->root = NULL;
 	(*cache)->mh = mh;
 	(*cache)->path = path;
+
+	id3_cache_load( *cache );
 	return 0;
 }
 
@@ -90,6 +147,7 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 		LOG_INFO( "path=s adding done", cache->path );
 		sglib_ID3CacheItem_add( &(cache->root), *item );
 	}
+	(*item)->seen = true;
 	return 0;
 }
 
@@ -114,10 +172,12 @@ int id3_cache_save( ID3Cache *cache )
 		LOG_ERROR( "path=s failed to open library for writing", cache->path );
 		return 1;
 	}
+	// Versioning
+	write_str( fp, "a" );
+
 	struct sglib_ID3CacheItem_iterator it;
 	ID3CacheItem *te;
 	for( te=sglib_ID3CacheItem_it_init_inorder(&it, cache->root); te!=NULL; te=sglib_ID3CacheItem_it_next(&it) ) {
-		printf("saving %s\n", te->path);
 		write_str( fp, te->path );
 		write_str( fp, te->album );
 		write_str( fp, te->artist );

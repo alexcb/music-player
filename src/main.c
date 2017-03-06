@@ -437,7 +437,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	find_tracks( cache, "/media/nugget_share/music/alex-beet/R.E.M_" );
+	find_tracks( cache, "/media/nugget_share/music/alex-beet" );
 	id3_cache_save( cache );
 	return 0;
 

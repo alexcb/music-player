@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <mpg123.h>
+#include <stdbool.h>
 
 #include "sglib.h"
 #include "sds.h"
@@ -13,6 +14,8 @@ typedef struct ID3CacheItem
 	sds album;
 	sds title;
 	sds path;
+
+	bool seen;
 
 	char color_field;
 	struct ID3CacheItem *left;
