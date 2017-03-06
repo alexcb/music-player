@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#include <dirent.h> 
+#include <dirent.h>
 
 
 #include "httpget.h"

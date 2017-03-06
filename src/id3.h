@@ -1,0 +1,34 @@
+#pragma once
+
+#include <stddef.h>
+#include <string.h>
+#include <mpg123.h>
+
+#include "sglib.h"
+
+
+typedef struct ID3CacheItem
+{
+	char *artist;
+	char *album;
+	char *title;
+	char *path;
+
+	char color_field;
+	struct ID3CacheItem *left;
+	struct ID3CacheItem *right;
+} ID3CacheItem;
+
+#define ID3CACHE_CMPARATOR(x,y) strcmp((x)->path, (y)->path)
+
+SGLIB_DEFINE_RBTREE_PROTOTYPES(ID3CacheItem, left, right, color_field, ID3CACHE_CMPARATOR)
+
+
+typedef struct ID3Cache
+{
+	mpg123_handle *mh;
+	ID3CacheItem *root;
+} ID3Cache;
+
+int id3_cache_new( ID3Cache **cache, mpg123_handle *mh );
+int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item );
