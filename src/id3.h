@@ -5,14 +5,14 @@
 #include <mpg123.h>
 
 #include "sglib.h"
-
+#include "sds.h"
 
 typedef struct ID3CacheItem
 {
-	char *artist;
-	char *album;
-	char *title;
-	char *path;
+	sds artist;
+	sds album;
+	sds title;
+	sds path;
 
 	char color_field;
 	struct ID3CacheItem *left;

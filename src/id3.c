@@ -28,6 +28,8 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	LOG_DEBUG( "seek" );
 	mpg123_seek( cache->mh, 0, SEEK_SET );
 
+	item->path = sdsnew( path );
+
 	LOG_DEBUG( "reading id3" );
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
@@ -38,17 +40,17 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 			res = 0;
 			if( v2 != NULL ) {
 				LOG_DEBUG( "populating metadata with id3 v2" );
-				if( v2->artist )
-					strcpy( item->artist, v2->artist->p );
-				if( v2->album )
-					strcpy( item->album, v2->album->p );
-				if( v2->title )
-					strcpy( item->title, v2->title->p );
+				if( v2->artist && v2->artist->p)
+					item->artist = sdsnew( v2->artist->p );
+				if( v2->album && v2->album->p)
+					item->album = sdsnew( v2->album->p );
+				if( v2->title && v2->title->p)
+					item->title = sdsnew( v2->title->p );
 			} else if( v1 != NULL ) {
 				LOG_DEBUG( "populating metadata with id3 v1" );
-				strcpy( item->artist, v1->artist );
-				strcpy( item->title, v1->title );
-				strcpy( item->album, v1->album );
+				item->artist = sdsnew( v1->artist );
+				item->title = sdsnew( v1->title );
+				item->album = sdsnew( v1->album );
 			} else {
 				assert( false );
 			}
@@ -74,14 +76,14 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 	LOG_INFO( "path=s cache_get", path );
 	int res;
 	ID3CacheItem id;
-	id.path = (char*) path;
+	id.path = (sds) path;
 	*item = sglib_ID3CacheItem_find_member( cache->root, &id );
 	if( *item == NULL ) {
-		LOG_INFO( "path=s adding", cache->path );
+		LOG_INFO( "path=s adding", path );
 		*item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
 		res = id3_get( cache, path, *item );
-		if( !res ) {
-			LOG_INFO( "path=s failed to read mp3 id3", cache->path );
+		if( res ) {
+			LOG_INFO( "path=s failed to read mp3 id3", path );
 			free( *item );
 			return 1;
 		}
@@ -115,6 +117,7 @@ int id3_cache_save( ID3Cache *cache )
 	struct sglib_ID3CacheItem_iterator it;
 	ID3CacheItem *te;
 	for( te=sglib_ID3CacheItem_it_init_inorder(&it, cache->root); te!=NULL; te=sglib_ID3CacheItem_it_next(&it) ) {
+		printf("saving %s\n", te->path);
 		write_str( fp, te->path );
 		write_str( fp, te->album );
 		write_str( fp, te->artist );
