@@ -402,6 +402,7 @@ void find_tracks( ID3Cache *cache, const char *path )
 	}
 
 	while( (dirent = readdir(dir)) != NULL) {
+		LOG_DEBUG( "path=s readdir", dirent->d_name );
 		if( strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0 ) {
 			continue;
 		}
@@ -438,6 +439,7 @@ int main(int argc, char *argv[])
 	}
 
 	find_tracks( cache, "/media/nugget_share/music/alex-beet" );
+	LOG_INFO("saving cache");
 	id3_cache_save( cache );
 	return 0;
 
