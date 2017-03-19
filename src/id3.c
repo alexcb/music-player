@@ -70,6 +70,10 @@ int read_str( FILE *fp, sds *s )
 	if( res != 1 ) {
 		return 1;
 	}
+	if( n < 0 ) {
+		*s = NULL;
+		return 0;
+	}
 	*s = sdsnewlen( fp, n+1 );
 	fread( *s, 1, n, fp );
 	sdsrange( *s, 0, n-1 );
@@ -138,6 +142,7 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 	if( *item == NULL ) {
 		LOG_INFO( "path=s adding", path );
 		*item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
+		memset( *item, 0, sizeof(ID3CacheItem) );
 		res = id3_get( cache, path, *item );
 		if( res ) {
 			LOG_INFO( "path=s failed to read mp3 id3", path );
@@ -159,9 +164,14 @@ int id3_cache_add( ID3Cache *cache, const char *path )
 
 void write_str( FILE *fp, const char *s )
 {
-	int n = strlen( s );
+	int n = -1;
+	if( s ) {
+		n = strlen( s );
+	}
 	fwrite( &n, sizeof(int), 1, fp );
-	fwrite( s, 1, n, fp );
+	if( n > 0 ) {
+		fwrite( s, 1, n, fp );
+	}
 }
 
 int id3_cache_save( ID3Cache *cache )
