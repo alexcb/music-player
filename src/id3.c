@@ -173,14 +173,19 @@ int id3_cache_save( ID3Cache *cache )
 		return 1;
 	}
 	// Versioning
+	LOG_INFO( "saving verson" );
 	write_str( fp, "a" );
 
 	struct sglib_ID3CacheItem_iterator it;
 	ID3CacheItem *te;
 	for( te=sglib_ID3CacheItem_it_init_inorder(&it, cache->root); te!=NULL; te=sglib_ID3CacheItem_it_next(&it) ) {
+		LOG_INFO( "x=s saving item path", te->path );
 		write_str( fp, te->path );
+		LOG_INFO( "x=s saving item album", te->album );
 		write_str( fp, te->album );
+		LOG_INFO( "x=s saving item artist", te->artist );
 		write_str( fp, te->artist );
+		LOG_INFO( "x=s saving item title", te->title );
 		write_str( fp, te->title );
 	}
 	LOG_INFO( "path=s done saving id3 cache", cache->path );

@@ -438,6 +438,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	// Boredoms -- funky id3 logic
 	find_tracks( cache, "/media/nugget_share/music/alex-beet" );
 	LOG_INFO("saving cache");
 	id3_cache_save( cache );
