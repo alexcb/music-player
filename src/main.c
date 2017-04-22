@@ -444,12 +444,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	char *music_path = "/media/nugget_share/music/alex-beet";
+
 	// This pre-populates the id3 cache
 	// this does not create the album list
 	// this code will be removed, and caching can simply be done while reading albums
 	if (0) {
 		int limit = 100;
-		find_tracks( cache, "/media/nugget_share/music/alex-beet", &limit );
+		find_tracks( cache, music_path, &limit );
 		LOG_INFO("saving cache");
 		id3_cache_save( cache );
 		return 0;
@@ -458,9 +460,17 @@ int main(int argc, char *argv[])
 	AlbumList album_list;
 	res = album_list_init( &album_list, cache );
 	if( res ) {
-		LOG_ERROR("failed to init album list");
+		LOG_ERROR("err=d failed to init album list", res);
 		return 1;
 	}
+	int albumlimit = 25;
+	res = album_list_load( &album_list, music_path, &albumlimit );
+	if( res ) {
+		LOG_ERROR("err=d failed to load albums", res);
+		return 1;
+	}
+	
+
 	//res = load_albums( &album_list, "/media/nugget_share/music/alex-beet", player.mh );
 	//if( res ) {
 	//	LOG_ERROR("failed to load album list");

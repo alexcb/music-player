@@ -8,9 +8,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dirent.h>
+#include <errno.h>
 
-#define INITIAL_ALBUM_LIST_CAP 1024
-//#define INITIAL_ALBUM_LIST_CAP 5000
+#include "log.h"
+
+
+
+SGLIB_DEFINE_RBTREE_FUNCTIONS(Album, left, right, color_field, ALBUM_CMPARATOR)
 
 int album_list_init( AlbumList *album_list, ID3Cache *cache )
 {
@@ -19,61 +24,65 @@ int album_list_init( AlbumList *album_list, ID3Cache *cache )
 	return 0;
 }
 
-//int album_list_load( AlbumList *album_list, const char *rootpath, int *limit )
-//{
-//	int res;
-//	char artist_path[1024];
-//	struct dirent *artist_dirent, *album_dirent;
-//	char artist[1024];
-//	char album[1024];
-//
-//	DIR *artist_dir = opendir(path);
-//	if( artist_dir == NULL ) {
-//		LOG_ERROR("path=s err=s opendir failed", path, strerror(errno));
-//		return FILESYSTEM_ERROR;
-//	}
-//
-//	int max_load = 3;
-//
-//	while( (artist_dirent = readdir(artist_dir)) != NULL) {
-//		if( artist_dirent->d_type != DT_DIR || strcmp(artist_dirent->d_name, ".") == 0 || strcmp(artist_dirent->d_name, "..") == 0 ) {
-//			continue;
-//		}
-//		
-//		sprintf(artist_path, "%s/%s", path, artist_dirent->d_name);
-//		LOG_DEBUG("path=s opening dir", artist_path);
-//		DIR *album_dir = opendir(artist_path);
-//		if( artist_dir == NULL ) {
-//			LOG_ERROR("path=s err=s opendir failed", artist_path, strerror(errno));
-//			return FILESYSTEM_ERROR;
-//		}
-//
-//		while( (album_dirent = readdir( album_dir )) != NULL) {
-//			if( album_dirent->d_type != DT_DIR || strcmp(album_dirent->d_name, ".") == 0 || strcmp(album_dirent->d_name, "..") == 0 ) {
-//				continue;
-//			}
-//
-//			// this is actually now the path to the album
-//			sprintf(artist_path, "%s/%s/%s", path, artist_dirent->d_name, album_dirent->d_name);
-//
-//			strcpy( artist, artist_dirent->d_name );
-//			strcpy( album, album_dirent->d_name );
-//			get_album_id3_data_from_album_path( mh, artist_path, artist, album );
-//
-//			res = album_list_add( album_list, artist, album, artist_path );
-//			if( res ) {
-//				return res;
-//			}
-//			
-//		}
-//		closedir( album_dir );
-//
-//		if( max_load-- <= 0 ) break;
-//	}
-//	closedir( artist_dir );
-//
-//	return album_list_sort( album_list );
-//}
+int album_list_load( AlbumList *album_list, const char *path, int *limit )
+{
+	if( limit && *limit == 0 ) { return 0; }
+	struct dirent *artist_dirent, *album_dirent;
+
+	DIR *artist_dir = opendir(path);
+	if( artist_dir == NULL ) {
+		LOG_ERROR("path=s err=s opendir failed", path, strerror(errno));
+		return FILESYSTEM_ERROR;
+	}
+
+	sds s = sdsnew(path);
+
+	while( (artist_dirent = readdir(artist_dir)) != NULL) {
+		if( artist_dirent->d_type != DT_DIR || strcmp(artist_dirent->d_name, ".") == 0 || strcmp(artist_dirent->d_name, "..") == 0 ) {
+			continue;
+		}
+
+		if( limit ) {
+			if( *limit == 0 ) break;
+			(*limit)--;
+		}
+
+		sdsclear( s );
+		s = sdscatfmt( s, "%s/%s", path, artist_dirent->d_name );
+		
+		LOG_DEBUG("path=s opening dir", s);
+		DIR *album_dir = opendir(s);
+		if( artist_dir == NULL ) {
+			LOG_ERROR("path=s err=s opendir failed", s, strerror(errno));
+			sdsfree( s );
+			return FILESYSTEM_ERROR;
+		}
+
+		while( (album_dirent = readdir( album_dir )) != NULL) {
+			if( album_dirent->d_type != DT_DIR || strcmp(album_dirent->d_name, ".") == 0 || strcmp(album_dirent->d_name, "..") == 0 ) {
+				continue;
+			}
+
+			// path to album
+			sdsclear( s );
+			s = sdscatfmt( s, "%s/%s/%s", path, artist_dirent->d_name, album_dirent->d_name);
+
+			// save album
+			Album *album = (Album*) malloc(sizeof(Album));
+			if( album == NULL ) {
+				LOG_ERROR("allocation failed");
+				return 1;
+			}
+			memset( album, 0, sizeof(Album) );
+			album->path = sdsdup( s );
+			sglib_Album_add( &(album_list->root), album );
+		}
+		closedir( album_dir );
+	}
+	closedir( artist_dir );
+
+	return 0;
+}
 //
 //
 //int album_list_grow( AlbumList *album_list )

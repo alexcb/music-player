@@ -18,8 +18,8 @@ typedef struct Album
 	bool seen;
 
 	char color_field;
-	struct ID3CacheItem *left;
-	struct ID3CacheItem *right;
+	struct Album *left;
+	struct Album *right;
 } Album;
 
 #define ALBUM_CMPARATOR(x,y) strcmp((x)->path, (y)->path)
@@ -32,6 +32,6 @@ typedef struct AlbumList
 } AlbumList;
 
 int album_list_init( AlbumList *album_list, ID3Cache *cache );
-//int album_list_load( AlbumList *album_list, const char *rootpath, int *limit );
+int album_list_load( AlbumList *album_list, const char *path, int *limit );
 //int album_list_add( AlbumList *album_list, const char *artist, const char *name, const char *path );
 //int album_list_sort( AlbumList *album_list );
