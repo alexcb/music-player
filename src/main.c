@@ -399,6 +399,7 @@ void find_tracks( ID3Cache *cache, const char *path )
 	if( dir == NULL ) {
 		LOG_ERROR( "path=s err=s opendir failed", path, strerror(errno) );
 		sdsfree(s);
+		return;
 	}
 
 	while( (dirent = readdir(dir)) != NULL) {
