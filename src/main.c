@@ -439,6 +439,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Boredoms -- funky id3 logic
+	//TODO look into slow reading of /media/nugget_share/music/alex-beet/Lou Reed/Magic and Loss
 	find_tracks( cache, "/media/nugget_share/music/alex-beet" );
 	LOG_INFO("saving cache");
 	id3_cache_save( cache );

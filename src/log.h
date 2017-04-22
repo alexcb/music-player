@@ -1,13 +1,13 @@
 #pragma once
 
-#define LOG_ERROR(fmt, args...) LOG("ERROR", fmt, ##args)
-#define LOG_WARN(fmt, args...) LOG("WARN", fmt, ##args)
-#define LOG_INFO(fmt, args...) LOG("INFO", fmt, ##args)
-#define LOG_DEBUG(fmt, args...) LOG("DEBUG", fmt, ##args)
+#define LOG_ERROR(fmt, args...) LOG("ERROR", __FILE__, __LINE__, fmt, ##args)
+#define LOG_WARN(fmt, args...)  LOG("WARN",  __FILE__, __LINE__, fmt, ##args)
+#define LOG_INFO(fmt, args...)  LOG("INFO",  __FILE__, __LINE__, fmt, ##args)
+#define LOG_DEBUG(fmt, args...) LOG("DEBUG", __FILE__, __LINE__, fmt, ##args)
 
-#define LOG(level, fmt, args...) \
+#define LOG(level, file, line, fmt, args...) \
 do { \
-	_log("level=s " fmt, level, ##args); \
+	_log("level=s file=s line=d " fmt, level, file, line, ##args); \
 } while (0)
 
 void _log(const char *fmt, ...);
