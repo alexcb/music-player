@@ -391,6 +391,7 @@ void* gpio_input_thread_run( void *p )
 // limit should be -1; only positive value is used for testing to speed up load times
 void find_tracks( ID3Cache *cache, const char *path, int limit )
 {
+	if( limit == 0 ) { return; }
 	struct dirent *dirent;
 
 	sds s = sdsnew(path);
@@ -406,7 +407,7 @@ void find_tracks( ID3Cache *cache, const char *path, int limit )
 	while( (dirent = readdir(dir)) != NULL ) {
 		if( limit == 0 ) { break; }
 		if( limit > 0 ) { limit--; }
-		LOG_DEBUG( "path=s readdir", dirent->d_name );
+		LOG_DEBUG( "path=s limit=d readdir", dirent->d_name, limit );
 		if( strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0 ) {
 			continue;
 		}
