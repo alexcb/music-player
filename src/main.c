@@ -407,7 +407,7 @@ void find_tracks( ID3Cache *cache, const char *path, int *limit )
 	while( (dirent = readdir(dir)) != NULL ) {
 		if( limit ) {
 			if( *limit == 0 ) break;
-			*limit--;
+			(*limit)--;
 		}
 		LOG_DEBUG( "path=s readdir", dirent->d_name );
 		if( strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0 ) {
@@ -447,7 +447,7 @@ int main(int argc, char *argv[])
 
 	// Boredoms -- funky id3 logic
 	//TODO look into slow reading of /media/nugget_share/music/alex-beet/Lou Reed/Magic and Loss
-	limit = 100;
+	int limit = 100;
 	find_tracks( cache, "/media/nugget_share/music/alex-beet", &limit );
 	LOG_INFO("saving cache");
 	id3_cache_save( cache );
