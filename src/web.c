@@ -525,12 +525,12 @@ static int web_handler_albums(
 {
 	LOG_DEBUG("in web_handler_albums");
 	json_object *albums = json_object_new_array();
-	for( int i = 0; i < data->album_list->len; i++ ) {
-		json_object *album = json_object_new_object();
-		json_object_object_add( album, "artist", json_object_new_string( data->album_list->list[i].artist ) );
-		json_object_object_add( album, "name", json_object_new_string( data->album_list->list[i].name ) );
-		json_object_array_add( albums, album );
-	}
+	//for( int i = 0; i < data->album_list->len; i++ ) {
+	//	json_object *album = json_object_new_object();
+	//	json_object_object_add( album, "artist", json_object_new_string( data->album_list->list[i].artist ) );
+	//	json_object_object_add( album, "name", json_object_new_string( data->album_list->list[i].name ) );
+	//	json_object_array_add( albums, album );
+	//}
 
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "albums", albums );
@@ -586,20 +586,20 @@ static int web_handler_albums_play(
 		const sds request_body,
 		void **con_cls)
 {
-	const char *id = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
+	//const char *id = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
 
-	if( id != NULL ) {
-		errno = 0;
-		long int i = strtol(id, NULL, 10);
-		bool ok = !errno;
+	//if( id != NULL ) {
+	//	errno = 0;
+	//	long int i = strtol(id, NULL, 10);
+	//	bool ok = !errno;
 
-		if( ok ) {
-			if( 0 <= i && i < data->album_list->len ) {
-				// TODO error handling
-				load_quick_album( data->playlist_manager, data->album_list->list[i].path );
-			}
-		}
-	}
+	//	if( ok ) {
+	//		//if( 0 <= i && i < data->album_list->len ) {
+	//		//	// TODO error handling
+	//		//	load_quick_album( data->playlist_manager, data->album_list->list[i].path );
+	//		//}
+	//	}
+	//}
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);

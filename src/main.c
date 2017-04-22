@@ -206,124 +206,124 @@ void setupLCDPins(LCDState *lcd_state)
 	set_contrast( lcd_state, CONTRAST );
 }
 
-int get_album_id3_data( mpg123_handle *mh, const char *path, char *artist, char *album )
-{
-	int res;
-	LOG_DEBUG( "path=s open", path );
-	res = mpg123_open( mh, path );
-	if( res != MPG123_OK ) {
-		LOG_DEBUG("err=d open error", res);
-		res = 1;
-		goto error;
-	}
-	LOG_DEBUG( "seek" );
-	mpg123_seek( mh, 0, SEEK_SET );
+//int get_album_id3_data( mpg123_handle *mh, const char *path, char *artist, char *album )
+//{
+//	int res;
+//	LOG_DEBUG( "path=s open", path );
+//	res = mpg123_open( mh, path );
+//	if( res != MPG123_OK ) {
+//		LOG_DEBUG("err=d open error", res);
+//		res = 1;
+//		goto error;
+//	}
+//	LOG_DEBUG( "seek" );
+//	mpg123_seek( mh, 0, SEEK_SET );
+//
+//	LOG_DEBUG( "reading id3" );
+//	mpg123_id3v1 *v1;
+//	mpg123_id3v2 *v2;
+//	res = 1;
+//	int meta = mpg123_meta_check( mh );
+//	if( meta & MPG123_NEW_ID3 ) {
+//		if( mpg123_id3( mh, &v1, &v2 ) == MPG123_OK ) {
+//			res = 0;
+//			if( v2 != NULL ) {
+//				LOG_DEBUG( "populating metadata with id3 v2" );
+//				if( v2->artist )
+//					strcpy( artist, v2->artist->p );
+//				if( v2->album )
+//					strcpy( album, v2->album->p );
+//			} else if( v1 != NULL ) {
+//				LOG_DEBUG( "populating metadata with id3 v1" );
+//				strcpy( artist, v1->artist );
+//				strcpy( album, v1->album );
+//			} else {
+//				assert( false );
+//			}
+//		}
+//	}
+//
+//error:
+//	mpg123_close( mh );
+//	return res;
+//}
 
-	LOG_DEBUG( "reading id3" );
-	mpg123_id3v1 *v1;
-	mpg123_id3v2 *v2;
-	res = 1;
-	int meta = mpg123_meta_check( mh );
-	if( meta & MPG123_NEW_ID3 ) {
-		if( mpg123_id3( mh, &v1, &v2 ) == MPG123_OK ) {
-			res = 0;
-			if( v2 != NULL ) {
-				LOG_DEBUG( "populating metadata with id3 v2" );
-				if( v2->artist )
-					strcpy( artist, v2->artist->p );
-				if( v2->album )
-					strcpy( album, v2->album->p );
-			} else if( v1 != NULL ) {
-				LOG_DEBUG( "populating metadata with id3 v1" );
-				strcpy( artist, v1->artist );
-				strcpy( album, v1->album );
-			} else {
-				assert( false );
-			}
-		}
-	}
+//int get_album_id3_data_from_album_path( mpg123_handle *mh, const char *path, char *artist, char *album )
+//{
+//	struct dirent *entry;
+//	DIR *dir = opendir( path );
+//
+//	char filepath[1024];
+//
+//	while( (entry = readdir( dir )) != NULL) {
+//		if( entry->d_type == DT_REG ) {
+//			if( has_suffix( entry->d_name, ".mp3" ) ) {
+//				sprintf( filepath, "%s/%s", path, entry->d_name );
+//				LOG_DEBUG("path=s attempting to read id3", filepath);
+//				get_album_id3_data( mh, filepath, artist, album );
+//				break;
+//			}
+//		}
+//	}
+//	closedir( dir );
+//	return 0;
+//}
 
-error:
-	mpg123_close( mh );
-	return res;
-}
-
-int get_album_id3_data_from_album_path( mpg123_handle *mh, const char *path, char *artist, char *album )
-{
-	struct dirent *entry;
-	DIR *dir = opendir( path );
-
-	char filepath[1024];
-
-	while( (entry = readdir( dir )) != NULL) {
-		if( entry->d_type == DT_REG ) {
-			if( has_suffix( entry->d_name, ".mp3" ) ) {
-				sprintf( filepath, "%s/%s", path, entry->d_name );
-				LOG_DEBUG("path=s attempting to read id3", filepath);
-				get_album_id3_data( mh, filepath, artist, album );
-				break;
-			}
-		}
-	}
-	closedir( dir );
-	return 0;
-}
-
-int load_albums( AlbumList *album_list, const char *path, mpg123_handle *mh )
-{
-	int res;
-	char artist_path[1024];
-	struct dirent *artist_dirent, *album_dirent;
-	char artist[1024];
-	char album[1024];
-
-	DIR *artist_dir = opendir(path);
-	if( artist_dir == NULL ) {
-		LOG_ERROR("path=s err=s opendir failed", path, strerror(errno));
-		return FILESYSTEM_ERROR;
-	}
-
-	int max_load = 3;
-
-	while( (artist_dirent = readdir(artist_dir)) != NULL) {
-		if( artist_dirent->d_type != DT_DIR || strcmp(artist_dirent->d_name, ".") == 0 || strcmp(artist_dirent->d_name, "..") == 0 ) {
-			continue;
-		}
-		
-		sprintf(artist_path, "%s/%s", path, artist_dirent->d_name);
-		LOG_DEBUG("path=s opening dir", artist_path);
-		DIR *album_dir = opendir(artist_path);
-		if( artist_dir == NULL ) {
-			LOG_ERROR("path=s err=s opendir failed", artist_path, strerror(errno));
-			return FILESYSTEM_ERROR;
-		}
-
-		while( (album_dirent = readdir( album_dir )) != NULL) {
-			if( album_dirent->d_type != DT_DIR || strcmp(album_dirent->d_name, ".") == 0 || strcmp(album_dirent->d_name, "..") == 0 ) {
-				continue;
-			}
-
-			// this is actually now the path to the album
-			sprintf(artist_path, "%s/%s/%s", path, artist_dirent->d_name, album_dirent->d_name);
-
-			strcpy( artist, artist_dirent->d_name );
-			strcpy( album, album_dirent->d_name );
-			get_album_id3_data_from_album_path( mh, artist_path, artist, album );
-
-			res = album_list_add( album_list, artist, album, artist_path );
-			if( res ) {
-				return res;
-			}
-			
-		}
-		closedir( album_dir );
-
-		if( max_load-- <= 0 ) break;
-	}
-	closedir( artist_dir );
-
-	return album_list_sort( album_list );
-}
+//int load_albums( AlbumList *album_list, const char *path, mpg123_handle *mh )
+//{
+//	int res;
+//	char artist_path[1024];
+//	struct dirent *artist_dirent, *album_dirent;
+//	char artist[1024];
+//	char album[1024];
+//
+//	DIR *artist_dir = opendir(path);
+//	if( artist_dir == NULL ) {
+//		LOG_ERROR("path=s err=s opendir failed", path, strerror(errno));
+//		return FILESYSTEM_ERROR;
+//	}
+//
+//	int max_load = 3;
+//
+//	while( (artist_dirent = readdir(artist_dir)) != NULL) {
+//		if( artist_dirent->d_type != DT_DIR || strcmp(artist_dirent->d_name, ".") == 0 || strcmp(artist_dirent->d_name, "..") == 0 ) {
+//			continue;
+//		}
+//		
+//		sprintf(artist_path, "%s/%s", path, artist_dirent->d_name);
+//		LOG_DEBUG("path=s opening dir", artist_path);
+//		DIR *album_dir = opendir(artist_path);
+//		if( artist_dir == NULL ) {
+//			LOG_ERROR("path=s err=s opendir failed", artist_path, strerror(errno));
+//			return FILESYSTEM_ERROR;
+//		}
+//
+//		while( (album_dirent = readdir( album_dir )) != NULL) {
+//			if( album_dirent->d_type != DT_DIR || strcmp(album_dirent->d_name, ".") == 0 || strcmp(album_dirent->d_name, "..") == 0 ) {
+//				continue;
+//			}
+//
+//			// this is actually now the path to the album
+//			sprintf(artist_path, "%s/%s/%s", path, artist_dirent->d_name, album_dirent->d_name);
+//
+//			strcpy( artist, artist_dirent->d_name );
+//			strcpy( album, album_dirent->d_name );
+//			get_album_id3_data_from_album_path( mh, artist_path, artist, album );
+//
+//			res = album_list_add( album_list, artist, album, artist_path );
+//			if( res ) {
+//				return res;
+//			}
+//			
+//		}
+//		closedir( album_dir );
+//
+//		if( max_load-- <= 0 ) break;
+//	}
+//	closedir( artist_dir );
+//
+//	return album_list_sort( album_list );
+//}
 
 void change_playlist( Player *player, PlaylistManager *manager, int dir )
 {
@@ -422,7 +422,6 @@ void find_tracks( ID3Cache *cache, const char *path, int *limit )
 			continue;
 		}
 
-
 		if( has_suffix( s, ".mp3" ) ) {
 			LOG_DEBUG( "path=s opening file", s );
 			id3_cache_add( cache, s );
@@ -445,136 +444,139 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	// Boredoms -- funky id3 logic
-	//TODO look into slow reading of /media/nugget_share/music/alex-beet/Lou Reed/Magic and Loss
-	int limit = 100;
-	find_tracks( cache, "/media/nugget_share/music/alex-beet", &limit );
-	LOG_INFO("saving cache");
-	id3_cache_save( cache );
-	return 0;
+	// This pre-populates the id3 cache
+	// this does not create the album list
+	// this code will be removed, and caching can simply be done while reading albums
+	if (0) {
+		int limit = 100;
+		find_tracks( cache, "/media/nugget_share/music/alex-beet", &limit );
+		LOG_INFO("saving cache");
+		id3_cache_save( cache );
+		return 0;
+	}
 
 	AlbumList album_list;
-	res = album_list_init( &album_list );
+	res = album_list_init( &album_list, cache );
 	if( res ) {
 		LOG_ERROR("failed to init album list");
 		return 1;
 	}
-	res = load_albums( &album_list, "/media/nugget_share/music/alex-beet", player.mh );
-	if( res ) {
-		LOG_ERROR("failed to load album list");
-		return 1;
-	}
+	//res = load_albums( &album_list, "/media/nugget_share/music/alex-beet", player.mh );
+	//if( res ) {
+	//	LOG_ERROR("failed to load album list");
+	//	return 1;
+	//}
 
-	PlaylistManager playlist_manager;
-	playlist_manager_init( &playlist_manager, "/home/alex/the_playlist.txt" );
-	player.playlist_manager = &playlist_manager;
-
-	LOG_DEBUG("calling load");
-	res = playlist_manager_load( &playlist_manager );
-	if( res ) {
-		LOG_WARN("failed to load playlist");
-	}
-	LOG_DEBUG("load done");
-
-	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
-	if( res ) {
-		LOG_ERROR("failed to init gpio_input_changed_cond");
-		return 1;
-	}
-
-	if( wiringPiSetup() == -1 ) {
-		LOG_ERROR("failed to setup wiringPi");
-		return 1;
-	}
-
-	// rotary encoders
-
-	// See https://pinout.xyz/ for pinouts
-	//
-	// The following pins have a physical pull up resistor
-	// we can't configure it via software, but in our case
-	// we want a pull up resistor anyway as the rotary switch
-	// will be connected to ground when the switch is closed
-	pinMode( PIN_ROTARY_1, INPUT );
-	pinMode( PIN_ROTARY_2, INPUT );
-
-	// on/off switch
-	pinMode( PIN_SWITCH, INPUT );
-	pullUpDnControl( PIN_SWITCH, PUD_UP );
-	int switch_current_pos = digitalRead( PIN_SWITCH );
-
-	int pin1 = digitalRead( PIN_ROTARY_1 );
-	int pin2 = digitalRead( PIN_ROTARY_2 );
-	initRotaryState( &rotary_state, pin1, pin2 );
-
-	wiringPiISR( PIN_ROTARY_1, INT_EDGE_BOTH, rotaryIntHandler);
-	wiringPiISR( PIN_ROTARY_2, INT_EDGE_BOTH, rotaryIntHandler);
-	wiringPiISR( PIN_SWITCH, INT_EDGE_BOTH, switchIntHandler);
-
-	// get initial switch pos
-	switchIntHandler();
-
-	LCDState lcd_state;
-
-	setupLCDPins(&lcd_state);
-
-	writeText(&lcd_state, "Play me the hits");
-
-	LOG_DEBUG("starting");
-
-	res = start_player( &player );
-	if( res ) {
-		LOG_ERROR("failed to start player");
-		return 1;
-	}
-
-	// TODO do this during the setup above
-	// ideally split it into two funcs: init, and start threads
-	player.playing = switch_current_pos;
-
-	res = player_add_metadata_observer( &player, &update_metadata_lcd, (void *) &lcd_state );
-	if( res ) {
-		LOG_ERROR("failed to register observer");
-		return 1;
-	}
-
-	MyData my_data = {
-		&player,
-		&album_list,
-		&playlist_manager
-	};
-
-	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) &my_data );
-	if( res ) {
-		LOG_ERROR("failed to create input thread");
-		return 1;
-	}
-
-	WebHandlerData web_handler_data;
-
-	res = init_http_server_data( &web_handler_data, &album_list, &playlist_manager, &player );
-	if( res ) {
-		LOG_ERROR("failed to init http server");
-		return 2;
-	}
-
-	res = player_add_metadata_observer( &player, &update_metadata_web_clients, (void*) &web_handler_data );
-	if( res ) {
-		LOG_ERROR("failed to register observer");
-		return 1;
-	}
-
-	if( playlist_manager.root ) {
-		PlaylistItem *x = playlist_manager.root->root;
-		player_change_track( &player, x, TRACK_CHANGE_IMMEDIATE );
-	}
-
-	LOG_DEBUG("running server");
-	res = start_http_server( &web_handler_data );
-	if( res ) {
-		LOG_ERROR("failed to start http server");
-		return 2;
-	}
+//	PlaylistManager playlist_manager;
+//	playlist_manager_init( &playlist_manager, "/home/alex/the_playlist.txt" );
+//	player.playlist_manager = &playlist_manager;
+//
+//	LOG_DEBUG("calling load");
+//	res = playlist_manager_load( &playlist_manager );
+//	if( res ) {
+//		LOG_WARN("failed to load playlist");
+//	}
+//	LOG_DEBUG("load done");
+//
+//	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
+//	if( res ) {
+//		LOG_ERROR("failed to init gpio_input_changed_cond");
+//		return 1;
+//	}
+//
+//	if( wiringPiSetup() == -1 ) {
+//		LOG_ERROR("failed to setup wiringPi");
+//		return 1;
+//	}
+//
+//	// rotary encoders
+//
+//	// See https://pinout.xyz/ for pinouts
+//	//
+//	// The following pins have a physical pull up resistor
+//	// we can't configure it via software, but in our case
+//	// we want a pull up resistor anyway as the rotary switch
+//	// will be connected to ground when the switch is closed
+//	pinMode( PIN_ROTARY_1, INPUT );
+//	pinMode( PIN_ROTARY_2, INPUT );
+//
+//	// on/off switch
+//	pinMode( PIN_SWITCH, INPUT );
+//	pullUpDnControl( PIN_SWITCH, PUD_UP );
+//	int switch_current_pos = digitalRead( PIN_SWITCH );
+//
+//	int pin1 = digitalRead( PIN_ROTARY_1 );
+//	int pin2 = digitalRead( PIN_ROTARY_2 );
+//	initRotaryState( &rotary_state, pin1, pin2 );
+//
+//	wiringPiISR( PIN_ROTARY_1, INT_EDGE_BOTH, rotaryIntHandler);
+//	wiringPiISR( PIN_ROTARY_2, INT_EDGE_BOTH, rotaryIntHandler);
+//	wiringPiISR( PIN_SWITCH, INT_EDGE_BOTH, switchIntHandler);
+//
+//	// get initial switch pos
+//	switchIntHandler();
+//
+//	LCDState lcd_state;
+//
+//	setupLCDPins(&lcd_state);
+//
+//	writeText(&lcd_state, "Play me the hits");
+//
+//	LOG_DEBUG("starting");
+//
+//	res = start_player( &player );
+//	if( res ) {
+//		LOG_ERROR("failed to start player");
+//		return 1;
+//	}
+//
+//	// TODO do this during the setup above
+//	// ideally split it into two funcs: init, and start threads
+//	player.playing = switch_current_pos;
+//
+//	res = player_add_metadata_observer( &player, &update_metadata_lcd, (void *) &lcd_state );
+//	if( res ) {
+//		LOG_ERROR("failed to register observer");
+//		return 1;
+//	}
+//
+//	MyData my_data = {
+//		&player,
+//		&album_list,
+//		&playlist_manager
+//	};
+//
+//	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) &my_data );
+//	if( res ) {
+//		LOG_ERROR("failed to create input thread");
+//		return 1;
+//	}
+//
+//	WebHandlerData web_handler_data;
+//
+//	res = init_http_server_data( &web_handler_data, &album_list, &playlist_manager, &player );
+//	if( res ) {
+//		LOG_ERROR("failed to init http server");
+//		return 2;
+//	}
+//
+//	res = player_add_metadata_observer( &player, &update_metadata_web_clients, (void*) &web_handler_data );
+//	if( res ) {
+//		LOG_ERROR("failed to register observer");
+//		return 1;
+//	}
+//
+//	if( playlist_manager.root ) {
+//		PlaylistItem *x = playlist_manager.root->root;
+//		player_change_track( &player, x, TRACK_CHANGE_IMMEDIATE );
+//	}
+//
+//	LOG_DEBUG("running server");
+//	res = start_http_server( &web_handler_data );
+//	if( res ) {
+//		LOG_ERROR("failed to start http server");
+//		return 2;
+//	}
 
 	LOG_DEBUG("done");
 	return 0;
