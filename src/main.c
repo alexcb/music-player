@@ -388,7 +388,8 @@ void* gpio_input_thread_run( void *p )
 	return NULL;
 }
 
-void find_tracks( ID3Cache *cache, const char *path )
+// limit should be -1; only positive value is used for testing to speed up load times
+void find_tracks( ID3Cache *cache, const char *path, int limit )
 {
 	struct dirent *dirent;
 
@@ -402,7 +403,9 @@ void find_tracks( ID3Cache *cache, const char *path )
 		return;
 	}
 
-	while( (dirent = readdir(dir)) != NULL) {
+	while( (dirent = readdir(dir)) != NULL ) {
+		if( limit == 0 ) { break; }
+		if( limit > 0 ) { limit--; }
 		LOG_DEBUG( "path=s readdir", dirent->d_name );
 		if( strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0 ) {
 			continue;
@@ -412,7 +415,7 @@ void find_tracks( ID3Cache *cache, const char *path )
 		s = sdscatfmt( s, "%s/%s", path, dirent->d_name );
 
 		if( dirent->d_type == DT_DIR ) {
-			find_tracks( cache, s );
+			find_tracks( cache, s, limit );
 			continue;
 		}
 
@@ -441,7 +444,7 @@ int main(int argc, char *argv[])
 
 	// Boredoms -- funky id3 logic
 	//TODO look into slow reading of /media/nugget_share/music/alex-beet/Lou Reed/Magic and Loss
-	find_tracks( cache, "/media/nugget_share/music/alex-beet" );
+	find_tracks( cache, "/media/nugget_share/music/alex-beet", 100 );
 	LOG_INFO("saving cache");
 	id3_cache_save( cache );
 	return 0;
