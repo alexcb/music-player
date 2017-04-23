@@ -8,14 +8,25 @@
 
 typedef struct ID3Cache ID3Cache;
 
+typedef struct Track
+{
+	sds artist;
+	sds title;
+	sds path;
+	int track;
+
+    struct Track *next_ptr;
+} Track;
+#define TRACK_COMPARATOR(e1, e2) (e1->track - e2->track)
+
+
 typedef struct Album
 {
 	sds artist;
 	sds album;
-	sds title;
 	sds path;
 
-	bool seen;
+	Track *tracks;
 
 	char color_field;
 	struct Album *left;

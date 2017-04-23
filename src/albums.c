@@ -11,6 +11,7 @@
 #include <dirent.h>
 #include <errno.h>
 
+#include "id3.h"
 #include "log.h"
 
 
@@ -21,6 +22,51 @@ int album_list_init( AlbumList *album_list, ID3Cache *cache )
 {
 	album_list->id3_cache = cache;
 	album_list->root = NULL;
+	return 0;
+}
+
+int setup_album( AlbumList *album_list, Album *album )
+{
+	int res;
+	struct dirent *dent;
+
+	DIR *d = opendir( album->path );
+	if( d == NULL ) {
+		LOG_ERROR("path=s err=s opendir failed", album->path, strerror(errno));
+		return FILESYSTEM_ERROR;
+	}
+
+	sds s = sdsnew("");
+
+	while( (dent = readdir(d)) != NULL) {
+		if( dent->d_type != DT_DIR || strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0 ) {
+			continue;
+		}
+
+		sdsclear( s );
+		s = sdscatfmt( s, "%s/%s", album->path, dent->d_name );
+
+		ID3CacheItem *ids_item;
+		res = id3_cache_get( album_list->id3_cache, s, &ids_item );
+		if( res ) {
+			sdsfree( s );
+			closedir( d );
+			return res;
+		}
+
+		Track *track = malloc(sizeof(Track));
+		track->artist = ids_item->artist;
+		track->title = ids_item->title;
+		track->path = ids_item->path;
+		track->track = ids_item->track;
+
+		album->artist = ids_item->artist;
+		album->album = ids_item->album;
+
+		SGLIB_SORTED_LIST_ADD(Track, album->tracks, track, TRACK_COMPARATOR, next_ptr);
+	}
+
+	closedir( d );
 	return 0;
 }
 
@@ -35,7 +81,7 @@ int album_list_load( AlbumList *album_list, const char *path, int *limit )
 		return FILESYSTEM_ERROR;
 	}
 
-	sds s = sdsnew(path);
+	sds s = sdsnew("");
 
 	while( (artist_dirent = readdir(artist_dir)) != NULL) {
 		if( artist_dirent->d_type != DT_DIR || strcmp(artist_dirent->d_name, ".") == 0 || strcmp(artist_dirent->d_name, "..") == 0 ) {
@@ -71,10 +117,12 @@ int album_list_load( AlbumList *album_list, const char *path, int *limit )
 			Album *album = (Album*) malloc(sizeof(Album));
 			if( album == NULL ) {
 				LOG_ERROR("allocation failed");
+				closedir( album_dir );
 				return 1;
 			}
 			memset( album, 0, sizeof(Album) );
 			album->path = sdsdup( s );
+			setup_album( album_list, album );
 			sglib_Album_add( &(album_list->root), album );
 		}
 		closedir( album_dir );

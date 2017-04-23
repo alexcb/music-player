@@ -14,6 +14,7 @@ typedef struct ID3CacheItem
 	sds album;
 	sds title;
 	sds path;
+	int track;
 
 	bool seen;
 

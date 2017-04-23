@@ -29,6 +29,7 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	mpg123_seek( cache->mh, 0, SEEK_SET );
 
 	item->path = sdsnew( path );
+	item->track = 0; //TODO stored in comment[30] of id3
 
 	LOG_DEBUG( "reading id3" );
 	mpg123_id3v1 *v1;
