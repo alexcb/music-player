@@ -470,24 +470,17 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	
+	PlaylistManager playlist_manager;
+	playlist_manager_init( &playlist_manager, "/home/alex/the_playlist.txt" );
+	player.playlist_manager = &playlist_manager;
 
-	//res = load_albums( &album_list, "/media/nugget_share/music/alex-beet", player.mh );
-	//if( res ) {
-	//	LOG_ERROR("failed to load album list");
-	//	return 1;
-	//}
+	LOG_DEBUG("calling load");
+	res = playlist_manager_load( &playlist_manager );
+	if( res ) {
+		LOG_WARN("failed to load playlist");
+	}
+	LOG_DEBUG("load done");
 
-//	PlaylistManager playlist_manager;
-//	playlist_manager_init( &playlist_manager, "/home/alex/the_playlist.txt" );
-//	player.playlist_manager = &playlist_manager;
-//
-//	LOG_DEBUG("calling load");
-//	res = playlist_manager_load( &playlist_manager );
-//	if( res ) {
-//		LOG_WARN("failed to load playlist");
-//	}
-//	LOG_DEBUG("load done");
-//
 //	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
 //	if( res ) {
 //		LOG_ERROR("failed to init gpio_input_changed_cond");
