@@ -481,105 +481,105 @@ int main(int argc, char *argv[])
 	}
 	LOG_DEBUG("load done");
 
-//	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
-//	if( res ) {
-//		LOG_ERROR("failed to init gpio_input_changed_cond");
-//		return 1;
-//	}
-//
-//	if( wiringPiSetup() == -1 ) {
-//		LOG_ERROR("failed to setup wiringPi");
-//		return 1;
-//	}
-//
-//	// rotary encoders
-//
-//	// See https://pinout.xyz/ for pinouts
-//	//
-//	// The following pins have a physical pull up resistor
-//	// we can't configure it via software, but in our case
-//	// we want a pull up resistor anyway as the rotary switch
-//	// will be connected to ground when the switch is closed
-//	pinMode( PIN_ROTARY_1, INPUT );
-//	pinMode( PIN_ROTARY_2, INPUT );
-//
-//	// on/off switch
-//	pinMode( PIN_SWITCH, INPUT );
-//	pullUpDnControl( PIN_SWITCH, PUD_UP );
-//	int switch_current_pos = digitalRead( PIN_SWITCH );
-//
-//	int pin1 = digitalRead( PIN_ROTARY_1 );
-//	int pin2 = digitalRead( PIN_ROTARY_2 );
-//	initRotaryState( &rotary_state, pin1, pin2 );
-//
-//	wiringPiISR( PIN_ROTARY_1, INT_EDGE_BOTH, rotaryIntHandler);
-//	wiringPiISR( PIN_ROTARY_2, INT_EDGE_BOTH, rotaryIntHandler);
-//	wiringPiISR( PIN_SWITCH, INT_EDGE_BOTH, switchIntHandler);
-//
-//	// get initial switch pos
-//	switchIntHandler();
-//
-//	LCDState lcd_state;
-//
-//	setupLCDPins(&lcd_state);
-//
-//	writeText(&lcd_state, "Play me the hits");
-//
-//	LOG_DEBUG("starting");
-//
-//	res = start_player( &player );
-//	if( res ) {
-//		LOG_ERROR("failed to start player");
-//		return 1;
-//	}
-//
-//	// TODO do this during the setup above
-//	// ideally split it into two funcs: init, and start threads
-//	player.playing = switch_current_pos;
-//
-//	res = player_add_metadata_observer( &player, &update_metadata_lcd, (void *) &lcd_state );
-//	if( res ) {
-//		LOG_ERROR("failed to register observer");
-//		return 1;
-//	}
-//
-//	MyData my_data = {
-//		&player,
-//		&album_list,
-//		&playlist_manager
-//	};
-//
-//	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) &my_data );
-//	if( res ) {
-//		LOG_ERROR("failed to create input thread");
-//		return 1;
-//	}
-//
-//	WebHandlerData web_handler_data;
-//
-//	res = init_http_server_data( &web_handler_data, &album_list, &playlist_manager, &player );
-//	if( res ) {
-//		LOG_ERROR("failed to init http server");
-//		return 2;
-//	}
-//
-//	res = player_add_metadata_observer( &player, &update_metadata_web_clients, (void*) &web_handler_data );
-//	if( res ) {
-//		LOG_ERROR("failed to register observer");
-//		return 1;
-//	}
-//
-//	if( playlist_manager.root ) {
-//		PlaylistItem *x = playlist_manager.root->root;
-//		player_change_track( &player, x, TRACK_CHANGE_IMMEDIATE );
-//	}
-//
-//	LOG_DEBUG("running server");
-//	res = start_http_server( &web_handler_data );
-//	if( res ) {
-//		LOG_ERROR("failed to start http server");
-//		return 2;
-//	}
+	res = pthread_cond_init( &gpio_input_changed_cond, NULL );
+	if( res ) {
+		LOG_ERROR("failed to init gpio_input_changed_cond");
+		return 1;
+	}
+
+	if( wiringPiSetup() == -1 ) {
+		LOG_ERROR("failed to setup wiringPi");
+		return 1;
+	}
+
+	// rotary encoders
+
+	// See https://pinout.xyz/ for pinouts
+	//
+	// The following pins have a physical pull up resistor
+	// we can't configure it via software, but in our case
+	// we want a pull up resistor anyway as the rotary switch
+	// will be connected to ground when the switch is closed
+	pinMode( PIN_ROTARY_1, INPUT );
+	pinMode( PIN_ROTARY_2, INPUT );
+
+	// on/off switch
+	pinMode( PIN_SWITCH, INPUT );
+	pullUpDnControl( PIN_SWITCH, PUD_UP );
+	int switch_current_pos = digitalRead( PIN_SWITCH );
+
+	int pin1 = digitalRead( PIN_ROTARY_1 );
+	int pin2 = digitalRead( PIN_ROTARY_2 );
+	initRotaryState( &rotary_state, pin1, pin2 );
+
+	wiringPiISR( PIN_ROTARY_1, INT_EDGE_BOTH, rotaryIntHandler);
+	wiringPiISR( PIN_ROTARY_2, INT_EDGE_BOTH, rotaryIntHandler);
+	wiringPiISR( PIN_SWITCH, INT_EDGE_BOTH, switchIntHandler);
+
+	// get initial switch pos
+	switchIntHandler();
+
+	LCDState lcd_state;
+
+	setupLCDPins(&lcd_state);
+
+	writeText(&lcd_state, "Play me the hits");
+
+	LOG_DEBUG("starting");
+
+	res = start_player( &player );
+	if( res ) {
+		LOG_ERROR("failed to start player");
+		return 1;
+	}
+
+	// TODO do this during the setup above
+	// ideally split it into two funcs: init, and start threads
+	player.playing = switch_current_pos;
+
+	res = player_add_metadata_observer( &player, &update_metadata_lcd, (void *) &lcd_state );
+	if( res ) {
+		LOG_ERROR("failed to register observer");
+		return 1;
+	}
+
+	MyData my_data = {
+		&player,
+		&album_list,
+		&playlist_manager
+	};
+
+	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) &my_data );
+	if( res ) {
+		LOG_ERROR("failed to create input thread");
+		return 1;
+	}
+
+	WebHandlerData web_handler_data;
+
+	res = init_http_server_data( &web_handler_data, &album_list, &playlist_manager, &player );
+	if( res ) {
+		LOG_ERROR("failed to init http server");
+		return 2;
+	}
+
+	res = player_add_metadata_observer( &player, &update_metadata_web_clients, (void*) &web_handler_data );
+	if( res ) {
+		LOG_ERROR("failed to register observer");
+		return 1;
+	}
+
+	if( playlist_manager.root ) {
+		PlaylistItem *x = playlist_manager.root->root;
+		player_change_track( &player, x, TRACK_CHANGE_IMMEDIATE );
+	}
+
+	LOG_DEBUG("running server");
+	res = start_http_server( &web_handler_data );
+	if( res ) {
+		LOG_ERROR("failed to start http server");
+		return 2;
+	}
 
 	LOG_DEBUG("done");
 	return 0;
