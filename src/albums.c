@@ -38,6 +38,9 @@ int setup_album( AlbumList *album_list, Album *album )
 
 	sds s = sdsnew("");
 
+	album->artist = "unknown";
+	album->album = "unknown";
+
 	while( (dent = readdir(d)) != NULL) {
 		if( dent->d_type != DT_DIR || strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0 ) {
 			continue;

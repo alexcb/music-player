@@ -523,14 +523,18 @@ static int web_handler_albums(
 		const sds request_body,
 		void **con_cls)
 {
+	Album *p;
 	LOG_DEBUG("in web_handler_albums");
 	json_object *albums = json_object_new_array();
-	//for( int i = 0; i < data->album_list->len; i++ ) {
-	//	json_object *album = json_object_new_object();
-	//	json_object_object_add( album, "artist", json_object_new_string( data->album_list->list[i].artist ) );
-	//	json_object_object_add( album, "name", json_object_new_string( data->album_list->list[i].name ) );
-	//	json_object_array_add( albums, album );
-	//}
+
+	struct sglib_Album_iterator it;
+	for( p = sglib_Album_it_init_inorder(&it, data->album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
+		json_object *album = json_object_new_object();
+		json_object_object_add( album, "path", json_object_new_string( p->path ) );
+		json_object_object_add( album, "artist", json_object_new_string( p->artist ) );
+		json_object_object_add( album, "album", json_object_new_string( p->album ) );
+		json_object_array_add( albums, album );
+	}
 
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "albums", albums );
