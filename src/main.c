@@ -436,10 +436,14 @@ int main(int argc, char *argv[])
 	Player player;
 	ID3Cache *cache;
 
-	if( argc != 3 ) {
+	if( argc != 4 ) {
 		printf("%s <albums path> <streams path> <playlist path>\n", argv[0]);
 		return 1;
 	}
+	char *music_path = argv[1];
+	char *streams_path = argv[2];
+	char *playlist_path = argv[3];
+
 
 	init_player( &player );
 
@@ -449,7 +453,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	char *music_path = "/media/nugget_share/music/alex-beet";
 
 	// This pre-populates the id3 cache
 	// this does not create the album list
@@ -476,7 +479,7 @@ int main(int argc, char *argv[])
 	}
 	
 	PlaylistManager playlist_manager;
-	playlist_manager_init( &playlist_manager, "/home/alex/the_playlist.txt" );
+	playlist_manager_init( &playlist_manager, playlist_path );
 	player.playlist_manager = &playlist_manager;
 
 	LOG_DEBUG("calling load");
