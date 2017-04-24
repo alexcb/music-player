@@ -22,6 +22,7 @@
 #include "errors.h"
 #include "my_data.h"
 #include "web.h"
+#include "streams.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -453,6 +454,13 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	Stream *streams;
+	res = parse_streams( "/tmp/id3_cache", streams );
+	if( res ) {
+		LOG_ERROR("failed to load streams");
+		return 1;
+	}
+
 
 	// This pre-populates the id3 cache
 	// this does not create the album list
@@ -554,6 +562,7 @@ int main(int argc, char *argv[])
 	MyData my_data = {
 		&player,
 		&album_list,
+		streams,
 		&playlist_manager
 	};
 
