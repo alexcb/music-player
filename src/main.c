@@ -455,7 +455,7 @@ int main(int argc, char *argv[])
 	}
 
 	Stream *streams;
-	res = parse_streams( "/tmp/id3_cache", streams );
+	res = parse_streams( streams_path, &streams );
 	if( res ) {
 		LOG_ERROR("failed to load streams");
 		return 1;
@@ -562,8 +562,8 @@ int main(int argc, char *argv[])
 	MyData my_data = {
 		&player,
 		&album_list,
-		streams,
-		&playlist_manager
+		&playlist_manager,
+		streams
 	};
 
 	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) &my_data );
