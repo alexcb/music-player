@@ -436,6 +436,11 @@ int main(int argc, char *argv[])
 	Player player;
 	ID3Cache *cache;
 
+	if( argc != 3 ) {
+		printf("%s <albums path> <streams path> <playlist path>\n", argv[0]);
+		return 1;
+	}
+
 	init_player( &player );
 
 	res = id3_cache_new( &cache, "/tmp/id3_cache", player.mh );
