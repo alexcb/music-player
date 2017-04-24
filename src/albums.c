@@ -43,32 +43,35 @@ int setup_album( AlbumList *album_list, Album *album )
 	sds s = sdsnew("");
 
 	while( (dent = readdir(d)) != NULL) {
-		if( dent->d_type != DT_DIR || strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0 ) {
+		if( dent->d_type == DT_DIR || strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0 ) {
 			continue;
 		}
 
 		sdsclear( s );
 		s = sdscatfmt( s, "%s/%s", album->path, dent->d_name );
 
-		ID3CacheItem *ids_item;
-		res = id3_cache_get( album_list->id3_cache, s, &ids_item );
+		ID3CacheItem *id3_item;
+		res = id3_cache_get( album_list->id3_cache, s, &id3_item );
 		if( res ) {
+			LOG_ERROR("path=s err=s failed getting id3 tags", s, d);
 			sdsfree( s );
 			closedir( d );
 			return res;
 		}
 
+		LOG_ERROR("path=s artist=s title=s populating track", s, id3_item->artist, id3_item->title);
 		Track *track = malloc(sizeof(Track));
-		track->artist = ids_item->artist;
-		track->title = ids_item->title;
-		track->path = ids_item->path;
-		track->track = ids_item->track;
+		track->artist = id3_item->artist;
+		track->title = id3_item->title;
+		track->path = id3_item->path;
+		track->track = id3_item->track;
 
-		album->artist = ids_item->artist;
-		album->album = ids_item->album;
+		album->artist = id3_item->artist;
+		album->album = id3_item->album;
 
 		SGLIB_SORTED_LIST_ADD(Track, album->tracks, track, TRACK_COMPARATOR, next_ptr);
 	}
+	LOG_ERROR("path=s ---reading done---", album->path);
 
 	closedir( d );
 	return 0;
