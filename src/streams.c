@@ -18,6 +18,7 @@ int parse_streams(const char *path, Stream **p)
 		LOG_ERROR( "path=s failed to open streams list for reading", path );
 		return 1;
 	}
+	*p = NULL;
 
 	char *s;
 	char *line = NULL;
