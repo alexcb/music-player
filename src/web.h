@@ -17,6 +17,7 @@ typedef struct WebsocketData {
 
 typedef struct WebHandlerData {
 	AlbumList *album_list;
+	Stream *streams;
 	PlaylistManager *playlist_manager;
 	Player *player;
 
@@ -33,5 +34,5 @@ typedef struct WebHandlerData {
 
 void update_metadata_web_clients(bool playing, const PlayerTrackInfo *track, void *data);
 
-int init_http_server_data( WebHandlerData *data, AlbumList *album_list, PlaylistManager *playlist_manager, Player *player );
+int init_http_server_data( WebHandlerData *data, MyData *my_data );
 int start_http_server( WebHandlerData *data );

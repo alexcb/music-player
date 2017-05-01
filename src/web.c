@@ -366,7 +366,7 @@ static int web_handler_playlists_delete(
 	LOG_DEBUG("in web_handler_playlists_delete");
 
 	if( name != NULL && *name ) {
-		playlist_manager_delete_playlist( data->playlist_manager, name );
+		playlist_manager_delete_playlist( data->my_data->playlist_manager, name );
 	}
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
@@ -407,8 +407,8 @@ static int web_handler_playlists_load(
 	}
 
 	// create new playlist (or get pre-existing)
-	playlist_manager_lock( data->playlist_manager );
-	playlist_manager_new_playlist( data->playlist_manager, name, &playlist );
+	playlist_manager_lock( data->my_data->playlist_manager );
+	playlist_manager_new_playlist( data->my_data->playlist_manager, name, &playlist );
 	playlist_clear( playlist );
 
 	int len = json_object_array_length( playlist_obj );
@@ -420,8 +420,8 @@ static int web_handler_playlists_load(
 		s = json_object_get_string( element_obj );
 		playlist_add_file( playlist, s );
 	}
-	playlist_manager_save( data->playlist_manager );
-	playlist_manager_unlock( data->playlist_manager );
+	playlist_manager_save( data->my_data->playlist_manager );
+	playlist_manager_unlock( data->my_data->playlist_manager );
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -450,7 +450,7 @@ static int web_handler_playlists_play(
 		return error_handler( connection, "no name given" );
 	}
 
-	res = playlist_manager_get_playlist( data->playlist_manager, name, &playlist );
+	res = playlist_manager_get_playlist( data->my_data->playlist_manager, name, &playlist );
 	if( res ) {
 		return error_handler( connection, "failed to find playlist" );
 	}
@@ -460,7 +460,7 @@ static int web_handler_playlists_play(
 	if( track > 0 ) {
 		return error_handler( connection, "track greater than playlist length" );
 	}
-	player_change_track( data->player, x, TRACK_CHANGE_IMMEDIATE );
+	player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
 
 	return error_handler( connection, "ok" );
 }
@@ -480,7 +480,7 @@ static int web_handler_playlists(
 
 	playlist_manager_lock( data->playlist_manager );
 
-	for( Playlist *p = data->playlist_manager->root; p; p = p->next ) {
+	for( Playlist *p = data->my_data->playlist_manager->root; p; p = p->next ) {
 		json_object *playlist = json_object_new_object();
 		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
 		json_object_object_add( playlist, "id", json_object_new_int( p->id ) );
@@ -501,7 +501,7 @@ static int web_handler_playlists(
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "playlists", playlists );
 
-	playlist_manager_unlock( data->playlist_manager );
+	playlist_manager_unlock( data->my_data->playlist_manager );
 
 	const char *s = json_object_to_json_string( root_obj );
 	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
@@ -528,13 +528,18 @@ static int web_handler_albums(
 	json_object *albums = json_object_new_array();
 
 	struct sglib_Album_iterator it;
-	for( p = sglib_Album_it_init_inorder(&it, data->album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
+	for( p = sglib_Album_it_init_inorder(&it, data->my_data->album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
 		json_object *album = json_object_new_object();
 		json_object_object_add( album, "path", json_object_new_string( p->path ) );
 		json_object_object_add( album, "artist", json_object_new_string( p->artist ) );
 		json_object_object_add( album, "album", json_object_new_string( p->album ) );
 		json_object_array_add( albums, album );
 	}
+
+	json_object *streams = json_object_new_array();
+	for( Stream *p = data->my_data->stream_list->p; p != NULL; p = p->next ) {
+	}
+
 
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "albums", albums );
@@ -568,9 +573,9 @@ static int web_handler_play(
 		if( !errno ) {
 			LOG_DEBUG("id=d got id", id);
 			PlaylistItem *x;
-			res = playlist_manager_get_item_by_id( data->playlist_manager, id, &x );
+			res = playlist_manager_get_item_by_id( data->my_data->playlist_manager, id, &x );
 			if( res == OK ) {
-				player_change_track( data->player, x, TRACK_CHANGE_IMMEDIATE );
+				player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
 			}
 		}
 	}
@@ -685,11 +690,9 @@ static int web_handler(
 	return error_handler( connection, "unable to dispatch url: %s", url );
 }
 
-int init_http_server_data( WebHandlerData *data, AlbumList *album_list, PlaylistManager *playlist_manager, Player *player )
+int init_http_server_data( WebHandlerData *data, MyData *my_data )
 {
-	data->album_list = album_list;
-	data->playlist_manager = playlist_manager,
-	data->player = player,
+	data->my_data = my_data;
 	data->num_connections = 0,
 
 	pthread_mutex_init( &data->connections_lock, NULL );

@@ -454,8 +454,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	Stream *streams;
-	res = parse_streams( streams_path, &streams );
+	StreamList stream_list;
+	stream_list->p = NULL;
+	res = parse_streams( streams_path, &stream_list );
 	if( res ) {
 		LOG_ERROR("failed to load streams");
 		return 1;
@@ -563,7 +564,7 @@ int main(int argc, char *argv[])
 		&player,
 		&album_list,
 		&playlist_manager,
-		streams
+		&stream_list
 	};
 
 	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) &my_data );
@@ -574,7 +575,7 @@ int main(int argc, char *argv[])
 
 	WebHandlerData web_handler_data;
 
-	res = init_http_server_data( &web_handler_data, &album_list, &playlist_manager, &player );
+	res = init_http_server_data( &web_handler_data, &my_data );
 	if( res ) {
 		LOG_ERROR("failed to init http server");
 		return 2;

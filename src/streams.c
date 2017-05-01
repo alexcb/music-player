@@ -11,14 +11,14 @@
 #include "string_utils.h"
 #include "log.h"
 
-int parse_streams(const char *path, Stream **p)
+int parse_streams(const char *path, StreamList *sl)
 {
 	FILE *fp = fopen( path, "r" );
 	if( !fp ) {
 		LOG_ERROR( "path=s failed to open streams list for reading", path );
 		return 1;
 	}
-	*p = NULL;
+	assert( sl->p == NULL );
 
 	char *s;
 	char *line = NULL;
