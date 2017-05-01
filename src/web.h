@@ -16,10 +16,7 @@ typedef struct WebsocketData {
 
 
 typedef struct WebHandlerData {
-	AlbumList *album_list;
-	Stream *streams;
-	PlaylistManager *playlist_manager;
-	Player *player;
+	MyData *my_data;
 
 	//websocket related entries
 	WebsocketData *connections[MAX_CONNETIONS];
