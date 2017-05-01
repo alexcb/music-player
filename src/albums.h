@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "sglib.h"
 #include "sds.h"
@@ -17,7 +18,8 @@ typedef struct Track
 
     struct Track *next_ptr;
 } Track;
-#define TRACK_COMPARATOR(e1, e2) (e1->track - e2->track)
+#define TRACK_COMPARATOR(e1, e2) (strcmp(e1->path, e2->path))
+//#define TRACK_COMPARATOR(e1, e2) (e1->track - e2->track)
 
 
 typedef struct Album

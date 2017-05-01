@@ -34,7 +34,7 @@ int parse_streams(const char *path, StreamList *sl)
 		entry->name = sdsnewlen( line, s - line );
 		entry->url = sdsnew( s + 1 );
 
-		SGLIB_SORTED_LIST_ADD( Stream, *p, entry, STREAM_COMPARATOR, next_ptr );
+		SGLIB_SORTED_LIST_ADD( Stream, sl->p, entry, STREAM_COMPARATOR, next_ptr );
 	}
 	fclose( fp );
 	return 0;

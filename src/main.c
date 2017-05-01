@@ -455,7 +455,7 @@ int main(int argc, char *argv[])
 	}
 
 	StreamList stream_list;
-	stream_list->p = NULL;
+	stream_list.p = NULL;
 	res = parse_streams( streams_path, &stream_list );
 	if( res ) {
 		LOG_ERROR("failed to load streams");
@@ -480,7 +480,7 @@ int main(int argc, char *argv[])
 		LOG_ERROR("err=d failed to init album list", res);
 		return 1;
 	}
-	int albumlimit = 25;
+	int albumlimit = 5;
 	res = album_list_load( &album_list, music_path, &albumlimit );
 	if( res ) {
 		LOG_ERROR("err=d failed to load albums", res);

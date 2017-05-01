@@ -533,13 +533,23 @@ static int web_handler_albums(
 		json_object_object_add( album, "path", json_object_new_string( p->path ) );
 		json_object_object_add( album, "artist", json_object_new_string( p->artist ) );
 		json_object_object_add( album, "album", json_object_new_string( p->album ) );
+
+		json_object *tracks = json_object_new_array();
+		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {
+			json_object *track = json_object_new_object();
+			json_object_object_add( track, "title", json_object_new_string( t->title ) );
+			json_object_object_add( track, "path", json_object_new_string( t->path ) );
+			json_object_array_add( tracks, track );
+		}
+		json_object_object_add( album, "tracks", tracks );
+
 		json_object_array_add( albums, album );
 	}
 
 	json_object *streams = json_object_new_array();
 	for( Stream *p = data->my_data->stream_list->p; p != NULL; p = p->next_ptr ) {
+		json_object_array_add( streams, json_object_new_string( p->name ) );
 	}
-
 
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "albums", albums );
@@ -565,22 +575,40 @@ static int web_handler_play(
 		const sds request_body,
 		void **con_cls)
 {
-	int res;
-	const char *id_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "id" );
-	if( id_str ) {
-		LOG_DEBUG("id=s got id", id_str);
-		errno = 0;
-		long int id = strtol( id_str, NULL, 10 );
-		if( !errno ) {
-			LOG_DEBUG("id=d got id", id);
-			PlaylistItem *x;
-			res = playlist_manager_get_item_by_id( data->my_data->playlist_manager, id, &x );
-			if( res == OK ) {
-				player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
-			}
-		}
+	//int res;
+	const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
+	if( stream ) {
+		LOG_DEBUG("stream=s playing stream", stream);
+		goto done;
 	}
 
+	const char *album = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
+	if( stream ) {
+		LOG_DEBUG("album=s playing album", album);
+		goto done;
+	}
+
+	const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
+	if( stream ) {
+		LOG_DEBUG("playlist=s playing playlist", playlist);
+		goto done;
+	}
+	
+	//if( id_str ) {
+	//	LOG_DEBUG("id=s got id", id_str);
+	//	errno = 0;
+	//	long int id = strtol( id_str, NULL, 10 );
+	//	if( !errno ) {
+	//		LOG_DEBUG("id=d got id", id);
+	//		PlaylistItem *x;
+	//		res = playlist_manager_get_item_by_id( data->my_data->playlist_manager, id, &x );
+	//		if( res == OK ) {
+	//			player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
+	//		}
+	//	}
+	//}
+
+done:
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
 	MHD_destroy_response(response);
@@ -651,29 +679,29 @@ static int web_handler(
 		return web_handler_websocket( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
-	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/albums") == 0 ) {
+	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/library") == 0 ) {
 		return web_handler_albums( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
-	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/playlists") == 0 ) {
-		return web_handler_playlists( data, connection, url, method, version, request_session->body, con_cls );
-	}
+	//if( strcmp( method, "GET" ) == 0 && strcmp(url, "/playlists") == 0 ) {
+	//	return web_handler_playlists( data, connection, url, method, version, request_session->body, con_cls );
+	//}
 
-	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/playlists/load") == 0 ) {
-		return web_handler_playlists_load( data, connection, url, method, version, request_session->body, con_cls );
-	}
+	//if( strcmp( method, "POST" ) == 0 && strcmp(url, "/playlists/load") == 0 ) {
+	//	return web_handler_playlists_load( data, connection, url, method, version, request_session->body, con_cls );
+	//}
 
-	if( strcmp( method, "DELETE" ) == 0 && strcmp(url, "/playlists") == 0 ) {
-		return web_handler_playlists_delete( data, connection, url, method, version, request_session->body, con_cls );
-	}
+	//if( strcmp( method, "DELETE" ) == 0 && strcmp(url, "/playlists") == 0 ) {
+	//	return web_handler_playlists_delete( data, connection, url, method, version, request_session->body, con_cls );
+	//}
 
-	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/playlists") == 0 ) {
-		return web_handler_playlists_play( data, connection, url, method, version, request_session->body, con_cls );
-	}
+	//if( strcmp( method, "POST" ) == 0 && strcmp(url, "/playlists") == 0 ) {
+	//	return web_handler_playlists_play( data, connection, url, method, version, request_session->body, con_cls );
+	//}
 
-	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/albums") == 0 ) {
-		return web_handler_albums_play( data, connection, url, method, version, request_session->body, con_cls );
-	}
+	//if( strcmp( method, "POST" ) == 0 && strcmp(url, "/albums") == 0 ) {
+	//	return web_handler_albums_play( data, connection, url, method, version, request_session->body, con_cls );
+	//}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/play") == 0 ) {
 		return web_handler_play( data, connection, url, method, version, request_session->body, con_cls );
