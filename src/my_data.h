@@ -10,6 +10,6 @@ typedef struct MyData {
 	Player *player;
 	AlbumList *album_list;
 	PlaylistManager *playlist_manager;
-	Stream *streams;
+	StreamList *stream_list;
 } MyData;
 

@@ -478,7 +478,7 @@ static int web_handler_playlists(
 
 	json_object *playlists = json_object_new_array();
 
-	playlist_manager_lock( data->playlist_manager );
+	playlist_manager_lock( data->my_data->playlist_manager );
 
 	for( Playlist *p = data->my_data->playlist_manager->root; p; p = p->next ) {
 		json_object *playlist = json_object_new_object();
