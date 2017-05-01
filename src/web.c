@@ -543,6 +543,7 @@ static int web_handler_albums(
 
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "albums", albums );
+	json_object_object_add( root_obj, "streams", streams );
 
 	const char *s = json_object_to_json_string( root_obj );
 	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
