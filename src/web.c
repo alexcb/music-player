@@ -537,7 +537,7 @@ static int web_handler_albums(
 	}
 
 	json_object *streams = json_object_new_array();
-	for( Stream *p = data->my_data->stream_list->p; p != NULL; p = p->next ) {
+	for( Stream *p = data->my_data->stream_list->p; p != NULL; p = p->next_ptr ) {
 	}
 
 
