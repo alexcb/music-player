@@ -736,11 +736,24 @@ int init_http_server_data( WebHandlerData *data, MyData *my_data )
 	return 0;
 }
 
+int getenv_int(const char *name, int default_port)
+{
+	char *s = getenv(name);
+	if( !s ) {
+		return default_port;
+	}
+	int n = atoi(s);
+	if( n == 0 ) {
+		return default_port;
+	}
+	return n;
+}
+
 int start_http_server( WebHandlerData *data )
 {
 	struct MHD_Daemon *d = MHD_start_daemon(
 			MHD_USE_SELECT_INTERNALLY | MHD_USE_SUSPEND_RESUME,
-			80,
+			getenv_int("HTTP_PORT", 80),
 			NULL,
 			NULL,
 			&web_handler,

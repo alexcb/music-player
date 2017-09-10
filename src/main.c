@@ -155,13 +155,13 @@ int main(int argc, char *argv[])
 	AlbumList album_list;
 	res = album_list_init( &album_list, cache );
 	if( res ) {
-		LOG_ERROR("err=d failed to init album list", res);
+		LOG_CRITICAL("err=d failed to init album list", res);
 		return 1;
 	}
 	int albumlimit = 5;
 	res = album_list_load( &album_list, music_path, &albumlimit );
 	if( res ) {
-		LOG_ERROR("err=d failed to load albums", res);
+		LOG_CRITICAL("err=d failed to load albums", res);
 		return 1;
 	}
 	
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
 
 	res = start_player( &player );
 	if( res ) {
-		LOG_ERROR("failed to start player");
+		LOG_CRITICAL("failed to start player");
 		return 1;
 	}
 
@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
 	LOG_DEBUG("running server");
 	res = start_http_server( &web_handler_data );
 	if( res ) {
-		LOG_ERROR("failed to start http server");
+		LOG_CRITICAL("failed to start http server");
 		return 2;
 	}
 

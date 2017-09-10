@@ -48,6 +48,7 @@ make install
 
 
 
+HTTP_PORT=8080 WEB_ROOT=./resources/web/ ./my123 '/home/alex/Downloads/alex/Soulseek Downloads/complete' streams foo
 
 
 
