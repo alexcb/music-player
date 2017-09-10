@@ -1,5 +1,6 @@
 #pragma once
 
+#define LOG_CRITICAL(fmt, args...) LOG("CRITICAL", __FILE__, __LINE__, fmt, ##args)
 #define LOG_ERROR(fmt, args...) LOG("ERROR", __FILE__, __LINE__, fmt, ##args)
 #define LOG_WARN(fmt, args...)  LOG("WARN",  __FILE__, __LINE__, fmt, ##args)
 #define LOG_INFO(fmt, args...)  LOG("INFO",  __FILE__, __LINE__, fmt, ##args)
