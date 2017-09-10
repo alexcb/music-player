@@ -16,6 +16,8 @@ dependencies:
  libmicrohttpd
  libwiringPi (see http://wiringpi.com/download-and-install/)
 
+libao-dev libmpg123-dev libjson-c-dev libmicrohttpd-dev
+
 todo:
  remove wiringPi as a dependency; just read/write to the memory addresses instead maybe? or find a different lib that's
  more lightweight and doesn't shell out to setup pins

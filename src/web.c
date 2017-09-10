@@ -353,166 +353,166 @@ static int web_handler_websocket(
 	return ret;
 }
 
-static int web_handler_playlists_delete(
-		WebHandlerData *data,
-		struct MHD_Connection *connection,
-		const char *url,
-		const char *method,
-		const char *version,
-		const sds request_body,
-		void **con_cls)
-{
-	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
-	LOG_DEBUG("in web_handler_playlists_delete");
+//static int web_handler_playlists_delete(
+//		WebHandlerData *data,
+//		struct MHD_Connection *connection,
+//		const char *url,
+//		const char *method,
+//		const char *version,
+//		const sds request_body,
+//		void **con_cls)
+//{
+//	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
+//	LOG_DEBUG("in web_handler_playlists_delete");
+//
+//	if( name != NULL && *name ) {
+//		playlist_manager_delete_playlist( data->my_data->playlist_manager, name );
+//	}
+//
+//	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+//	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+//	MHD_destroy_response(response);
+//	return ret;
+//}
 
-	if( name != NULL && *name ) {
-		playlist_manager_delete_playlist( data->my_data->playlist_manager, name );
-	}
+//static int web_handler_playlists_load(
+//		WebHandlerData *data,
+//		struct MHD_Connection *connection,
+//		const char *url,
+//		const char *method,
+//		const char *version,
+//		const sds request_body,
+//		void **con_cls)
+//{
+//	const char *name;
+//	const char *s;
+//	json_object *root_obj, *playlist_obj, *element_obj, *name_obj;
+//	Playlist *playlist;
+//
+//	root_obj = json_tokener_parse( request_body );
+//	if( !json_object_is_type( root_obj, json_type_object ) ) {
+//		return error_handler( connection, "failed decoding json" );
+//	}
+//
+//	if( !json_object_object_get_ex( root_obj, "name", &name_obj ) ) {
+//		return error_handler( connection, "failed decoding json" );
+//	}
+//	name = json_object_get_string( name_obj );
+//	if( !name ) {
+//		return error_handler( connection, "failed decoding json" );
+//	}
+//
+//	if( !json_object_object_get_ex( root_obj, "playlist", &playlist_obj ) ) {
+//		return error_handler( connection, "failed decoding json" );
+//	}
+//
+//	// create new playlist (or get pre-existing)
+//	playlist_manager_lock( data->my_data->playlist_manager );
+//	playlist_manager_new_playlist( data->my_data->playlist_manager, name, &playlist );
+//	playlist_clear( playlist );
+//
+//	int len = json_object_array_length( playlist_obj );
+//	for( int i = 0; i < len; i++ ) {
+//		element_obj = json_object_array_get_idx( playlist_obj, i );
+//		if( !json_object_is_type( element_obj, json_type_string ) ) {
+//			return error_handler( connection, "expected json array with string elements" );
+//		}
+//		s = json_object_get_string( element_obj );
+//		playlist_add_file( playlist, s );
+//	}
+//	playlist_manager_save( data->my_data->playlist_manager );
+//	playlist_manager_unlock( data->my_data->playlist_manager );
+//
+//	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+//	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+//	MHD_destroy_response(response);
+//	return ret;
+//}
 
-	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
-	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-	MHD_destroy_response(response);
-	return ret;
-}
+//static int web_handler_playlists_play(
+//		WebHandlerData *data,
+//		struct MHD_Connection *connection,
+//		const char *url,
+//		const char *method,
+//		const char *version,
+//		const sds request_body,
+//		void **con_cls)
+//{
+//	Playlist *playlist;
+//	int res;
+//	int track = 0;
+//	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
+//	const char *trackStr = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
+//	if( trackStr ) {
+//		track = atoi( trackStr );
+//	}
+//	if( !name ) {
+//		return error_handler( connection, "no name given" );
+//	}
+//
+//	res = playlist_manager_get_playlist( data->my_data->playlist_manager, name, &playlist );
+//	if( res ) {
+//		return error_handler( connection, "failed to find playlist" );
+//	}
+//
+//	PlaylistItem *x;
+//	for( x = playlist->root; x && track > 0; x = x->next, track-- );
+//	if( track > 0 ) {
+//		return error_handler( connection, "track greater than playlist length" );
+//	}
+//	player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
+//
+//	return error_handler( connection, "ok" );
+//}
 
-static int web_handler_playlists_load(
-		WebHandlerData *data,
-		struct MHD_Connection *connection,
-		const char *url,
-		const char *method,
-		const char *version,
-		const sds request_body,
-		void **con_cls)
-{
-	const char *name;
-	const char *s;
-	json_object *root_obj, *playlist_obj, *element_obj, *name_obj;
-	Playlist *playlist;
-
-	root_obj = json_tokener_parse( request_body );
-	if( !json_object_is_type( root_obj, json_type_object ) ) {
-		return error_handler( connection, "failed decoding json" );
-	}
-
-	if( !json_object_object_get_ex( root_obj, "name", &name_obj ) ) {
-		return error_handler( connection, "failed decoding json" );
-	}
-	name = json_object_get_string( name_obj );
-	if( !name ) {
-		return error_handler( connection, "failed decoding json" );
-	}
-
-	if( !json_object_object_get_ex( root_obj, "playlist", &playlist_obj ) ) {
-		return error_handler( connection, "failed decoding json" );
-	}
-
-	// create new playlist (or get pre-existing)
-	playlist_manager_lock( data->my_data->playlist_manager );
-	playlist_manager_new_playlist( data->my_data->playlist_manager, name, &playlist );
-	playlist_clear( playlist );
-
-	int len = json_object_array_length( playlist_obj );
-	for( int i = 0; i < len; i++ ) {
-		element_obj = json_object_array_get_idx( playlist_obj, i );
-		if( !json_object_is_type( element_obj, json_type_string ) ) {
-			return error_handler( connection, "expected json array with string elements" );
-		}
-		s = json_object_get_string( element_obj );
-		playlist_add_file( playlist, s );
-	}
-	playlist_manager_save( data->my_data->playlist_manager );
-	playlist_manager_unlock( data->my_data->playlist_manager );
-
-	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
-	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-	MHD_destroy_response(response);
-	return ret;
-}
-
-static int web_handler_playlists_play(
-		WebHandlerData *data,
-		struct MHD_Connection *connection,
-		const char *url,
-		const char *method,
-		const char *version,
-		const sds request_body,
-		void **con_cls)
-{
-	Playlist *playlist;
-	int res;
-	int track = 0;
-	const char *name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "name" );
-	const char *trackStr = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
-	if( trackStr ) {
-		track = atoi( trackStr );
-	}
-	if( !name ) {
-		return error_handler( connection, "no name given" );
-	}
-
-	res = playlist_manager_get_playlist( data->my_data->playlist_manager, name, &playlist );
-	if( res ) {
-		return error_handler( connection, "failed to find playlist" );
-	}
-
-	PlaylistItem *x;
-	for( x = playlist->root; x && track > 0; x = x->next, track-- );
-	if( track > 0 ) {
-		return error_handler( connection, "track greater than playlist length" );
-	}
-	player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
-
-	return error_handler( connection, "ok" );
-}
-
-static int web_handler_playlists(
-		WebHandlerData *data,
-		struct MHD_Connection *connection,
-		const char *url,
-		const char *method,
-		const char *version,
-		const sds request_body,
-		void **con_cls)
-{
-	LOG_DEBUG("in web_handler_playlists");
-
-	json_object *playlists = json_object_new_array();
-
-	playlist_manager_lock( data->my_data->playlist_manager );
-
-	for( Playlist *p = data->my_data->playlist_manager->root; p; p = p->next ) {
-		json_object *playlist = json_object_new_object();
-		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
-		json_object_object_add( playlist, "id", json_object_new_int( p->id ) );
-		json_object *items = json_object_new_array();
-		for( PlaylistItem *item = p->root; item != NULL; item = item->next ) {
-			json_object *item_obj = json_object_new_object();
-			json_object_object_add( item_obj, "path", json_object_new_string( item->path ) );
-			json_object_object_add( item_obj, "artist", json_object_new_string( item->artist ) );
-			json_object_object_add( item_obj, "title", json_object_new_string( item->title ) );
-			json_object_object_add( item_obj, "id", json_object_new_int( item->id ) );
-			json_object_array_add( items, item_obj );
-		}
-		json_object_object_add( playlist, "items", items );
-
-		json_object_array_add( playlists, playlist );
-	}
-
-	json_object *root_obj = json_object_new_object();
-	json_object_object_add( root_obj, "playlists", playlists );
-
-	playlist_manager_unlock( data->my_data->playlist_manager );
-
-	const char *s = json_object_to_json_string( root_obj );
-	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
-
-	// this causes the json string to be released
-	json_object_put( root_obj );
-
-	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-	MHD_destroy_response(response);
-	return ret;
-}
+//static int web_handler_playlists(
+//		WebHandlerData *data,
+//		struct MHD_Connection *connection,
+//		const char *url,
+//		const char *method,
+//		const char *version,
+//		const sds request_body,
+//		void **con_cls)
+//{
+//	LOG_DEBUG("in web_handler_playlists");
+//
+//	json_object *playlists = json_object_new_array();
+//
+//	playlist_manager_lock( data->my_data->playlist_manager );
+//
+//	for( Playlist *p = data->my_data->playlist_manager->root; p; p = p->next ) {
+//		json_object *playlist = json_object_new_object();
+//		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
+//		json_object_object_add( playlist, "id", json_object_new_int( p->id ) );
+//		json_object *items = json_object_new_array();
+//		for( PlaylistItem *item = p->root; item != NULL; item = item->next ) {
+//			json_object *item_obj = json_object_new_object();
+//			json_object_object_add( item_obj, "path", json_object_new_string( item->path ) );
+//			json_object_object_add( item_obj, "artist", json_object_new_string( item->artist ) );
+//			json_object_object_add( item_obj, "title", json_object_new_string( item->title ) );
+//			json_object_object_add( item_obj, "id", json_object_new_int( item->id ) );
+//			json_object_array_add( items, item_obj );
+//		}
+//		json_object_object_add( playlist, "items", items );
+//
+//		json_object_array_add( playlists, playlist );
+//	}
+//
+//	json_object *root_obj = json_object_new_object();
+//	json_object_object_add( root_obj, "playlists", playlists );
+//
+//	playlist_manager_unlock( data->my_data->playlist_manager );
+//
+//	const char *s = json_object_to_json_string( root_obj );
+//	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
+//
+//	// this causes the json string to be released
+//	json_object_put( root_obj );
+//
+//	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+//	MHD_destroy_response(response);
+//	return ret;
+//}
 
 static int web_handler_albums(
 		WebHandlerData *data,
@@ -575,6 +575,8 @@ static int web_handler_play(
 		const sds request_body,
 		void **con_cls)
 {
+	int ret;
+	struct MHD_Response *response;
 	//int res;
 	const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
 	if( stream ) {
@@ -609,41 +611,41 @@ static int web_handler_play(
 	//}
 
 done:
-	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
-	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
 	MHD_destroy_response(response);
 	return ret;
 }
 
-static int web_handler_albums_play(
-		WebHandlerData *data,
-		struct MHD_Connection *connection,
-		const char *url,
-		const char *method,
-		const char *version,
-		const sds request_body,
-		void **con_cls)
-{
-	//const char *id = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
-
-	//if( id != NULL ) {
-	//	errno = 0;
-	//	long int i = strtol(id, NULL, 10);
-	//	bool ok = !errno;
-
-	//	if( ok ) {
-	//		//if( 0 <= i && i < data->album_list->len ) {
-	//		//	// TODO error handling
-	//		//	load_quick_album( data->playlist_manager, data->album_list->list[i].path );
-	//		//}
-	//	}
-	//}
-
-	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
-	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-	MHD_destroy_response(response);
-	return ret;
-}
+//static int web_handler_albums_play(
+//		WebHandlerData *data,
+//		struct MHD_Connection *connection,
+//		const char *url,
+//		const char *method,
+//		const char *version,
+//		const sds request_body,
+//		void **con_cls)
+//{
+//	//const char *id = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
+//
+//	//if( id != NULL ) {
+//	//	errno = 0;
+//	//	long int i = strtol(id, NULL, 10);
+//	//	bool ok = !errno;
+//
+//	//	if( ok ) {
+//	//		//if( 0 <= i && i < data->album_list->len ) {
+//	//		//	// TODO error handling
+//	//		//	load_quick_album( data->playlist_manager, data->album_list->list[i].path );
+//	//		//}
+//	//	}
+//	//}
+//
+//	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+//	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+//	MHD_destroy_response(response);
+//	return ret;
+//}
 
 static int web_handler(
 		void *cls,
