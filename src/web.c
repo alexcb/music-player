@@ -67,6 +67,9 @@ void clear_websocket_input( WebsocketData *ws )
 
 int websocket_send( WebsocketData *ws, const char *payload )
 {
+	assert( payload );
+	LOG_DEBUG( "payload=s websocket_send", payload );
+
 	char header[16];
 	int i = 0;
 	size_t len = strlen(payload);
@@ -96,9 +99,10 @@ int websocket_send( WebsocketData *ws, const char *payload )
 
 void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, void *d )
 {
+	assert(track);
 	char pointer[16];
 	WebHandlerData *data = (WebHandlerData*) d;
-	LOG_DEBUG( "playlistitem=p update_metadata_web_clients", track->playlist_item );
+	LOG_DEBUG( "playlistitem=p update_metadata_web_clients was called", track->playlist_item );
 
 	json_object *state = json_object_new_object();
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
@@ -112,29 +116,37 @@ void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, vo
 	const char *s = json_object_to_json_string( state );
 
 	pthread_mutex_lock( &data->current_track_payload_lock );
-	strcpy( data->current_track_payload, s );
+	data->current_track_payload = sdscpy( data->current_track_payload, s );
 	pthread_mutex_unlock( &data->current_track_payload_lock );
 	pthread_cond_signal( &data->current_track_payload_cond );
 
 	// this causes the json string to be released
 	json_object_put( state );
+	LOG_DEBUG( "update_metadata_web_clients finished" );
 }
 
 void websocket_push_thread( WebHandlerData *data )
 {
 	int res;
 	int cond_wait_res;
-	char local_payload[MAX_TRACK_PAYLOAD];
+	sds local_payload = NULL;
 	for(;;) {
+		LOG_DEBUG("p=p here", data);
+		LOG_DEBUG("p=p here", &data->current_track_payload_lock);
+		LOG_DEBUG("p=p here", &data->current_track_payload_cond);
 		pthread_mutex_lock( &data->current_track_payload_lock );
+		LOG_DEBUG("here");
 		cond_wait_res = pthread_cond_wait( &data->current_track_payload_cond, &data->current_track_payload_lock );
-		strcpy( local_payload, data->current_track_payload );
+		LOG_DEBUG("here");
+		if( data->current_track_payload )
+			local_payload = sdscpy( local_payload, data->current_track_payload );
 		pthread_mutex_unlock( &data->current_track_payload_lock );
 		if( cond_wait_res ) {
 			LOG_DEBUG( "err=d pthread_cond_wait failed", cond_wait_res );
 			continue;
 		}
 
+		LOG_DEBUG("here");
 		pthread_mutex_lock( &data->connections_lock );
 		LOG_DEBUG( "num_connections=d state=s updating web clients", data->num_connections, local_payload );
 		for( int i = 0; i < data->num_connections; ) {
@@ -195,23 +207,8 @@ static int web_handler_static(
 		const sds request_body,
 		void **con_cls)
 {
+	//TODO clean URL
 	url = trim_prefix( url, "/static/" );
-
-	//// TODO make this safe
-	//int fd = open( url, O_RDONLY );
-	//if( fd < 0 ) {
-	//	return error_handler( connection, "unable to open file: %s", url );
-	//}
-
-	//struct stat stat;
-	//int res = fstat( fd, &stat );
-	//if( res ) {
-	//	close( fd );
-	//	return error_handler( connection, "unable to stat file: %s", url );
-	//}
-
-	//FILE *f = fopen(url, "r");
-	//struct MHD_Response *response = MHD_create_response_from_fd( fd, stat.st_size );
 
 	char path[1024];
 	const char *root = getenv("WEB_ROOT");
@@ -223,12 +220,14 @@ static int web_handler_static(
 
 	FILE *file = fopen( path, "rb" );
 	if( file == NULL ) {
+		*con_cls = NULL;
 		return error_handler( connection, "unable to open file: %s", url );
 	}
 
 	int fd = fileno( file );
 	if( fd < 0 ) {
 		fclose( file );
+		*con_cls = NULL;
 		return error_handler( connection, "unable to get file handle" );
 	}
 
@@ -236,9 +235,11 @@ static int web_handler_static(
 	int res = fstat( fd, &stat );
 	if( res ) {
 		fclose( file );
+		*con_cls = NULL;
 		return error_handler( connection, "unable to stat file" );
 	}
 
+	*con_cls = NULL;
 	struct MHD_Response *response = MHD_create_response_from_callback( stat.st_size, 32*1024, &file_reader, file, &free_callback );
 	if (NULL == response) {
 		fclose( file );
@@ -255,11 +256,21 @@ int register_websocket( WebHandlerData *data, WebsocketData *ws )
 	int res = 0;
 	pthread_mutex_lock( &data->connections_lock );
 
+	websocket_send( ws, "{\"type\":\"welcome\"}" );
+
 	if( data->num_connections < MAX_CONNETIONS ) {
 		data->connections[data->num_connections] = ws;
 		data->num_connections++;
 
-		websocket_send( ws, data->current_track_payload );
+		sds payload = NULL;
+		pthread_mutex_lock( &data->current_track_payload_lock );
+		if( data->current_track_payload )
+			payload = sdscpy( payload, data->current_track_payload );
+		pthread_mutex_unlock( &data->current_track_payload_lock );
+
+		if( payload ) {
+			websocket_send( ws, payload );
+		}
 	} else {
 		res = 1;
 	}
@@ -340,14 +351,16 @@ static int web_handler_websocket(
 	}
 
 	char accept_key[30];
-	compute_key(client_key, accept_key);
+	compute_key( client_key, accept_key );
 
 	struct MHD_Response *response = MHD_create_response_for_upgrade( &websocket_upgrade_handler, (void*) data );
 	MHD_add_response_header( response, MHD_HTTP_HEADER_UPGRADE, "websocket" );
 	MHD_add_response_header( response, "Sec-WebSocket-Accept", accept_key );
 
-
 	int ret = MHD_queue_response( connection, MHD_HTTP_SWITCHING_PROTOCOLS, response );
+	if( ret == MHD_NO) {
+		LOG_ERROR("MHD_queue_response failed");
+	}
 	MHD_destroy_response( response );
 	LOG_DEBUG("ret=d web_handler_websocket", ret);
 	return ret;
@@ -561,61 +574,62 @@ static int web_handler_albums(
 	// this causes the json string to be released
 	json_object_put( root_obj );
 
+	*con_cls = NULL;
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
 	MHD_destroy_response(response);
 	return ret;
 }
 
-static int web_handler_play(
-		WebHandlerData *data,
-		struct MHD_Connection *connection,
-		const char *url,
-		const char *method,
-		const char *version,
-		const sds request_body,
-		void **con_cls)
-{
-	int ret;
-	struct MHD_Response *response;
-	//int res;
-	const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
-	if( stream ) {
-		LOG_DEBUG("stream=s playing stream", stream);
-		goto done;
-	}
-
-	const char *album = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
-	if( stream ) {
-		LOG_DEBUG("album=s playing album", album);
-		goto done;
-	}
-
-	const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
-	if( stream ) {
-		LOG_DEBUG("playlist=s playing playlist", playlist);
-		goto done;
-	}
-	
-	//if( id_str ) {
-	//	LOG_DEBUG("id=s got id", id_str);
-	//	errno = 0;
-	//	long int id = strtol( id_str, NULL, 10 );
-	//	if( !errno ) {
-	//		LOG_DEBUG("id=d got id", id);
-	//		PlaylistItem *x;
-	//		res = playlist_manager_get_item_by_id( data->my_data->playlist_manager, id, &x );
-	//		if( res == OK ) {
-	//			player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
-	//		}
-	//	}
-	//}
-
-done:
-	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
-	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-	MHD_destroy_response(response);
-	return ret;
-}
+//static int web_handler_play(
+//		WebHandlerData *data,
+//		struct MHD_Connection *connection,
+//		const char *url,
+//		const char *method,
+//		const char *version,
+//		const sds request_body,
+//		void **con_cls)
+//{
+//	int ret;
+//	struct MHD_Response *response;
+//	//int res;
+//	const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
+//	if( stream ) {
+//		LOG_DEBUG("stream=s playing stream", stream);
+//		goto done;
+//	}
+//
+//	const char *album = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
+//	if( stream ) {
+//		LOG_DEBUG("album=s playing album", album);
+//		goto done;
+//	}
+//
+//	const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
+//	if( stream ) {
+//		LOG_DEBUG("playlist=s playing playlist", playlist);
+//		goto done;
+//	}
+//	
+//	//if( id_str ) {
+//	//	LOG_DEBUG("id=s got id", id_str);
+//	//	errno = 0;
+//	//	long int id = strtol( id_str, NULL, 10 );
+//	//	if( !errno ) {
+//	//		LOG_DEBUG("id=d got id", id);
+//	//		PlaylistItem *x;
+//	//		res = playlist_manager_get_item_by_id( data->my_data->playlist_manager, id, &x );
+//	//		if( res == OK ) {
+//	//			player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
+//	//		}
+//	//	}
+//	//}
+//
+//done:
+//	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+//	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+//	MHD_destroy_response(response);
+//	return ret;
+//}
 
 //static int web_handler_albums_play(
 //		WebHandlerData *data,
@@ -675,7 +689,7 @@ static int web_handler(
 	}
 
 	// TODO free memory for request_session and request_session->body
-	*con_cls = NULL; // reset to signal we are done
+	//*con_cls = NULL; // reset to signal we are done
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/websocket") == 0 ) {
 		return web_handler_websocket( data, connection, url, method, version, request_session->body, con_cls );
@@ -705,9 +719,9 @@ static int web_handler(
 	//	return web_handler_albums_play( data, connection, url, method, version, request_session->body, con_cls );
 	//}
 
-	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/play") == 0 ) {
-		return web_handler_play( data, connection, url, method, version, request_session->body, con_cls );
-	}
+	//if( strcmp( method, "POST" ) == 0 && strcmp(url, "/play") == 0 ) {
+	//	return web_handler_play( data, connection, url, method, version, request_session->body, con_cls );
+	//}
 
 	if( strcmp( method, "GET" ) == 0 && has_prefix(url, "/static/") ) {
 		return web_handler_static( data, connection, url, method, version, request_session->body, con_cls );
@@ -718,6 +732,7 @@ static int web_handler(
 		return web_handler_static( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
+	*con_cls = NULL;
 	return error_handler( connection, "unable to dispatch url: %s", url );
 }
 
@@ -731,7 +746,7 @@ int init_http_server_data( WebHandlerData *data, MyData *my_data )
 
 	pthread_cond_init( &data->current_track_payload_cond, NULL );
 
-	data->current_track_payload[0] = '\0';
+	data->current_track_payload = NULL;
 
 	return 0;
 }
@@ -752,7 +767,7 @@ int getenv_int(const char *name, int default_port)
 int start_http_server( WebHandlerData *data )
 {
 	struct MHD_Daemon *d = MHD_start_daemon(
-			MHD_USE_SELECT_INTERNALLY | MHD_USE_SUSPEND_RESUME,
+			MHD_USE_SELECT_INTERNALLY | MHD_USE_SUSPEND_RESUME | MHD_USE_ERROR_LOG | MHD_ALLOW_UPGRADE,
 			getenv_int("HTTP_PORT", 80),
 			NULL,
 			NULL,
@@ -763,7 +778,6 @@ int start_http_server( WebHandlerData *data )
 	if( d == NULL ) {
 		return 1;
 	}
-
 
 	LOG_DEBUG("running websocket push thread");
 	websocket_push_thread( data );

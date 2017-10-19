@@ -1,0 +1,31 @@
+2017-09-30
+ - working towards build that can work on my laptop
+ make clean && make
+ ulimit -c 1000 # enable core dumps
+ WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists
+ curl localhost/library | jq .
+  
+2017-10-19
+   Found a bug:
+    this crashes when current_track_payload is NULL; sds doesn't allocate a new string
+    when a NULL reference is passed in.
+    sdscpy( data->current_track_payload, s );
+   fixed the underlying sdscpylen() method to allocate a string if NULL is passed in
+
+2017-10-19
+ TODO:
+ - Test websockets work, we should be able to run:
+   python tools/test_websocket.py
+   - it should first print out {"type": "welcome"}
+   - it should then send a {"type": "ping"} to the server, then it should wait for a pong
+
+
+
+ - TODO: get this working:
+   curl localhost/playlists | jq .
+   - need a way to display all playlists
+   - need a way to post a new playlist (all in one go -- dont worry about posting just deltas)
+     - when a playlist is changed, we'll just create a version number based on the time
+       - this will be used while pushing "now playing" messages via websockets, so we don't
+         have to refresh the playlist all the time
+

@@ -13,7 +13,7 @@ dependencies:
  libao-dev
  libmpg123-dev
  libssl-dev
- libmicrohttpd
+ libmicrohttpd git version 4adf1c6d1744e1ac4cb0c88817a3726c3038b919
  libwiringPi (see http://wiringpi.com/download-and-install/)
 
 libao-dev libmpg123-dev libjson-c-dev libmicrohttpd-dev

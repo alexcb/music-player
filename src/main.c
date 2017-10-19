@@ -123,7 +123,6 @@ int main(int argc, char *argv[])
 	char *streams_path = argv[2];
 	char *playlist_path = argv[3];
 
-
 	init_player( &player );
 
 	res = id3_cache_new( &cache, "/tmp/id3_cache", player.mh );
@@ -139,7 +138,6 @@ int main(int argc, char *argv[])
 		LOG_CRITICAL("failed to load streams");
 		return 1;
 	}
-
 
 	// This pre-populates the id3 cache
 	// this does not create the album list
@@ -193,6 +191,7 @@ int main(int argc, char *argv[])
 
 	WebHandlerData web_handler_data;
 
+	//crashes between here
 	res = init_http_server_data( &web_handler_data, &my_data );
 	if( res ) {
 		LOG_ERROR("failed to init http server");
@@ -204,6 +203,8 @@ int main(int argc, char *argv[])
 		LOG_ERROR("failed to register observer");
 		return 1;
 	}
+	sleep(10);
+	//and here
 
 	if( playlist_manager.root ) {
 		PlaylistItem *x = playlist_manager.root->root;

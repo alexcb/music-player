@@ -135,7 +135,7 @@ int player_notify_item_change( Player *player, PlaylistItem *playlist_item )
 
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data )
 {
-	printf("player_add_metadata_observer\n");
+	LOG_DEBUG("player_add_metadata_observer");
 	if( player->metadata_observers_num == player->metadata_observers_cap ) {
 		return 1;
 	}
