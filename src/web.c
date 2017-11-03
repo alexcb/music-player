@@ -592,7 +592,7 @@ static int web_handler_play(
 {
 	int ret;
 	struct MHD_Response *response;
-	//int res;
+	int res;
 	const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
 	if( stream ) {
 		LOG_DEBUG("stream=s playing stream", stream);
@@ -605,9 +605,23 @@ static int web_handler_play(
 		goto done;
 	}
 
-	const char *playlist = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
-	if( playlist ) {
-		LOG_DEBUG("playlist=s playing playlist", playlist);
+	const char *playlist_name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
+	if( playlist_name ) {
+		LOG_DEBUG("playlist=s playing playlist", playlist_name);
+
+		Playlist *playlist;
+		res = playlist_manager_get_playlist( data->my_data->playlist_manager, playlist_name, &playlist );
+		if( res ) {
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to find playlist" );
+		}
+	
+		res = player_change_track( data->my_data->player, playlist->root, TRACK_CHANGE_IMMEDIATE );
+		if( res ) {
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to change track" );
+		}
+
+		player_set_playing( data->my_data->player, true );
+
 		goto done;
 	}
 

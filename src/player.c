@@ -569,6 +569,11 @@ void player_audio_thread_run( void *data )
 	}
 }
 
+void player_set_playing( Player *player, bool playing)
+{
+	player->playing = playing;
+}
+
 int stop_player( Player *player )
 {
 	mpg123_exit();
