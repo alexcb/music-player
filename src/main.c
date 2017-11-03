@@ -191,7 +191,6 @@ int main(int argc, char *argv[])
 
 	WebHandlerData web_handler_data;
 
-	//crashes between here
 	res = init_http_server_data( &web_handler_data, &my_data );
 	if( res ) {
 		LOG_ERROR("failed to init http server");
@@ -203,8 +202,6 @@ int main(int argc, char *argv[])
 		LOG_ERROR("failed to register observer");
 		return 1;
 	}
-	sleep(10);
-	//and here
 
 	if( playlist_manager.root ) {
 		PlaylistItem *x = playlist_manager.root->root;

@@ -29,3 +29,41 @@
        - this will be used while pushing "now playing" messages via websockets, so we don't
          have to refresh the playlist all the time
 
+
+2017-10-21
+ Whenever a song changes, we need to push a message: '{ "playing": true, "song_id": 4, "playlist_ver": 999 }'
+ The playlist ver will be a number identifying the current playlist.
+ a playlist in this context is actually a set of playlists. e.g.
+ {
+    version: 999,
+    playlists: [
+        {
+            name: quick_album,
+            items: [
+               { artist: foo, song: bar, album: blah, path: /home/...},  # song id 0
+               { artist: foo, song: bar, album: blah, path: /home/...},  # song id 1
+               { artist: foo, song: bar, album: blah, path: /home/...},  # song id 2
+            ]
+        },
+        {
+            name: otherplaylist,
+            items: [
+               { artist: foo, song: bar, album: blah, path: /home/...},  # song id 3
+               { artist: foo, song: bar, album: blah, path: /home/...},  # song id 4
+               { artist: foo, song: bar, album: blah, path: /home/...},  # song id 5
+            ]
+        },
+    ],
+ ]
+
+ the playlist will have the path from the /library endpoint
+
+ TODO: implement a POST /playlist to reload the playlist, and similarly a GET /playlist to retrieve it
+
+2017-11-03
+ wrote tools/post_playlist.py to test sending playlists
+ the fetch can be tested with: curl localhost/playlists | jq .
+
+ when posting a playlist, it freezes up; posting an empty playlist works.
+
+ after doing an empty post, restarting the server caused a crash (it tried playing the first file of an empty playlist)

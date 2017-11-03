@@ -16,6 +16,22 @@
 #    sys.stdout.flush()
 
 import websocket
+
+# callback style app
+#  def on_message(ws, message):
+#      print message
+#  
+#  def on_open(ws):
+#      print 'opened'
+#  
+#  def on_close(ws):
+#      print 'closed'
+#  
+#  ws = websocket.WebSocketApp("ws://localhost/websocket", on_message=on_message, on_open=on_open, on_close=on_close)
+#  ws.run_forever()
+
+
 ws = websocket.WebSocket()
-client = ws.connect("ws://localhost/websocket", http_proxy_host="proxy_host_name", http_proxy_port=3128)
-print client.read()
+ws.connect("ws://localhost/websocket")
+while 1:
+    print ws.recv()
