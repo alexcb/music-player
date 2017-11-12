@@ -83,3 +83,6 @@
     WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists
     python tools/post_playlist.py
  start websocket streamer with:
+
+TODO:
+ - change playlist to reference "track" struct instead of playlist_item -- this is to avoid storing id3 tags in multiple areas

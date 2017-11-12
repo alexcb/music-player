@@ -107,8 +107,8 @@ void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, vo
 	json_object *state = json_object_new_object();
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
 	if( track->playlist_item ) {
-		json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->artist ) );
-		json_object_object_add( state, "title", json_object_new_string( track->playlist_item->title ) );
+		json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->track->artist ) );
+		json_object_object_add( state, "title", json_object_new_string( track->playlist_item->track->title ) );
 	}
 	sprintf( pointer, "%p", track->playlist_item );
 	json_object_object_add( state, "id", json_object_new_string( pointer ) );
@@ -397,6 +397,7 @@ static int web_handler_playlists_load(
 		const sds request_body,
 		void **con_cls)
 {
+	int res;
 	const char *name;
 	const char *s;
 	json_object *root_obj, *playlist_obj, *element_obj, *name_obj;
@@ -434,7 +435,13 @@ static int web_handler_playlists_load(
 		}
 		s = json_object_get_string( element_obj );
 		LOG_DEBUG("s=s adding", s);
-		playlist_add_file( playlist, s );
+		Track *track;
+		res = album_list_get_track( data->my_data->album_list, s, &track );
+		if( res != 0 ) {
+			LOG_ERROR("res=d path=s failed to lookup track", res, s);
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to lookup track" );
+		}
+		playlist_add_file( playlist, track );
 	}
 	playlist_manager_save( data->my_data->playlist_manager );
 	playlist_manager_unlock( data->my_data->playlist_manager );
@@ -503,9 +510,9 @@ static int web_handler_playlists(
 		json_object *items = json_object_new_array();
 		for( PlaylistItem *item = p->root; item != NULL; item = item->next ) {
 			json_object *item_obj = json_object_new_object();
-			json_object_object_add( item_obj, "path", json_object_new_string( item->path ) );
-			json_object_object_add( item_obj, "artist", json_object_new_string( item->artist ) );
-			json_object_object_add( item_obj, "title", json_object_new_string( item->title ) );
+			json_object_object_add( item_obj, "path", json_object_new_string( item->track->path ) );
+			json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
+			json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
 			json_object_object_add( item_obj, "id", json_object_new_int( item->id ) );
 			json_object_array_add( items, item_obj );
 		}

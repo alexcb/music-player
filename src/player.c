@@ -2,6 +2,7 @@
 #include "icy.h"
 #include "log.h"
 #include "io_utils.h"
+#include "albums.h"
 
 #include <string.h>
 #include <math.h>
@@ -230,14 +231,14 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	PlayQueueItem *pqi = NULL;
 
 	// dont start loading a stream if paused
-	if( strstr(playlist_item->path, "http://") ) {
+	if( strstr(playlist_item->track->path, "http://") ) {
 		while( !player->playing ) {
 			usleep(100);
 		}
 	}
 
-	LOG_DEBUG("path=s opening file in reader", playlist_item->path);
-	res = open_fd( playlist_item->path, &fd, &is_stream, &icy_interval, &icy_name );
+	LOG_DEBUG("path=s opening file in reader", playlist_item->track->path);
+	res = open_fd( playlist_item->track->path, &fd, &is_stream, &icy_interval, &icy_name );
 	if( res ) {
 		LOG_ERROR( "unable to open" );
 		playlist_manager_unlock( player->playlist_manager );

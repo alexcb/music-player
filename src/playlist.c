@@ -3,6 +3,7 @@
 #include "errors.h"
 #include "log.h"
 #include "httpget.h"
+#include "albums.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -92,17 +93,11 @@ int read_metadata( const char *path, sds *artist, sds *title)
 	return OK;
 }
 
-int playlist_add_file( Playlist *playlist, const char *path )
+int playlist_add_file( Playlist *playlist, const Track *track )
 {
 	PlaylistItem *item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
-	item->path = sdsnew( path );
-	if( item->path == NULL ) {
-		return OUT_OF_MEMORY;
-	}
+	item->track = track;
 	item->ref_count = 1;
-	item->artist = sdsempty();
-	item->title = sdsempty();
-	read_metadata( path, &item->artist, &item->title );
 
 	item->next = NULL;
 	item->parent = playlist;
@@ -137,21 +132,17 @@ int playlist_remove_item( Playlist *playlist, PlaylistItem *item )
 int playlist_item_ref_up( PlaylistItem *item )
 {
 	item->ref_count++;
-	LOG_DEBUG("path=s count=d playlist_item_ref_up", item->path, item->ref_count);
+	LOG_DEBUG("path=s count=d playlist_item_ref_up", item->track->path, item->ref_count);
 	return 0;
 }
 
 int playlist_item_ref_down( PlaylistItem *item )
 {
 	item->ref_count--;
-	LOG_DEBUG("path=s count=d playlist_item_ref_down", item->path, item->ref_count);
+	LOG_DEBUG("path=s count=d playlist_item_ref_down", item->track->path, item->ref_count);
 	if( item->ref_count > 0 ) {
 		return 0;
 	}
-
-	sdsfree( item->path );
-	sdsfree( item->artist );
-	sdsfree( item->title );
 
 	free( item );
 	return 0;

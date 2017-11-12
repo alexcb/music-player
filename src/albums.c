@@ -15,8 +15,8 @@
 #include "log.h"
 
 
-
 SGLIB_DEFINE_RBTREE_FUNCTIONS(Album, left, right, color_field, ALBUM_CMPARATOR)
+
 
 int album_list_init( AlbumList *album_list, ID3Cache *cache )
 {
@@ -33,7 +33,7 @@ int setup_album( AlbumList *album_list, Album *album )
 	album->artist = "unknown";
 	album->album = "unknown";
 
-	LOG_ERROR("path=s ---reading---", album->path);
+	LOG_ERROR("path=s reading album", album->path);
 	DIR *d = opendir( album->path );
 	if( d == NULL ) {
 		LOG_ERROR("path=s err=s opendir failed", album->path, strerror(errno));
@@ -138,6 +138,22 @@ int album_list_load( AlbumList *album_list, const char *path, int *limit )
 
 	return 0;
 }
+
+int album_list_get_track( AlbumList *album_list, const char *path, Track **track )
+{
+	Album *p;
+	struct sglib_Album_iterator it;
+	for( p = sglib_Album_it_init_inorder(&it, album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
+		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {
+			if( strcmp(t->path, path) == 0 ) {
+				*track = t;
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
 //
 //
 //int album_list_grow( AlbumList *album_list )

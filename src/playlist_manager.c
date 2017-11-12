@@ -5,6 +5,7 @@
 #include "errors.h"
 #include "log.h"
 #include "sglib.h"
+#include "albums.h"
 
 #include <dirent.h> 
 #include <string.h>
@@ -40,7 +41,7 @@ int playlist_manager_save( PlaylistManager *manager )
 	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
 		fprintf( fp, "%s\n", x->name );
 		for( PlaylistItem *i = x->root; i != NULL; i = i->next ) {
-			fprintf( fp, " %s\n", i->path );
+			fprintf( fp, " %s\n", i->track->path );
 		}
 	}
 	fclose( fp );
@@ -58,28 +59,28 @@ void trim_suffix_newline(char *s)
 
 int playlist_manager_load( PlaylistManager *manager )
 {
-	FILE *fp = fopen ( manager->playlistPath, "r" );
-	if( !fp ) {
-		LOG_ERROR("path=s failed to open playlist for reading", manager->playlistPath);
-		return 1;
-	}
+	//FILE *fp = fopen ( manager->playlistPath, "r" );
+	//if( !fp ) {
+	//	LOG_ERROR("path=s failed to open playlist for reading", manager->playlistPath);
+	//	return 1;
+	//}
 
-	Playlist *playlist = NULL;
-	char *line = NULL;
-	size_t len = 0;
-	while( getline( &line, &len, fp ) != -1 ) {
-		trim_suffix_newline( line );
-		LOG_DEBUG("line=s got line", line);
-		if( !line[0] )
-			continue;
-		if( line[0] == ' ' && playlist ) {
-			playlist_add_file( playlist, &line[1] );
-		}
-		else if( line[0] != ' ' ) {
-			playlist_manager_new_playlist( manager, line, &playlist );
-		}
-	}
-	fclose( fp );
+	//Playlist *playlist = NULL;
+	//char *line = NULL;
+	//size_t len = 0;
+	//while( getline( &line, &len, fp ) != -1 ) {
+	//	trim_suffix_newline( line );
+	//	LOG_DEBUG("line=s got line", line);
+	//	if( !line[0] )
+	//		continue;
+	//	if( line[0] == ' ' && playlist ) {
+	//		playlist_add_file( playlist, &line[1] );
+	//	}
+	//	else if( line[0] != ' ' ) {
+	//		playlist_manager_new_playlist( manager, line, &playlist );
+	//	}
+	//}
+	//fclose( fp );
 	return 0;
 }
 

@@ -16,7 +16,7 @@ typedef struct Track
 	sds path;
 	int track;
 
-    struct Track *next_ptr;
+	struct Track *next_ptr;
 } Track;
 #define TRACK_COMPARATOR(e1, e2) (strcmp(e1->path, e2->path))
 //#define TRACK_COMPARATOR(e1, e2) (e1->track - e2->track)
@@ -46,5 +46,8 @@ typedef struct AlbumList
 
 int album_list_init( AlbumList *album_list, ID3Cache *cache );
 int album_list_load( AlbumList *album_list, const char *path, int *limit );
+int album_list_get_track( AlbumList *album_list, const char *path, Track **track );
+
+//
 //int album_list_add( AlbumList *album_list, const char *artist, const char *name, const char *path );
 //int album_list_sort( AlbumList *album_list );
