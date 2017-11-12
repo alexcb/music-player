@@ -64,6 +64,22 @@
  wrote tools/post_playlist.py to test sending playlists
  the fetch can be tested with: curl localhost/playlists | jq .
 
- when posting a playlist, it freezes up; posting an empty playlist works.
+ when posting a playlist, it freezes up; posting an empty playlist works. <-- this only happened once, seems like an intermittent problem
 
  after doing an empty post, restarting the server caused a crash (it tried playing the first file of an empty playlist)
+
+ I can now play music.
+
+ TODO:
+  - enable id3 caching
+  - enable playing streams
+  - enable playlist deletion
+
+
+2017-11-12
+
+ start server with:
+    make clean && make
+    WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists
+    python tools/post_playlist.py
+ start websocket streamer with:

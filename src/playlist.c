@@ -137,12 +137,14 @@ int playlist_remove_item( Playlist *playlist, PlaylistItem *item )
 int playlist_item_ref_up( PlaylistItem *item )
 {
 	item->ref_count++;
+	LOG_DEBUG("path=s count=d playlist_item_ref_up", item->path, item->ref_count);
 	return 0;
 }
 
 int playlist_item_ref_down( PlaylistItem *item )
 {
 	item->ref_count--;
+	LOG_DEBUG("path=s count=d playlist_item_ref_down", item->path, item->ref_count);
 	if( item->ref_count > 0 ) {
 		return 0;
 	}

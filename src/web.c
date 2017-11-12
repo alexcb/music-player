@@ -107,7 +107,7 @@ void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, vo
 	json_object *state = json_object_new_object();
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
 	if( track->playlist_item ) {
-		json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->title ) );
+		json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->artist ) );
 		json_object_object_add( state, "title", json_object_new_string( track->playlist_item->title ) );
 	}
 	sprintf( pointer, "%p", track->playlist_item );
@@ -402,6 +402,8 @@ static int web_handler_playlists_load(
 	json_object *root_obj, *playlist_obj, *element_obj, *name_obj;
 	Playlist *playlist;
 
+	LOG_DEBUG("in web_handler_playlists_load");
+
 	root_obj = json_tokener_parse( request_body );
 	if( !json_object_is_type( root_obj, json_type_object ) ) {
 		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed decoding json, expected object" );
@@ -593,6 +595,16 @@ static int web_handler_play(
 	int ret;
 	struct MHD_Response *response;
 	int res;
+
+	int id = 0;
+	const char *id_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "id" );
+	if( id_str ) {
+		id = atoi(id_str);
+		if( id == 0 && ( id_str[0] != '0' || id_str[0] != '\0' ) ) {
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad id" );
+		}
+	}
+
 	const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
 	if( stream ) {
 		LOG_DEBUG("stream=s playing stream", stream);
@@ -614,6 +626,14 @@ static int web_handler_play(
 		if( res ) {
 			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to find playlist" );
 		}
+
+		PlaylistItem *x = playlist->root;
+		if( id_str != NULL ) {
+			for( ; x != NULL && x->id != id; x = x->next );
+		}
+		if( x == NULL ) {
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "id not found (or playlist is empty)" );
+		}
 	
 		res = player_change_track( data->my_data->player, playlist->root, TRACK_CHANGE_IMMEDIATE );
 		if( res ) {
@@ -627,20 +647,6 @@ static int web_handler_play(
 
 	return error_handler( connection, MHD_HTTP_BAD_REQUEST, "missing play options" );
 	
-	//if( id_str ) {
-	//	LOG_DEBUG("id=s got id", id_str);
-	//	errno = 0;
-	//	long int id = strtol( id_str, NULL, 10 );
-	//	if( !errno ) {
-	//		LOG_DEBUG("id=d got id", id);
-	//		PlaylistItem *x;
-	//		res = playlist_manager_get_item_by_id( data->my_data->playlist_manager, id, &x );
-	//		if( res == OK ) {
-	//			player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
-	//		}
-	//	}
-	//}
-
 done:
 	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
