@@ -41,6 +41,7 @@ typedef struct RequestSession {
 
 int send_all( int sockfd, const char *buf, size_t len )
 {
+	LOG_DEBUG( "payload=s len=d send_all", buf, len );
 	int res;
 	while( len > 0 ) {
 		res = send( sockfd, buf, len, 0);
@@ -68,51 +69,49 @@ void clear_websocket_input( WebsocketData *ws )
 int websocket_send( WebsocketData *ws, const char *payload )
 {
 	assert( payload );
-	LOG_DEBUG( "payload=s websocket_send", payload );
 
 	char header[16];
-	int i = 0;
+	int header_len = 0;
 	size_t len = strlen(payload);
 	unsigned char b1 = 0x01 | 0x80;
 	unsigned char b2 = 0;
-	header[i++] = b1;
+	LOG_DEBUG( "payload=s len=d websocket_send", payload, len );
+	header[0] = b1;
 	if( len < 126 ) {
 		b2 = b2 | len;
-		header[i++] = b2;
+		header[1] = b2;
+		header_len = 2;
 	} else if( len < 65536 ) {
 		b2 = b2 | 126;
-		header[i++] = b2;
-		((uint16_t*) header)[i] = htons(len);
-		i += 2;
+		header[1] = b2;
+		*((uint16_t*) (header + 2)) = htons(len);
+		header_len = 4;
 	} else {
 		b2 = b2 | 127;
-		header[i++] = b2;
-		((uint32_t*) header)[i] = htonl(len);
-		i += 4;
+		header[1] = b2;
+		*((uint32_t*) (header + 2)) = htons(len);
+		header_len = 6;
 	}
 
 	int res = 0;
-	res = res || send_all( ws->sock, header, i);
-	res = res || send_all( ws->sock, payload, strlen(payload));
+	res = res || send_all( ws->sock, header, header_len );
+	res = res || send_all( ws->sock, payload, strlen(payload) );
 	return res;
 }
 
 void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, void *d )
 {
 	assert(track);
-	char pointer[16];
 	WebHandlerData *data = (WebHandlerData*) d;
 	LOG_DEBUG( "playlistitem=p update_metadata_web_clients was called", track->playlist_item );
 
 	json_object *state = json_object_new_object();
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
 	if( track->playlist_item ) {
+		json_object_object_add( state, "path", json_object_new_string( track->playlist_item->track->path ) );
 		json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->track->artist ) );
 		json_object_object_add( state, "title", json_object_new_string( track->playlist_item->track->title ) );
 	}
-	sprintf( pointer, "%p", track->playlist_item );
-	json_object_object_add( state, "id", json_object_new_string( pointer ) );
-
 	const char *s = json_object_to_json_string( state );
 
 	pthread_mutex_lock( &data->current_track_payload_lock );
