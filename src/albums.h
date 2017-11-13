@@ -16,10 +16,18 @@ typedef struct Track
 	sds path;
 	int track;
 
+	// used to order tracks in an album
 	struct Track *next_ptr;
+
+	// used to quickly lookup a track based on the path
+	char color_field;
+	struct Track *left;
+	struct Track *right;
 } Track;
-#define TRACK_COMPARATOR(e1, e2) (strcmp(e1->path, e2->path))
 //#define TRACK_COMPARATOR(e1, e2) (e1->track - e2->track)
+#define TRACK_PATH_COMPARATOR(e1, e2) (strcmp(e1->path, e2->path))
+
+SGLIB_DEFINE_RBTREE_PROTOTYPES(Track, left, right, color_field, TRACK_PATH_COMPARATOR)
 
 
 typedef struct Album
@@ -41,6 +49,7 @@ SGLIB_DEFINE_RBTREE_PROTOTYPES(Album, left, right, color_field, ALBUM_CMPARATOR)
 typedef struct AlbumList
 {
 	Album *root;
+	Track *root_track;
 	ID3Cache *id3_cache;
 } AlbumList;
 

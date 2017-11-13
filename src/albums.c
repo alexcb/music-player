@@ -16,12 +16,14 @@
 
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(Album, left, right, color_field, ALBUM_CMPARATOR)
+SGLIB_DEFINE_RBTREE_FUNCTIONS(Track, left, right, color_field, TRACK_PATH_COMPARATOR)
 
 
 int album_list_init( AlbumList *album_list, ID3Cache *cache )
 {
 	album_list->id3_cache = cache;
 	album_list->root = NULL;
+	album_list->root_track = NULL;
 	return 0;
 }
 
@@ -69,7 +71,8 @@ int setup_album( AlbumList *album_list, Album *album )
 		album->artist = id3_item->artist;
 		album->album = id3_item->album;
 
-		SGLIB_SORTED_LIST_ADD(Track, album->tracks, track, TRACK_COMPARATOR, next_ptr);
+		SGLIB_SORTED_LIST_ADD(Track, album->tracks, track, TRACK_PATH_COMPARATOR, next_ptr);
+		sglib_Track_add( &(album_list->root_track), track );
 	}
 	LOG_ERROR("path=s ---reading done---", album->path);
 
@@ -141,17 +144,13 @@ int album_list_load( AlbumList *album_list, const char *path, int *limit )
 
 int album_list_get_track( AlbumList *album_list, const char *path, Track **track )
 {
-	Album *p;
-	struct sglib_Album_iterator it;
-	for( p = sglib_Album_it_init_inorder(&it, album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
-		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {
-			if( strcmp(t->path, path) == 0 ) {
-				*track = t;
-				return 0;
-			}
-		}
+	Track e;
+	e.path = (char *) path;
+	*track = sglib_Track_find_member( album_list->root_track, &e);
+	if( *track == NULL ) {
+		return 1;
 	}
-	return 1;
+	return 0;
 }
 
 //
