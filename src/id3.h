@@ -10,10 +10,12 @@
 
 typedef struct ID3CacheItem
 {
+	sds path;
+	long mod_time;
+
 	sds artist;
 	sds album;
 	sds title;
-	sds path;
 	int track;
 
 	bool seen;
@@ -37,5 +39,4 @@ typedef struct ID3Cache
 
 int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh );
 int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item );
-int id3_cache_add( ID3Cache *cache, const char *path );
 int id3_cache_save( ID3Cache *cache );

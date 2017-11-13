@@ -56,9 +56,7 @@ int setup_album( AlbumList *album_list, Album *album )
 		res = id3_cache_get( album_list->id3_cache, s, &id3_item );
 		if( res ) {
 			LOG_ERROR("path=s err=s failed getting id3 tags", s, d);
-			sdsfree( s );
-			closedir( d );
-			return res;
+			goto error;
 		}
 
 		LOG_ERROR("path=s artist=s title=s populating track", s, id3_item->artist, id3_item->title);
@@ -76,8 +74,11 @@ int setup_album( AlbumList *album_list, Album *album )
 	}
 	LOG_ERROR("path=s ---reading done---", album->path);
 
+	res = 0;
+error:
+	sdsfree( s );
 	closedir( d );
-	return 0;
+	return res;
 }
 
 int album_list_load( AlbumList *album_list, const char *path, int *limit )

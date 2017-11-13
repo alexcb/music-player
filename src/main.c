@@ -67,48 +67,6 @@ void change_playlist( Player *player, PlaylistManager *manager, int dir )
 }
 
 
-// limit should be -1; only positive value is used for testing to speed up load times
-void find_tracks( ID3Cache *cache, const char *path, int *limit )
-{
-	if( limit && *limit == 0 ) { return; }
-	struct dirent *dirent;
-
-	sds s = sdsnew(path);
-
-	LOG_DEBUG( "path=s opening dir", path );
-	DIR *dir = opendir(path);
-	if( dir == NULL ) {
-		LOG_ERROR( "path=s err=s opendir failed", path, strerror(errno) );
-		sdsfree(s);
-		return;
-	}
-
-	while( (dirent = readdir(dir)) != NULL ) {
-		if( limit ) {
-			if( *limit == 0 ) break;
-			(*limit)--;
-		}
-		LOG_DEBUG( "path=s readdir", dirent->d_name );
-		if( strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0 ) {
-			continue;
-		}
-
-		sdsclear( s );
-		s = sdscatfmt( s, "%s/%s", path, dirent->d_name );
-
-		if( dirent->d_type == DT_DIR ) {
-			find_tracks( cache, s, limit );
-			continue;
-		}
-
-		if( has_suffix( s, ".mp3" ) ) {
-			LOG_DEBUG( "path=s opening file", s );
-			id3_cache_add( cache, s );
-		}
-	}
-	closedir( dir );
-}
-
 int main(int argc, char *argv[])
 {
 	int res;
@@ -139,28 +97,22 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	// This pre-populates the id3 cache
-	// this does not create the album list
-	// this code will be removed, and caching can simply be done while reading albums
-	if (0) {
-		int limit = 100;
-		find_tracks( cache, music_path, &limit );
-		LOG_INFO("saving cache");
-		id3_cache_save( cache );
-		return 0;
-	}
-
 	AlbumList album_list;
 	res = album_list_init( &album_list, cache );
 	if( res ) {
 		LOG_CRITICAL("err=d failed to init album list", res);
 		return 1;
 	}
-	int albumlimit = 5;
+	int albumlimit = 5; // TODO remove this later
 	res = album_list_load( &album_list, music_path, &albumlimit );
 	if( res ) {
 		LOG_CRITICAL("err=d failed to load albums", res);
 		return 1;
+	}
+
+	res = id3_cache_save( cache );
+	if( res ) {
+		LOG_ERROR("err=d failed to save id3 cache", res);
 	}
 	
 	PlaylistManager playlist_manager;

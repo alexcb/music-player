@@ -9,6 +9,8 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+
 #include <mpg123.h>
 
 
@@ -63,6 +65,16 @@ error:
 	return res;
 }
 
+int read_long( FILE *fp, long *x )
+{
+	int res;
+	res = fread( x, sizeof(long), 1, fp );
+	if( res != 1 ) {
+		return 1;
+	}
+	return 0;
+}
+
 int read_str( FILE *fp, sds *s )
 {
 	int res;
@@ -109,9 +121,10 @@ int id3_cache_load( ID3Cache *cache )
 			break;
 		}
 
-		res = read_str( fp, &item->album  ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
-		res = read_str( fp, &item->artist ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
-		res = read_str( fp, &item->title  ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_long( fp, &item->mod_time ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_str( fp, &item->album     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_str( fp, &item->artist    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_str( fp, &item->title     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		
 		LOG_INFO( "path=s adding cache entry", item->path );
 		sglib_ID3CacheItem_add( &(cache->root), item );
@@ -135,7 +148,15 @@ int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh )
 
 int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 {
-	LOG_INFO( "path=s cache_get", path );
+	struct stat st;
+
+	if (stat(path, &st)) {
+		LOG_ERROR("path=s failed to stat file", path);
+		st.st_mtim.tv_sec = 0;
+	}
+		//printf("%s: mtime = %lld.%.9ld\n", filename, (long long)st.st_mtim.tv_sec, st.st_mtim.tv_nsec);
+
+	LOG_INFO( "path=s modtime=d cache_get", path, st.st_mtim.tv_sec );
 	int res;
 	ID3CacheItem id;
 	id.path = (sds) path;
@@ -144,6 +165,7 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 		LOG_INFO( "path=s adding", path );
 		*item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
 		memset( *item, 0, sizeof(ID3CacheItem) );
+		(*item)->mod_time = st.st_mtim.tv_sec;
 		res = id3_get( cache, path, *item );
 		if( res ) {
 			LOG_INFO( "path=s failed to read mp3 id3", path );
@@ -153,14 +175,18 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 		LOG_INFO( "path=s adding done", cache->path );
 		sglib_ID3CacheItem_add( &(cache->root), *item );
 	}
+	if( (*item)->mod_time != st.st_mtim.tv_sec ) {
+		LOG_INFO( "path=s mod time doesnt match", cache->path );
+		res = id3_get( cache, path, *item );
+		if( res ) {
+			LOG_INFO( "path=s failed to read mp3 id3", path );
+			free( *item );
+			return 1;
+		}
+		(*item)->mod_time = st.st_mtim.tv_sec;
+	}
 	(*item)->seen = true;
 	return 0;
-}
-
-int id3_cache_add( ID3Cache *cache, const char *path )
-{
-	ID3CacheItem *item;
-	return id3_cache_get( cache, path, &item );
 }
 
 void write_str( FILE *fp, const char *s )
@@ -173,6 +199,11 @@ void write_str( FILE *fp, const char *s )
 	if( n > 0 ) {
 		fwrite( s, 1, n, fp );
 	}
+}
+
+void write_long( FILE *fp, long x )
+{
+	fwrite( &x, sizeof(long), 1, fp );
 }
 
 int id3_cache_save( ID3Cache *cache )
@@ -192,6 +223,8 @@ int id3_cache_save( ID3Cache *cache )
 	for( te=sglib_ID3CacheItem_it_init_inorder(&it, cache->root); te!=NULL; te=sglib_ID3CacheItem_it_next(&it) ) {
 		LOG_INFO( "x=s saving item path", te->path );
 		write_str( fp, te->path );
+		LOG_INFO( "x=d saving item modification time", te->mod_time );
+		fwrite( &(te->mod_time), sizeof(long), 1, fp );
 		LOG_INFO( "x=s saving item album", te->album );
 		write_str( fp, te->album );
 		LOG_INFO( "x=s saving item artist", te->artist );
