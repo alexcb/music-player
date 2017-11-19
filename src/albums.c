@@ -35,7 +35,7 @@ int setup_album( AlbumList *album_list, Album *album )
 	album->artist = "unknown";
 	album->album = "unknown";
 
-	LOG_ERROR("path=s reading album", album->path);
+	LOG_INFO("path=s reading album", album->path);
 	DIR *d = opendir( album->path );
 	if( d == NULL ) {
 		LOG_ERROR("path=s err=s opendir failed", album->path, strerror(errno));
@@ -59,7 +59,6 @@ int setup_album( AlbumList *album_list, Album *album )
 			goto error;
 		}
 
-		LOG_ERROR("path=s artist=s title=s populating track", s, id3_item->artist, id3_item->title);
 		Track *track = malloc(sizeof(Track));
 		track->artist = id3_item->artist;
 		track->title = id3_item->title;
@@ -72,7 +71,6 @@ int setup_album( AlbumList *album_list, Album *album )
 		SGLIB_SORTED_LIST_ADD(Track, album->tracks, track, TRACK_PATH_COMPARATOR, next_ptr);
 		sglib_Track_add( &(album_list->root_track), track );
 	}
-	LOG_ERROR("path=s ---reading done---", album->path);
 
 	res = 0;
 error:

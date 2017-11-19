@@ -20,20 +20,18 @@ SGLIB_DEFINE_RBTREE_FUNCTIONS(ID3CacheItem, left, right, color_field, ID3CACHE_C
 int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 {
 	int res;
-	LOG_DEBUG( "path=s open", path );
+	LOG_DEBUG( "path=s reading id3 tags", path );
 	res = mpg123_open( cache->mh, path );
 	if( res != MPG123_OK ) {
-		LOG_DEBUG("err=d open error", res);
+		LOG_ERROR("err=d open error", res);
 		res = 1;
 		goto error;
 	}
-	LOG_DEBUG( "seek" );
 	mpg123_seek( cache->mh, 0, SEEK_SET );
 
 	item->path = sdsnew( path );
 	item->track = 0; //TODO stored in comment[30] of id3
 
-	LOG_DEBUG( "reading id3" );
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
 	res = 1;
@@ -42,7 +40,6 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 		if( mpg123_id3( cache->mh, &v1, &v2 ) == MPG123_OK ) {
 			res = 0;
 			if( v2 != NULL ) {
-				LOG_DEBUG( "populating metadata with id3 v2" );
 				if( v2->artist && v2->artist->p)
 					item->artist = sdsnew( v2->artist->p );
 				if( v2->album && v2->album->p)
@@ -50,7 +47,6 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 				if( v2->title && v2->title->p)
 					item->title = sdsnew( v2->title->p );
 			} else if( v1 != NULL ) {
-				LOG_DEBUG( "populating metadata with id3 v1" );
 				item->artist = sdsnew( v1->artist );
 				item->title = sdsnew( v1->title );
 				item->album = sdsnew( v1->album );
@@ -96,7 +92,7 @@ int read_str( FILE *fp, sds *s )
 int id3_cache_load( ID3Cache *cache )
 {
 	int res;
-	LOG_INFO( "path=s saving id3 cache", cache->path );
+	LOG_INFO( "path=s loading id3 cache", cache->path );
 	FILE *fp = fopen ( cache->path, "rb" );
 	if( !fp ) {
 		LOG_ERROR( "path=s failed to open library for reading", cache->path );
@@ -141,6 +137,7 @@ int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh )
 	(*cache)->root = NULL;
 	(*cache)->mh = mh;
 	(*cache)->path = path;
+	(*cache)->dirty = false;
 
 	id3_cache_load( *cache );
 	return 0;
@@ -151,18 +148,16 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 	struct stat st;
 
 	if (stat(path, &st)) {
-		LOG_ERROR("path=s failed to stat file", path);
+		LOG_ERROR("path=s failed to stat file (caching will be disabled)", path);
 		st.st_mtim.tv_sec = 0;
 	}
-		//printf("%s: mtime = %lld.%.9ld\n", filename, (long long)st.st_mtim.tv_sec, st.st_mtim.tv_nsec);
 
-	LOG_INFO( "path=s modtime=d cache_get", path, st.st_mtim.tv_sec );
 	int res;
 	ID3CacheItem id;
 	id.path = (sds) path;
 	*item = sglib_ID3CacheItem_find_member( cache->root, &id );
 	if( *item == NULL ) {
-		LOG_INFO( "path=s adding", path );
+		LOG_INFO( "path=s item was not found in cache", path );
 		*item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
 		memset( *item, 0, sizeof(ID3CacheItem) );
 		(*item)->mod_time = st.st_mtim.tv_sec;
@@ -172,11 +167,14 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 			free( *item );
 			return 1;
 		}
-		LOG_INFO( "path=s adding done", cache->path );
 		sglib_ID3CacheItem_add( &(cache->root), *item );
+		cache->dirty = true;
 	}
 	if( (*item)->mod_time != st.st_mtim.tv_sec ) {
-		LOG_INFO( "path=s mod time doesnt match", cache->path );
+		LOG_INFO(
+			"path=s cachemtime=d mtime=d mod time doesnt match cached version, re-reading",
+			cache->path, (*item)->mod_time, st.st_mtim.tv_sec
+			);
 		res = id3_get( cache, path, *item );
 		if( res ) {
 			LOG_INFO( "path=s failed to read mp3 id3", path );
@@ -184,6 +182,7 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 			return 1;
 		}
 		(*item)->mod_time = st.st_mtim.tv_sec;
+		cache->dirty = true;
 	}
 	(*item)->seen = true;
 	return 0;
@@ -215,21 +214,15 @@ int id3_cache_save( ID3Cache *cache )
 		return 1;
 	}
 	// Versioning
-	LOG_INFO( "saving verson" );
 	write_str( fp, "a" );
 
 	struct sglib_ID3CacheItem_iterator it;
 	ID3CacheItem *te;
 	for( te=sglib_ID3CacheItem_it_init_inorder(&it, cache->root); te!=NULL; te=sglib_ID3CacheItem_it_next(&it) ) {
-		LOG_INFO( "x=s saving item path", te->path );
 		write_str( fp, te->path );
-		LOG_INFO( "x=d saving item modification time", te->mod_time );
 		fwrite( &(te->mod_time), sizeof(long), 1, fp );
-		LOG_INFO( "x=s saving item album", te->album );
 		write_str( fp, te->album );
-		LOG_INFO( "x=s saving item artist", te->artist );
 		write_str( fp, te->artist );
-		LOG_INFO( "x=s saving item title", te->title );
 		write_str( fp, te->title );
 	}
 	LOG_INFO( "path=s done saving id3 cache", cache->path );

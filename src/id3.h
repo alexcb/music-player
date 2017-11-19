@@ -12,14 +12,15 @@ typedef struct ID3CacheItem
 {
 	sds path;
 	long mod_time;
+	bool seen;
 
+	// The ID3 fields
 	sds artist;
 	sds album;
 	sds title;
 	int track;
 
-	bool seen;
-
+	// Fields for rbtree
 	char color_field;
 	struct ID3CacheItem *left;
 	struct ID3CacheItem *right;
@@ -35,6 +36,7 @@ typedef struct ID3Cache
 	mpg123_handle *mh;
 	ID3CacheItem *root;
 	const char *path;
+	bool dirty;
 } ID3Cache;
 
 int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh );
