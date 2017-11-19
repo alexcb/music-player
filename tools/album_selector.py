@@ -3,15 +3,18 @@ import json
 import random
 from menu import menu
 
+host = 'http://localhost'
+host = 'http://music'
+
 def getalbums():
-    r = requests.get('http://localhost/library')
+    r = requests.get('%s/library' % host)
     r.raise_for_status()
     return r.json()['albums']
 
 
 def loadplaylist(playlist_name, tracks):
     print '---- loading ---'
-    r = requests.post('http://localhost/playlists', data=json.dumps({
+    r = requests.post('%s/playlists' % host, data=json.dumps({
         'name': playlist_name,
         'playlist': tracks,
         }))
@@ -21,7 +24,7 @@ def loadplaylist(playlist_name, tracks):
 
 def get_playlist(playlist_name):
     print '---- playing ---'
-    r = requests.get('http://localhost/playlists')
+    r = requests.get('%s/playlists' % host)
     r.raise_for_status()
     playlists = {x['name']: x for x in r.json()['playlists']}
     return playlists[playlist_name]
@@ -29,7 +32,7 @@ def get_playlist(playlist_name):
 def playplaylist(playlist_name, item_id):
     print '---- playing ---'
     print (playlist_name, item_id)
-    r = requests.post('http://localhost/play?playlist=%s&id=%s' % (playlist_name, item_id))
+    r = requests.post('%s/play?playlist=%s&id=%s' % (host, playlist_name, item_id))
     print r.status_code
     print r.text
     r.raise_for_status()
