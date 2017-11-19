@@ -1,17 +1,12 @@
 import requests
 import json
 import random
+from menu import menu
 
-def gettracks():
-    print '---- getting tracks ---'
+def getalbums():
     r = requests.get('http://localhost/library')
     r.raise_for_status()
-    albums = r.json()['albums']
-    tracks = []
-    for album in albums:
-        for track in album['tracks'][::5]:
-            tracks.append(track['path'])
-    return tracks
+    return r.json()['albums']
 
 
 def loadplaylist(playlist_name, tracks):
@@ -24,13 +19,12 @@ def loadplaylist(playlist_name, tracks):
     print r.text
     r.raise_for_status()
 
-def get_random_starting_track(playlist_name):
+def get_playlist(playlist_name):
     print '---- playing ---'
     r = requests.get('http://localhost/playlists')
     r.raise_for_status()
     playlists = {x['name']: x for x in r.json()['playlists']}
-    playlist = playlists[playlist_name]
-    return random.choice(playlist['items'])['id']
+    return playlists[playlist_name]
 
 def playplaylist(playlist_name, item_id):
     print '---- playing ---'
@@ -41,8 +35,19 @@ def playplaylist(playlist_name, item_id):
     r.raise_for_status()
 
 playlist_name = 'myplaylist'
-tracks = gettracks()
-print tracks
-loadplaylist(playlist_name, tracks)
-random_track = get_random_starting_track(playlist_name)
-playplaylist(playlist_name, random_track)
+albums = getalbums()
+albums_sorted = sorted([(x['artist'], x['album'], x['path']) for x in albums])
+
+def play_album(selected):
+    _, _, selected_path = albums_sorted[selected]
+    tracks = [x['tracks'] for x in albums if x['path'] == selected_path][0]
+    paths = [x['path'] for x in tracks]
+    loadplaylist("quick album", paths)
+    first_track = get_playlist("quick album")['items'][0]['id']
+    playplaylist("quick album", first_track)
+
+menu(
+    ['%s - %s' % (artist, album) for (artist, album, _) in albums_sorted],
+    play_album
+    )
+

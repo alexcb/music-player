@@ -32,6 +32,10 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	item->path = sdsnew( path );
 	item->track = 0; //TODO stored in comment[30] of id3
 
+	item->artist = sdscpy( item->artist, "unknown artist" );
+	item->title = sdscpy( item->title, "unknown title" );
+	item->album = sdscpy( item->album, "unknown album" );
+
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
 	res = 1;
@@ -41,15 +45,15 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 			res = 0;
 			if( v2 != NULL ) {
 				if( v2->artist && v2->artist->p)
-					item->artist = sdsnew( v2->artist->p );
+					item->artist = sdscpy( item->artist, v2->artist->p );
 				if( v2->album && v2->album->p)
-					item->album = sdsnew( v2->album->p );
+					item->album = sdscpy( item->album, v2->album->p );
 				if( v2->title && v2->title->p)
-					item->title = sdsnew( v2->title->p );
+					item->title = sdscpy( item->title, v2->title->p );
 			} else if( v1 != NULL ) {
-				item->artist = sdsnew( v1->artist );
-				item->title = sdsnew( v1->title );
-				item->album = sdsnew( v1->album );
+				item->artist = sdscpy( item->artist, v1->artist );
+				item->title = sdscpy( item->title, v1->title );
+				item->album = sdscpy( item->album, v1->album );
 			} else {
 				assert( false );
 			}
@@ -80,8 +84,9 @@ int read_str( FILE *fp, sds *s )
 		return 1;
 	}
 	if( n < 0 ) {
+		assert( false );
 		*s = NULL;
-		return 0;
+		return 1;
 	}
 	*s = sdsnewlen( fp, n+1 );
 	fread( *s, 1, n, fp );
@@ -122,7 +127,7 @@ int id3_cache_load( ID3Cache *cache )
 		res = read_str( fp, &item->artist    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str( fp, &item->title     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		
-		LOG_INFO( "path=s adding cache entry", item->path );
+		LOG_INFO( "path=s loading cached entry", item->path );
 		sglib_ID3CacheItem_add( &(cache->root), item );
 	}
 	LOG_INFO( "path=s done reading cache", cache->path );
@@ -190,10 +195,8 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 
 void write_str( FILE *fp, const char *s )
 {
-	int n = -1;
-	if( s ) {
-		n = strlen( s );
-	}
+	int n;
+	n = strlen( s );
 	fwrite( &n, sizeof(int), 1, fp );
 	if( n > 0 ) {
 		fwrite( s, 1, n, fp );

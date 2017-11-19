@@ -551,6 +551,12 @@ static int web_handler_albums(
 
 	struct sglib_Album_iterator it;
 	for( p = sglib_Album_it_init_inorder(&it, data->my_data->album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
+		LOG_DEBUG("path=p feeding", p->path);
+		LOG_DEBUG("path=s feeding", p->path);
+		LOG_DEBUG("path=p feeding", p->artist);
+		LOG_DEBUG("path=s feeding", p->artist);
+		LOG_DEBUG("path=p feeding", p->album);
+		LOG_DEBUG("path=s feeding", p->album);
 		json_object *album = json_object_new_object();
 		json_object_object_add( album, "path", json_object_new_string( p->path ) );
 		json_object_object_add( album, "artist", json_object_new_string( p->artist ) );
@@ -558,6 +564,8 @@ static int web_handler_albums(
 
 		json_object *tracks = json_object_new_array();
 		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {
+			LOG_DEBUG("path=s feeding track", t->path);
+			LOG_DEBUG("path=s feeding track", t->title);
 			json_object *track = json_object_new_object();
 			json_object_object_add( track, "title", json_object_new_string( t->title ) );
 			json_object_object_add( track, "path", json_object_new_string( t->path ) );

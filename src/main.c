@@ -73,17 +73,20 @@ int main(int argc, char *argv[])
 	Player player;
 	ID3Cache *cache;
 
-	if( argc != 4 ) {
-		printf("%s <albums path> <streams path> <playlist path>\n", argv[0]);
+	if( argc != 5 ) {
+		printf("%s <albums path> <streams path> <playlist path> <id3 cache path>\n", argv[0]);
 		return 1;
 	}
 	char *music_path = argv[1];
 	char *streams_path = argv[2];
 	char *playlist_path = argv[3];
+	char *id3_cache_path = argv[4];
+
+	trim_suffix(music_path, "/");
 
 	init_player( &player );
 
-	res = id3_cache_new( &cache, "/tmp/id3_cache", player.mh );
+	res = id3_cache_new( &cache, id3_cache_path, player.mh );
 	if( res ) {
 		LOG_ERROR("failed to load cache");
 		return 1;
