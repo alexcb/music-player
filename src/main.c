@@ -103,8 +103,7 @@ int main(int argc, char *argv[])
 		LOG_CRITICAL("err=d failed to init album list", res);
 		return 1;
 	}
-	int albumlimit = 5; // TODO remove this later
-	res = album_list_load( &album_list, music_path, &albumlimit );
+	res = album_list_load( &album_list, music_path );
 	if( res ) {
 		LOG_CRITICAL("err=d failed to load albums", res);
 		return 1;

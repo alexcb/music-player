@@ -81,9 +81,8 @@ error:
 	return res;
 }
 
-int album_list_load( AlbumList *album_list, const char *path, int *limit )
+int album_list_load( AlbumList *album_list, const char *path )
 {
-	if( limit && *limit == 0 ) { return 0; }
 	struct dirent *artist_dirent, *album_dirent;
 
 	DIR *artist_dir = opendir(path);
@@ -97,11 +96,6 @@ int album_list_load( AlbumList *album_list, const char *path, int *limit )
 	while( (artist_dirent = readdir(artist_dir)) != NULL) {
 		if( artist_dirent->d_type != DT_DIR || strcmp(artist_dirent->d_name, ".") == 0 || strcmp(artist_dirent->d_name, "..") == 0 ) {
 			continue;
-		}
-
-		if( limit ) {
-			if( *limit == 0 ) break;
-			(*limit)--;
 		}
 
 		sdsclear( s );
