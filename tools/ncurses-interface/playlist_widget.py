@@ -1,8 +1,9 @@
 class PlaylistWidget(object):
-    def __init__(self, tracks):
+    def __init__(self, tracks, save_and_play_playlist):
         self._tracks = tracks
         self._selected = 0
         self._has_cursor = False
+        self._save_and_play_playlist = save_and_play_playlist
 
     def draw(self, terminal, x, y, width, height, nprint):
         first_displayed_i = max(min(self._selected - 5, len(self._tracks) - height), 0)
@@ -48,7 +49,12 @@ class PlaylistWidget(object):
                 j = self._selected + 1 
                 self._tracks[i], self._tracks[j] = self._tracks[j], self._tracks[i]
                 self._selected += 1
+        elif repr(key) == 'KEY_ENTER':
+            tracks = [x['path'] for x in self._tracks]
+            self._save_and_play_playlist(tracks, self._selected)
 
+    def _play_playlist(self):
+        raise KeyError(tracks)
 
     def got_cursor(self):
         self._has_cursor = True

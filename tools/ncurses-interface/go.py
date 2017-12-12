@@ -82,14 +82,12 @@ def main():
     library = get_library(args.host)
     albums_by_artist = group_albums_by_artist(add_data_to_tracks(library['albums']))
 
-    def change_album(selected_path):
-        tracks = [x['tracks'] for x in albums if x['path'] == selected_path][0]
-        paths = [x['path'] for x in tracks]
+    def save_and_play_playlist(paths, index):
         loadplaylist(args.host, "quick album", paths)
-        first_track = get_playlist(args.host, "quick album")['items'][0]['id']
+        first_track = get_playlist(args.host, "quick album")['items'][index]['id']
         playplaylist(args.host, "quick album", first_track)
 
-    ui = UI(albums_by_artist, change_album)
+    ui = UI(albums_by_artist, save_and_play_playlist)
 
     t = threading.Thread(target=websocket_worker, args=(args.host, ui.change_playing))
     #t.start()
@@ -97,15 +95,16 @@ def main():
     ui.run()
 
 
+
 from album_widget import AlbumsWidget
 from playlist_widget import PlaylistWidget
 
 class UI(object):
-    def __init__(self, albums_by_artist, change_album_func):
+    def __init__(self, albums_by_artist, save_and_play_playlist):
         self._playing = None
 
         self._album_widget = AlbumsWidget(albums_by_artist, self._add_track)
-        self._playlist_widget = PlaylistWidget([])
+        self._playlist_widget = PlaylistWidget([], save_and_play_playlist)
 
         self._selected_widget = self._album_widget
 
