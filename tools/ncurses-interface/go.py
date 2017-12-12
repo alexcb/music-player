@@ -68,12 +68,19 @@ def group_albums_by_artist(albums):
         collection[x['artist']].append(x)
     return [x[1] for x in sorted(collection.items(), key=lambda x: x[0].lower())]
 
+def add_data_to_tracks(albums):
+    for album in albums:
+        for track in album['tracks']:
+            track['artist'] = album['artist']
+            track['album'] = album['album']
+    return albums
+
 
 def main():
     print 'Loading albums'
     args = get_parser().parse_args()
     library = get_library(args.host)
-    albums_by_artist = group_albums_by_artist(library['albums'])
+    albums_by_artist = group_albums_by_artist(add_data_to_tracks(library['albums']))
 
     def change_album(selected_path):
         tracks = [x['tracks'] for x in albums if x['path'] == selected_path][0]
@@ -89,131 +96,99 @@ def main():
 
     ui.run()
 
+
+from album_widget import AlbumsWidget
+from playlist_widget import PlaylistWidget
+
 class UI(object):
     def __init__(self, albums_by_artist, change_album_func):
-        self._albums_by_artist = albums_by_artist
         self._playing = None
-        self._change_album = change_album_func
-        self._expanded = set()
 
-    def _is_artist_expanded(self, artist_index):
-        return (artist_index,) in self._expanded
+        self._album_widget = AlbumsWidget(albums_by_artist, self._add_track)
+        self._playlist_widget = PlaylistWidget([])
 
-    def _is_album_expanded(self, artist_index, album_index):
-        if not self._is_artist_expanded(artist_index):
-            return false
-        return (artist_index, album_index) in self._expanded
+        self._selected_widget = self._album_widget
 
-    def _get_lines(self, skip, n):
-        for l in self._get_lines_helper():
-            if skip > 0:
-                skip -= 1
-                continue
-            yield l
-            n -= 1
-            if n == 0:
-                break
+        self._buf = []
 
-    def _get_lines_helper(self):
-        artist = 0
-        album = 0
-        track = None
-        line = None
-        for i, album_group in enumerate(self._albums_by_artist):
-            show = self._is_artist_expanded(i)
-            prefix = '-' if show else '+'
-            key = (i,)
-            yield key, '%s %s' % (prefix, album_group[0]['artist'])
-            if not show:
-                continue
-            for j, album in enumerate(album_group):
-                show = self._is_album_expanded(i, j)
-                prefix = '-' if show else '+'
-                key = (i, j)
-                yield key, '  %s %s' % (prefix, album['album'])
-                if not show:
-                    continue
-                for k, track in enumerate(album['tracks']):
-                    key = (i, j, k)
-                    yield key, '      %s ' % (track['title'], )
+    def _add_track(self, track):
+        self._playlist_widget.add_track(track)
 
+    #def _clear_buffer(self, width, height):
+    #    self._buf_width = width
+    #    self._buf_height = height
+    #    self._buf = [' '] * (width * height)
 
-    def _toggle(self, key):
-        if key in self._expanded:
-            self._expanded.remove( key )
-        else:
-            self._expanded.add( key )
-        self._lines = list(self._get_lines_helper())
+    #def _get_print_func(self, t, x, y):
+    #    def wrapped(xx, yy, s):
+    #        assert '\n' not in s
+    #        yyy = y + yy
+    #        xxx = x + xx
+    #        assert  0 <= xxx < self._buf_width
+    #        assert  0 <= yyy < self._buf_height
+    #        i = self._buf_width * yyy + xxx
+    #        j = i + len(s)
+    #        self._buf[i:j] = s
+    #    return wrapped
 
-    def _add_item(self, key):
-        if len(key) == 1:
-            albums = self._albums_by_artist[key[0]]
-            raise ValueError(albums)
+    #def _get_buf(self):
+    #     return ''.join(self._buf)
 
-        if len(key) == 2:
-            album = self._albums_by_artist[key[0]][key[1]]
-            raise ValueError(album)
-
-        if len(key) == 3:
-            track = self._albums_by_artist[key[0]][key[1]]['tracks'][key[2]]
-            raise ValueError(track)
+    def _get_print_func(self, t, x, y):
+        def wrapped(xx, yy, s):
+            assert '\n' not in s
+            sys.stdout.write(t.move(y+yy,x+xx) + s)
+            sys.stdout.flush()
+        return wrapped
 
     def run(self):
-        self._lines = list(self._get_lines_helper())
-
         t = Terminal()
         first_line = 0
         selected = 0
+        spacing = 3
         with t.fullscreen():
             while True:
-                sys.stdout.write(t.clear() + t.move(0,0))
+                #self._clear_buffer(t.width, t.height)
+                sys.stdout.write(t.clear() + t.hide_cursor)
+                self._selected_widget.got_cursor()
 
-                print 'Playing: %s' % self._playing
-                print ''
+                #print 'Playing: %s' % self._playing
+                #print ''
 
-                num_rows = t.height - 4
-                first_displayed_i = max(min(selected - 5, len(self._lines) - num_rows), 0)
-                for y in xrange(0, num_rows):
-                    i = y + first_displayed_i
-                    if i == selected:
-                        sys.stdout.write(t.reverse)
-                    if i < len(self._lines):
-                        key, s = self._lines[i]
-                        print s
-                    sys.stdout.write(t.normal)
+                col_size = (t.width - spacing) / 2
 
-                with t.cbreak():
-                    x = t.inkey(timeout=0.1)
-                    selected_item = self._lines[selected][0]
-                    if repr(x) == 'KEY_UP':
-                        selected = max(selected - 1, 0)
-                    elif repr(x) == 'KEY_DOWN':
-                        selected = min(selected + 1, len(self._lines) - 1)
-                    elif repr(x) == 'KEY_ENTER':
-                        if len(selected_item) < 3:
-                            self._toggle(selected_item)
-                    elif x == ' ':
-                        self._add_item(selected_item)
+                self._album_widget.draw(t, 0, 4, col_size, t.height - 4, self._get_print_func(t, 0, 4))
+
+                self._playlist_widget.draw(t, col_size + spacing, 4, col_size, t.height - 4, self._get_print_func(t, col_size + spacing, 4))
 
 
-                #first_displayed_i = max(min(selected - 5, len(self._albums) - num_rows), 0)
+                #sys.stdout.write(t.clear() + t.move(0,0) + self._get_buf())
+                #sys.stdout.flush()
+
+                #num_rows = t.height - 4
+                #first_displayed_i = max(min(selected - 5, len(self._lines) - num_rows), 0)
                 #for y in xrange(0, num_rows):
                 #    i = y + first_displayed_i
                 #    if i == selected:
                 #        sys.stdout.write(t.reverse)
-                #    if i < len(self._albums):
-                #        x = self._albums[i]
-                #        s = '%s - %s' % (x['artist'], x['album'])
-                #        print "%d. %s" % (y + first_displayed_i, s)
+                #    if i < len(self._lines):
+                #        key, s = self._lines[i]
+                #        print s
                 #    sys.stdout.write(t.normal)
-                #with t.cbreak():
-                #    x = t.inkey(timeout=0.1)
-                #    if repr(x) == 'KEY_UP':
-                #        selected = max(selected - 1, 0)
-                #    elif repr(x) == 'KEY_DOWN':
-                #        selected = min(selected + 1, len(self._albums) - 1)
-                #    elif repr(x) == 'KEY_ENTER':
-                #        self._change_album(self._albums[selected]['path'])
+
+                with t.cbreak():
+                    key = t.inkey(timeout=0.1)
+                    if repr(key) in ('KEY_RIGHT', 'KEY_LEFT'):
+                        # Currently there are only two widgets, so this code is super minimal
+                        self._selected_widget.lost_cursor()
+                        if self._selected_widget == self._album_widget:
+                            self._selected_widget = self._playlist_widget
+                        else:
+                            self._selected_widget = self._album_widget
+                    else:
+                        self._selected_widget.handle_key(key)
+
+
 
     def change_playing(self, x):
         self._playing = x

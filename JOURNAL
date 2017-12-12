@@ -79,11 +79,34 @@
 2017-11-12
 
  start server with:
-    make clean && make
-    WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists
-    python tools/test_websocket.py
-    python tools/post_playlist.py
+
+make clean && make
+WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists
+python tools/test_websocket.py
+python tools/post_playlist.py
+
  start websocket streamer with:
 
 TODO:
  - [done] change playlist to reference "track" struct instead of playlist_item -- this is to avoid storing id3 tags in multiple areas
+
+
+Running on the pi:
+
+cd ~/mpg123hack/
+git fetch && git checkout origin/non-pi-version && make clean && make
+WEB_ROOT=/home/alex/mpg123hack/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists /home/alex/id3_cache
+a
+
+Running locally with all music:
+
+make clean && make
+WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists alex-beet-cache
+
+or running with local music
+
+WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists local-music-cache
+
+
+Then change the playlist with:
+./tools/ncurses-interface/go.py
