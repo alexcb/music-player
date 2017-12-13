@@ -193,6 +193,96 @@ class UI(object):
         self._playing = x
 
 
+def chinput():
+    term = Terminal()
+    screen = {}
+
+    def get_ch(timeout=0.1):
+        key = term.inkey(timeout=timeout)
+        if not key:
+            return None
+        if len(key) > 1:
+            return key
+        if ord(key) == 27:
+            nextkey = term.inkey(timeout=0.0001)
+            if not nextkey:
+                # THIS IS REALLY SLOW
+                return 'ESC'
+            raise KeyError(repr(nextkey))
+        return key
+
+    with term.hidden_cursor(), \
+            term.raw(), \
+            term.location(), \
+            term.fullscreen(), \
+            term.keypad():
+        inp = None
+        while True:
+            ch = get_ch()
+            if ch:
+                print ch
+            #inp = term.inkey()
+
+            #if ord(inp) == 27:
+            #    print ord(inp)
+            #    while 1:
+            #        inp = term.inkey()
+            #        print 'follow: %s' % ord(inp)
+
+            #        # ctrl-up
+            #        #27
+            #        #  follow: 91
+            #        #            follow: 49
+            #        #                      follow: 59
+            #        #                                follow: 53
+            #        #                                          follow: 65
+
+            #        # ctrl-down
+            #        #27
+            #        #  follow: 91
+            #        #            follow: 49
+            #        #                      follow: 59
+            #        #                                follow: 53
+            #        #                                          follow: 66
+
+
+
+            #if len(inp) == 1:
+            #    print ord(inp)
+            #    continue
+            #if inp.is_sequence:
+            #    print 'is seq'
+            #print repr(inp)
+            #if inp == chr(3):
+            #    # ^c exits
+            #    break
+
+            #elif inp == chr(19):
+            #    save
+            #    continue
+
+            #elif inp == chr(12):
+            #    # ^l refreshes
+            #    redraw
+
+            #else:
+            #    n_csr = lookup_move(inp.code, csr, term)
+
+            #if n_csr != csr:
+            #    # erase old cursor,
+            #    echo_yx(csr, screen.get((csr.y, csr.x), u' '))
+            #    csr = n_csr
+
+            #elif input_filter(inp):
+            #    echo_yx(csr, inp)
+            #    screen[(csr.y, csr.x)] = inp.__str__()
+            #    n_csr = right_of(csr, 1)
+            #    if n_csr == csr:
+            #        # wrap around margin
+            #        n_csr = home(below(csr, 1))
+            #    csr = n_csr
+
 if __name__ == '__main__':
+    #chinput()
     main()
 

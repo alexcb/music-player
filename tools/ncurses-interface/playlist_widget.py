@@ -53,9 +53,6 @@ class PlaylistWidget(object):
             tracks = [x['path'] for x in self._tracks]
             self._save_and_play_playlist(tracks, self._selected)
 
-    def _play_playlist(self):
-        raise KeyError(tracks)
-
     def got_cursor(self):
         self._has_cursor = True
 
