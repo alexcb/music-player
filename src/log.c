@@ -54,18 +54,24 @@ int tokenize_value_fmt(const char *s, const char **tok, int *n)
 	return OK;
 }
 
-int append_quoted_string( char *buf, int buf_size, const char *s )
+int append_quoted_string_n( char *buf, int buf_size, const char *s, int n )
 {
+	int i = 0;
 	bool needs_quotes = false;
-	for( const char *p = s; *p; p++ ) {
+	for( const char *p = s; *p && i < n; p++, i++ ) {
 		if( *p == ' ' || *p == '"' ) {
 			needs_quotes = true;
 			break;
 		}
 	}
 	if( needs_quotes == false ) {
-		strncpy( buf, s, buf_size );
-		return strlen( s );
+		if( n >= (buf_size-1) ) {
+			printf("out of buffer\n"); // TODO all of this needs a rewrite and unit tests
+			return 0;
+		}
+		strncpy( buf, s, n );
+		buf[n+1] = '\0';
+		return n;
 	}
 
 	char *start = buf;
@@ -74,7 +80,7 @@ int append_quoted_string( char *buf, int buf_size, const char *s )
 	buf[0] = '"';
 	buf++;
 	buf_size--;
-	while( *s ) {
+	for( i = 0; i < n && *s; i++ ) {
 		if( *s == '\\' || *s == '"' ) {
 			if( buf_size <= 0 )
 				return buf - start;
@@ -95,6 +101,11 @@ int append_quoted_string( char *buf, int buf_size, const char *s )
 	buf++;
 	buf_size--;
 	return buf - start;
+}
+
+int append_quoted_string( char *buf, int buf_size, const char *s )
+{
+	return append_quoted_string_n( buf, buf_size, s, strlen(s) );
 }
 
 void _log(const char *fmt, ...)
@@ -123,7 +134,6 @@ void _log(const char *fmt, ...)
 
 		res = tokenize_value_fmt( p, &val_fmt, &val_fmt_n );
 		assert( res == OK );
-		assert( val_fmt_n == 1 );
 		p = val_fmt + val_fmt_n;
 
 		if( LOG_BUF_SIZE - buf_i > key_n + 1 ) {
@@ -133,18 +143,26 @@ void _log(const char *fmt, ...)
 			buf_i++;
 		}
 
-		if( val_fmt[0] == 's' ) {
+		if( val_fmt_n == 1 && val_fmt[0] == 's' ) {
 			const char *val = va_arg( arguments, const char* );
 			n = append_quoted_string( buf+buf_i, LOG_BUF_SIZE - buf_i, val );
 			buf_i += n;
-		} else if( val_fmt[0] == 'd' ) {
+		} else if( val_fmt_n == 1 && val_fmt[0] == 'd' ) {
 			int val = va_arg( arguments, int );
 			snprintf( buf+buf_i, LOG_BUF_SIZE - buf_i, "%d", val );
 			buf_i += strlen(buf+buf_i);
-		} else if( val_fmt[0] == 'p' ) {
+		} else if( val_fmt_n == 1 && val_fmt[0] == 'p' ) {
 			void* val = va_arg( arguments, void* );
 			snprintf( buf+buf_i, LOG_BUF_SIZE - buf_i, "%p", val );
 			buf_i += strlen(buf+buf_i);
+		} else if( val_fmt_n == 2 && val_fmt[0] == '*' && val_fmt[1] == 's' ) {
+			int n = va_arg( arguments, int );
+			const char *val = va_arg( arguments, const char* );
+			n = append_quoted_string_n( buf+buf_i, LOG_BUF_SIZE - buf_i, val, n );
+			buf_i += n;
+		} else {
+			printf("Unhandled format: %.*s=%.*s\n", key_n, key, val_fmt_n, val_fmt);
+			assert( 0 );
 		}
 
 		if( LOG_BUF_SIZE - buf_i > 1 ) {

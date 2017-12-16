@@ -42,7 +42,7 @@ class AlbumsWidget(object):
                 show = self._is_album_expanded(i, j)
                 prefix = '-' if show else '+'
                 key = (i, j)
-                yield key, '  %s %s' % (prefix, album['album'])
+                yield key, '  %s %s (%s)' % (prefix, album['album'], album['year'])
                 if not show:
                     continue
                 for k, track in enumerate(album['tracks']):

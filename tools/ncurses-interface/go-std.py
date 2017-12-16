@@ -113,6 +113,7 @@ def add_data_to_tracks(albums):
         for track in album['tracks']:
             track['artist'] = album['artist']
             track['album'] = album['album']
+            track['year'] = album['year']
     return albums
 
 

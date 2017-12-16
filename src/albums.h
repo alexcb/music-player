@@ -35,6 +35,7 @@ typedef struct Album
 	sds artist;
 	sds album;
 	sds path;
+	uint32_t year;
 
 	Track *tracks;
 

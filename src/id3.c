@@ -49,6 +49,7 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 				item->artist = sdscpy( item->artist, v1->artist );
 				item->title = sdscpy( item->title, v1->title );
 				item->album = sdscpy( item->album, v1->album );
+				item->year = atoi( v1->year );
 				if( v1->comment[28] == 0 && v1->comment[29] != 0 ) {
 					item->track = (unsigned char)v1->comment[29];
 				}
@@ -62,33 +63,38 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 					item->album = sdscpy( item->album, v2->album->p );
 				if( v2->title && v2->title->p)
 					item->title = sdscpy( item->title, v2->title->p );
+				if( v2->year && v2->year->p)
+					LOG_DEBUG("year=s year", v2->year->p);
 
-				for( int i = 0; i < v2->texts; i++ ) {
-					LOG_DEBUG("lang=s id=s desc=s value=s text",
-							null_to_empty(v2->text[i].lang),
-							null_to_empty(v2->text[i].id),
-							null_to_empty(v2->text[i].description.p),
-							null_to_empty(v2->text[i].text.p)
-							);
-				}
+				//TODO before re-enabling these, i need to fix the log library
+				// it doesn't correctly handle non-null terminated strings
+				//
+				//for( int i = 0; i < v2->texts; i++ ) {
+				//	LOG_DEBUG("lang=*s id=*s desc=s value=s text",
+				//			3, null_to_empty(v2->text[i].lang),
+				//			4, null_to_empty(v2->text[i].id),
+				//			null_to_empty(v2->text[i].description.p),
+				//			null_to_empty(v2->text[i].text.p)
+				//			);
+				//}
 
-				for( int i = 0; i < v2->comments; i++ ) {
-					LOG_DEBUG("lang=s id=s desc=s value=s comment",
-							null_to_empty(v2->comment_list[i].lang),
-							null_to_empty(v2->comment_list[i].id),
-							null_to_empty(v2->comment_list[i].description.p),
-							null_to_empty(v2->comment_list[i].text.p)
-							);
-				}
+				//for( int i = 0; i < v2->comments; i++ ) {
+				//	LOG_DEBUG("lang=*s id=*s desc=s value=s comment",
+				//			3, null_to_empty(v2->comment_list[i].lang),
+				//			4, null_to_empty(v2->comment_list[i].id),
+				//			null_to_empty(v2->comment_list[i].description.p),
+				//			null_to_empty(v2->comment_list[i].text.p)
+				//			);
+				//}
 
-				for( int i = 0; i < v2->extras; i++ ) {
-					LOG_DEBUG("lang=s id=s desc=s value=s extra",
-							null_to_empty(v2->extra[i].lang),
-							null_to_empty(v2->extra[i].id),
-							null_to_empty(v2->extra[i].description.p),
-							null_to_empty(v2->extra[i].text.p)
-							);
-				}
+				//for( int i = 0; i < v2->extras; i++ ) {
+				//	LOG_DEBUG("lang=*s id=*s desc=s value=s extra",
+				//			3, null_to_empty(v2->extra[i].lang),
+				//			4, null_to_empty(v2->extra[i].id),
+				//			null_to_empty(v2->extra[i].description.p),
+				//			null_to_empty(v2->extra[i].text.p)
+				//			);
+				//}
 			}
 		}
 	} else {
@@ -104,6 +110,16 @@ int read_long( FILE *fp, long *x )
 {
 	int res;
 	res = fread( x, sizeof(long), 1, fp );
+	if( res != 1 ) {
+		return 1;
+	}
+	return 0;
+}
+
+int read_uint32( FILE *fp, uint32_t *x )
+{
+	int res;
+	res = fread( x, sizeof(uint32_t), 1, fp );
 	if( res != 1 ) {
 		return 1;
 	}
@@ -144,7 +160,6 @@ int id3_cache_load( ID3Cache *cache )
 	if( res ) {
 		LOG_ERROR( "unable to read version" );
 	}
-	printf("got -%s-\n", version);
 	sdsfree(version);
 
 	ID3CacheItem *item;
@@ -161,6 +176,7 @@ int id3_cache_load( ID3Cache *cache )
 		res = read_str( fp, &item->album     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str( fp, &item->artist    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str( fp, &item->title     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_uint32( fp, &item->year   ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		
 		LOG_INFO( "path=s loading cached entry", item->path );
 		sglib_ID3CacheItem_add( &(cache->root), item );
@@ -243,6 +259,11 @@ void write_long( FILE *fp, long x )
 	fwrite( &x, sizeof(long), 1, fp );
 }
 
+void write_uint32( FILE *fp, uint32_t x )
+{
+	fwrite( &x, sizeof(long), 1, fp );
+}
+
 int id3_cache_save( ID3Cache *cache )
 {
 	LOG_INFO( "path=s saving id3 cache", cache->path );
@@ -262,6 +283,7 @@ int id3_cache_save( ID3Cache *cache )
 		write_str( fp, te->album );
 		write_str( fp, te->artist );
 		write_str( fp, te->title );
+		write_uint32( fp, te->year );
 	}
 	LOG_INFO( "path=s done saving id3 cache", cache->path );
 

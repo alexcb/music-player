@@ -555,6 +555,7 @@ static int web_handler_albums(
 		json_object_object_add( album, "path", json_object_new_string( p->path ) );
 		json_object_object_add( album, "artist", json_object_new_string( p->artist ) );
 		json_object_object_add( album, "album", json_object_new_string( p->album ) );
+		json_object_object_add( album, "year", json_object_new_int( p->year ) );
 
 		json_object *tracks = json_object_new_array();
 		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {

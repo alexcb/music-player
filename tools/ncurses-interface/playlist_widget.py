@@ -22,7 +22,7 @@ class PlaylistWidget(object):
             #sys.stdout.write(terminal.normal)
 
     def _format_track(self, track):
-        return '%s - %s - %s - %s' % (track['artist'], track['album'], track['track_number'], track['title'])
+        return '%s - %s - %s - %s - %s' % (track['artist'], track['album'], track['track_number'], track['title'], track['year'])
 
     def handle_key(self, key):
         try:
@@ -57,7 +57,7 @@ class PlaylistWidget(object):
                 j = self._selected + 1 
                 self._tracks[i], self._tracks[j] = self._tracks[j], self._tracks[i]
                 self._selected += 1
-        elif repr(key) == ord('\n'):
+        elif key == ord('\n'):
             tracks = [x['path'] for x in self._tracks]
             self._save_and_play_playlist(tracks, self._selected)
 

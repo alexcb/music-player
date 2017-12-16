@@ -34,6 +34,7 @@ int setup_album( AlbumList *album_list, Album *album )
 
 	album->artist = "unknown";
 	album->album = "unknown";
+	album->year = 0;
 
 	LOG_INFO("path=s reading album", album->path);
 	DIR *d = opendir( album->path );
@@ -67,6 +68,7 @@ int setup_album( AlbumList *album_list, Album *album )
 
 		album->artist = id3_item->artist;
 		album->album = id3_item->album;
+		album->year = id3_item->year;
 
 		SGLIB_SORTED_LIST_ADD(Track, album->tracks, track, TRACK_PATH_COMPARATOR, next_ptr);
 		sglib_Track_add( &(album_list->root_track), track );
