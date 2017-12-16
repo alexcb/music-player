@@ -560,6 +560,7 @@ static int web_handler_albums(
 		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {
 			json_object *track = json_object_new_object();
 			json_object_object_add( track, "title", json_object_new_string( t->title ) );
+			json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
 			json_object_object_add( track, "path", json_object_new_string( t->path ) );
 			json_object_array_add( tracks, track );
 		}

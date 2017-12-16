@@ -37,3 +37,10 @@ bool trim_suffix(char *s, const char *suffix) {
 	s[ s_len - suffix_len ] = '\0';
 	return true;
 }
+
+const char* empty_str = "";
+const char* null_to_empty(char *s) {
+	if( s == NULL )
+		return empty_str;
+	return s;
+}

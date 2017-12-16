@@ -6,6 +6,7 @@
 #include "icy.h"
 #include "log.h"
 #include "io_utils.h"
+#include "string_utils.h"
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -43,6 +44,17 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	if( meta & MPG123_NEW_ID3 ) {
 		if( mpg123_id3( cache->mh, &v1, &v2 ) == MPG123_OK ) {
 			res = 0;
+			// first load values from v1
+			if( v1 != NULL ) {
+				item->artist = sdscpy( item->artist, v1->artist );
+				item->title = sdscpy( item->title, v1->title );
+				item->album = sdscpy( item->album, v1->album );
+				if( v1->comment[28] == 0 && v1->comment[29] != 0 ) {
+					item->track = (unsigned char)v1->comment[29];
+				}
+			}
+
+			// override values with v2
 			if( v2 != NULL ) {
 				if( v2->artist && v2->artist->p)
 					item->artist = sdscpy( item->artist, v2->artist->p );
@@ -50,14 +62,37 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 					item->album = sdscpy( item->album, v2->album->p );
 				if( v2->title && v2->title->p)
 					item->title = sdscpy( item->title, v2->title->p );
-			} else if( v1 != NULL ) {
-				item->artist = sdscpy( item->artist, v1->artist );
-				item->title = sdscpy( item->title, v1->title );
-				item->album = sdscpy( item->album, v1->album );
-			} else {
-				assert( false );
+
+				for( int i = 0; i < v2->texts; i++ ) {
+					LOG_DEBUG("lang=s id=s desc=s value=s text",
+							null_to_empty(v2->text[i].lang),
+							null_to_empty(v2->text[i].id),
+							null_to_empty(v2->text[i].description.p),
+							null_to_empty(v2->text[i].text.p)
+							);
+				}
+
+				for( int i = 0; i < v2->comments; i++ ) {
+					LOG_DEBUG("lang=s id=s desc=s value=s comment",
+							null_to_empty(v2->comment_list[i].lang),
+							null_to_empty(v2->comment_list[i].id),
+							null_to_empty(v2->comment_list[i].description.p),
+							null_to_empty(v2->comment_list[i].text.p)
+							);
+				}
+
+				for( int i = 0; i < v2->extras; i++ ) {
+					LOG_DEBUG("lang=s id=s desc=s value=s extra",
+							null_to_empty(v2->extra[i].lang),
+							null_to_empty(v2->extra[i].id),
+							null_to_empty(v2->extra[i].description.p),
+							null_to_empty(v2->extra[i].text.p)
+							);
+				}
 			}
 		}
+	} else {
+		LOG_WARN("path=s no id3 tag values", path);
 	}
 
 error:
