@@ -72,7 +72,6 @@ int append_quoted_string_n( char *buf, int buf_size, const char *s, int n )
 		buf[n] = '\0';
 		return n;
 	}
-	assert(0);
 
 	char *start = buf;
 	if( buf_size <= 0 )
