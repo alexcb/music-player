@@ -66,13 +66,13 @@ int append_quoted_string_n( char *buf, int buf_size, const char *s, int n )
 	}
 	if( needs_quotes == false ) {
 		if( n >= (buf_size-1) ) {
-			printf("out of buffer\n"); // TODO all of this needs a rewrite and unit tests
-			return 0;
+			n = buf_size - 1;
 		}
-		strncpy( buf, s, n );
-		buf[n+1] = '\0';
+		memcpy( buf, s, n );
+		buf[n] = '\0';
 		return n;
 	}
+	assert(0);
 
 	char *start = buf;
 	if( buf_size <= 0 )
