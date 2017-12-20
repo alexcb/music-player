@@ -238,12 +238,13 @@ def main():
 
 
 
-    def save_and_play_playlist(paths, index):
-        loadplaylist(args.host, "quick album", paths)
-        playlist = get_playlists(args.host)['playlists']['quick album']
+    def save_and_play_playlist(playlist_name, paths, index):
+        loadplaylist(args.host, playlist_name, paths)
+        playlist = get_playlists(args.host)[playlist_name]
         track_id = playlist['items'][index]['id']
         first_track = get_playlists(args.host) #, "quick album")['items'][index]['id']
-        playplaylist(args.host, "quick album", track_id)
+        raise ValueError(track_id)
+        playplaylist(args.host, playlist_name, track_id)
 
     # curses setup
     locale.setlocale(locale.LC_ALL,"")

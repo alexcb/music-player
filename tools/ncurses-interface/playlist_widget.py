@@ -82,7 +82,7 @@ class PlaylistWidget(object):
                 self._selected += 1
         elif key == ord('\n'):
             tracks = [x['path'] for x in tracks]
-            self._save_and_play_playlist(tracks, self._selected)
+            self._save_and_play_playlist(self._active_playlist, tracks, self._selected)
         elif key == ord('n'):
             asdfasdf
 
