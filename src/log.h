@@ -11,6 +11,10 @@ do { \
 	_log("level=s file=s line=d " fmt, level, file, line, ##args); \
 } while (0)
 
+#define LOG_OK 0
+#define LOG_ERROR_UNEXPECTED_CHAR 1
+#define LOG_ERROR_OUT_OF_SPACE 2
+
 void _log(const char *fmt, ...);
 
 //_log("level=%s src.file=%s src.line=%s " fmt, level, __LINE__, __FILE__, ##args);

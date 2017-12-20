@@ -74,9 +74,10 @@ class AlbumsWidget(object):
             self._add_track(track)
 
     def draw(self, screen, xx, yy, width, height, nprint):
+        nprint(0, 0, "Albums:")
         first_displayed_i = max(min(self._selected - 5, len(self._lines) - height), 0)
-        for y in xrange(0, height):
-            i = y + first_displayed_i
+        for i, y in enumerate(xrange(1, height)):
+            i += first_displayed_i
             attr = None
             if i == self._selected and self._has_cursor:
                 attr = curses.A_REVERSE

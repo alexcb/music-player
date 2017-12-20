@@ -498,7 +498,7 @@ static int web_handler_playlists(
 {
 	LOG_DEBUG("in web_handler_playlists");
 
-	json_object *playlists = json_object_new_array();
+	json_object *playlists = json_object_new_object();
 
 	playlist_manager_lock( data->my_data->playlist_manager );
 
@@ -517,7 +517,7 @@ static int web_handler_playlists(
 		}
 		json_object_object_add( playlist, "items", items );
 
-		json_object_array_add( playlists, playlist );
+		json_object_object_add( playlists, p->name, playlist );
 	}
 
 	json_object *root_obj = json_object_new_object();

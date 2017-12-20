@@ -66,35 +66,32 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 				if( v2->year && v2->year->p)
 					LOG_DEBUG("year=s year", v2->year->p);
 
-				//TODO before re-enabling these, i need to fix the log library
-				// it doesn't correctly handle non-null terminated strings
-				//
-				//for( int i = 0; i < v2->texts; i++ ) {
-				//	LOG_DEBUG("lang=*s id=*s desc=s value=s text",
-				//			3, null_to_empty(v2->text[i].lang),
-				//			4, null_to_empty(v2->text[i].id),
-				//			null_to_empty(v2->text[i].description.p),
-				//			null_to_empty(v2->text[i].text.p)
-				//			);
-				//}
+				for( int i = 0; i < v2->texts; i++ ) {
+					LOG_DEBUG("lang=*s id=*s desc=s value=s text",
+							3, null_to_empty(v2->text[i].lang),
+							4, null_to_empty(v2->text[i].id),
+							null_to_empty(v2->text[i].description.p),
+							null_to_empty(v2->text[i].text.p)
+							);
+				}
 
-				//for( int i = 0; i < v2->comments; i++ ) {
-				//	LOG_DEBUG("lang=*s id=*s desc=s value=s comment",
-				//			3, null_to_empty(v2->comment_list[i].lang),
-				//			4, null_to_empty(v2->comment_list[i].id),
-				//			null_to_empty(v2->comment_list[i].description.p),
-				//			null_to_empty(v2->comment_list[i].text.p)
-				//			);
-				//}
+				for( int i = 0; i < v2->comments; i++ ) {
+					LOG_DEBUG("lang=*s id=*s desc=s value=s comment",
+							3, null_to_empty(v2->comment_list[i].lang),
+							4, null_to_empty(v2->comment_list[i].id),
+							null_to_empty(v2->comment_list[i].description.p),
+							null_to_empty(v2->comment_list[i].text.p)
+							);
+				}
 
-				//for( int i = 0; i < v2->extras; i++ ) {
-				//	LOG_DEBUG("lang=*s id=*s desc=s value=s extra",
-				//			3, null_to_empty(v2->extra[i].lang),
-				//			4, null_to_empty(v2->extra[i].id),
-				//			null_to_empty(v2->extra[i].description.p),
-				//			null_to_empty(v2->extra[i].text.p)
-				//			);
-				//}
+				for( int i = 0; i < v2->extras; i++ ) {
+					LOG_DEBUG("lang=*s id=*s desc=s value=s extra",
+							3, null_to_empty(v2->extra[i].lang),
+							4, null_to_empty(v2->extra[i].id),
+							null_to_empty(v2->extra[i].description.p),
+							null_to_empty(v2->extra[i].text.p)
+							);
+				}
 			}
 		}
 	} else {
@@ -172,13 +169,15 @@ int id3_cache_load( ID3Cache *cache )
 			break;
 		}
 
+		printf("got %s\n", item->path);
+		LOG_INFO( "path=s loading cached entry", item->path );
 		res = read_long( fp, &item->mod_time ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str( fp, &item->album     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str( fp, &item->artist    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str( fp, &item->title     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_uint32( fp, &item->year   ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_uint32( fp, &item->track  ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		
-		LOG_INFO( "path=s loading cached entry", item->path );
 		sglib_ID3CacheItem_add( &(cache->root), item );
 	}
 	LOG_INFO( "path=s done reading cache", cache->path );
@@ -261,7 +260,7 @@ void write_long( FILE *fp, long x )
 
 void write_uint32( FILE *fp, uint32_t x )
 {
-	fwrite( &x, sizeof(long), 1, fp );
+	fwrite( &x, sizeof(uint32_t), 1, fp );
 }
 
 int id3_cache_save( ID3Cache *cache )
@@ -284,6 +283,7 @@ int id3_cache_save( ID3Cache *cache )
 		write_str( fp, te->artist );
 		write_str( fp, te->title );
 		write_uint32( fp, te->year );
+		write_uint32( fp, te->track );
 	}
 	LOG_INFO( "path=s done saving id3 cache", cache->path );
 

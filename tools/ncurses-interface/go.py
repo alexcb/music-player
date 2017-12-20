@@ -1,5 +1,4 @@
 #!/usr/bin/env python2.7
-from blessed import Terminal
 import argparse
 import json
 import requests
@@ -9,6 +8,14 @@ import time
 import websocket
 
 from collections import defaultdict
+
+from key_mapping import get_ch, MOUSE_EVENT, KEY_EVENT
+
+import locale
+import curses
+import curses.ascii
+
+
 
 def get_parser():
     parser = argparse.ArgumentParser(description='control me the hits')
@@ -38,21 +45,17 @@ def websocket_worker(host, cb):
         time.sleep(1)
 
 def loadplaylist(host, playlist_name, tracks):
-    print '---- loading ---'
     r = requests.post('http://%s/playlists' % host, data=json.dumps({
         'name': playlist_name,
         'playlist': tracks,
         }))
-    print r.status_code
-    print r.text
     r.raise_for_status()
 
-def get_playlist(host, playlist_name):
+def get_playlists(host):
     print '---- playing ---'
     r = requests.get('http://%s/playlists' % host)
     r.raise_for_status()
-    playlists = {x['name']: x for x in r.json()['playlists']}
-    return playlists[playlist_name]
+    return r.json()['playlists']
 
 def playplaylist(host, playlist_name, item_id):
     print '---- playing ---'
@@ -73,216 +76,201 @@ def add_data_to_tracks(albums):
         for track in album['tracks']:
             track['artist'] = album['artist']
             track['album'] = album['album']
+            track['year'] = album['year']
     return albums
-
-
-def main():
-    print 'Loading albums'
-    args = get_parser().parse_args()
-    library = get_library(args.host)
-    albums_by_artist = group_albums_by_artist(add_data_to_tracks(library['albums']))
-
-    def save_and_play_playlist(paths, index):
-        loadplaylist(args.host, "quick album", paths)
-        first_track = get_playlist(args.host, "quick album")['items'][index]['id']
-        playplaylist(args.host, "quick album", first_track)
-
-    ui = UI(albums_by_artist, save_and_play_playlist)
-
-    t = threading.Thread(target=websocket_worker, args=(args.host, ui.change_playing))
-    #t.start()
-
-    ui.run()
-
 
 
 from album_widget import AlbumsWidget
 from playlist_widget import PlaylistWidget
+from search_widget import SearchWidget
 
 class UI(object):
-    def __init__(self, albums_by_artist, save_and_play_playlist):
+    def __init__(self, screen, albums_by_artist, playlists, save_and_play_playlist):
+        self._screen = screen
         self._playing = None
 
-        self._album_widget = AlbumsWidget(albums_by_artist, self._add_track)
-        self._playlist_widget = PlaylistWidget([], save_and_play_playlist)
+        self._album_widget = AlbumsWidget(self, albums_by_artist, self._add_track)
+        self._playlist_widget = PlaylistWidget(self, playlists, save_and_play_playlist)
+        self._search_widget = SearchWidget(self)
 
-        self._selected_widget = self._album_widget
+        self._selected_widget = None
+        self.set_focus(self._album_widget)
 
         self._buf = []
+
+    def _on_search(self, text):
+        self._album_widget.filter(text)
+
+    def _on_new_playlist(self, text):
+        self._playlist_widget.new_playlist(text)
+        self._search_widget.clear()
+        self.set_focus(self._playlist_widget)
 
     def _add_track(self, track):
         self._playlist_widget.add_track(track)
 
-    #def _clear_buffer(self, width, height):
-    #    self._buf_width = width
-    #    self._buf_height = height
-    #    self._buf = [' '] * (width * height)
-
-    #def _get_print_func(self, t, x, y):
-    #    def wrapped(xx, yy, s):
-    #        assert '\n' not in s
-    #        yyy = y + yy
-    #        xxx = x + xx
-    #        assert  0 <= xxx < self._buf_width
-    #        assert  0 <= yyy < self._buf_height
-    #        i = self._buf_width * yyy + xxx
-    #        j = i + len(s)
-    #        self._buf[i:j] = s
-    #    return wrapped
-
-    #def _get_buf(self):
-    #     return ''.join(self._buf)
-
-    def _get_print_func(self, t, x, y):
-        def wrapped(xx, yy, s):
+    def _get_print_func(self, x, y):
+        def wrapped(xx, yy, s, attr=None):
             assert '\n' not in s
-            sys.stdout.write(t.move(y+yy,x+xx) + s)
-            sys.stdout.flush()
+            if isinstance(s, unicode):
+                s = s.encode('utf8')
+            args = [y+yy, x+xx, s]
+            if attr is not None:
+                args.append(attr)
+            self._screen.addstr(*args)
         return wrapped
 
+    def set_focus(self, widget):
+        assert widget
+        if widget != self._selected_widget:
+            if self._selected_widget:
+                self._selected_widget.lost_cursor()
+            self._selected_widget = widget
+            self._selected_widget.got_cursor()
+
     def run(self):
-        t = Terminal()
         first_line = 0
         selected = 0
         spacing = 3
-        with t.fullscreen():
-            while True:
-                #self._clear_buffer(t.width, t.height)
-                sys.stdout.write(t.clear() + t.hide_cursor)
-                self._selected_widget.got_cursor()
+        ch = None
+        while True:
+            self._screen.clear()
+            height, width = self._screen.getmaxyx()
+            col_size = (width - spacing) / 2
 
-                #print 'Playing: %s' % self._playing
-                #print ''
+            self._album_widget.draw(self._screen, 0, 4, col_size, height - 4 - 1, self._get_print_func(0, 4))
+            self._playlist_widget.draw(self._screen, col_size + spacing, 4 - 1, col_size, height - 4, self._get_print_func(col_size + spacing, 4))
+            self._search_widget.draw(self._screen, 0, height - 1, width, 1, self._get_print_func(0, height - 1))
 
-                col_size = (t.width - spacing) / 2
+            #screen.addstr(0,0, "%s - %s" % (int(time.time()), ch))
+            self._screen.refresh()
 
-                self._album_widget.draw(t, 0, 4, col_size, t.height - 4, self._get_print_func(t, 0, 4))
+            ch = get_ch(self._screen)
+            if ch is None:
+                time.sleep(0.1)
+                continue
+            key_type, key = ch
+            if key_type is MOUSE_EVENT:
+                asdf
+            elif key_type is KEY_EVENT:
+                if key == ord('/') and self._selected_widget != self._search_widget:
+                    self._search_widget.set_mode('Search', self._on_search, None, self._album_widget)
+                    self.set_focus(self._search_widget)
+                elif key == ord('n') and self._selected_widget != self._search_widget:
+                    self._search_widget.set_mode('New Playlist', None, self._on_new_playlist, self._album_widget)
+                    self.set_focus(self._search_widget)
+                else:
+                    self._selected_widget.handle_key(key)
 
-                self._playlist_widget.draw(t, col_size + spacing, 4, col_size, t.height - 4, self._get_print_func(t, col_size + spacing, 4))
+            #self._clear_buffer(t.width, t.height)
+            #sys.stdout.write(t.clear() + t.hide_cursor)
+            #self._selected_widget.got_cursor()
+
+            ##print 'Playing: %s' % self._playing
+            ##print ''
 
 
-                #sys.stdout.write(t.clear() + t.move(0,0) + self._get_buf())
-                #sys.stdout.flush()
 
-                #num_rows = t.height - 4
-                #first_displayed_i = max(min(selected - 5, len(self._lines) - num_rows), 0)
-                #for y in xrange(0, num_rows):
-                #    i = y + first_displayed_i
-                #    if i == selected:
-                #        sys.stdout.write(t.reverse)
-                #    if i < len(self._lines):
-                #        key, s = self._lines[i]
-                #        print s
-                #    sys.stdout.write(t.normal)
 
-                with t.cbreak():
-                    key = t.inkey(timeout=0.1)
-                    if repr(key) in ('KEY_RIGHT', 'KEY_LEFT'):
-                        # Currently there are only two widgets, so this code is super minimal
-                        self._selected_widget.lost_cursor()
-                        if self._selected_widget == self._album_widget:
-                            self._selected_widget = self._playlist_widget
-                        else:
-                            self._selected_widget = self._album_widget
-                    else:
-                        self._selected_widget.handle_key(key)
+            #sys.stdout.write(t.clear() + t.move(0,0) + self._get_buf())
+            #sys.stdout.flush()
+
+            #num_rows = t.height - 4
+            #first_displayed_i = max(min(selected - 5, len(self._lines) - num_rows), 0)
+            #for y in xrange(0, num_rows):
+            #    i = y + first_displayed_i
+            #    if i == selected:
+            #        sys.stdout.write(t.reverse)
+            #    if i < len(self._lines):
+            #        key, s = self._lines[i]
+            #        print s
+            #    sys.stdout.write(t.normal)
+
+            #with t.cbreak():
+            #    key = t.inkey(timeout=0.1)
+            #    if repr(key) in ('KEY_RIGHT', 'KEY_LEFT'):
+            #        # Currently there are only two widgets, so this code is super minimal
+            #        self._selected_widget.lost_cursor()
+            #        if self._selected_widget == self._album_widget:
+            #            self._selected_widget = self._playlist_widget
+            #        else:
+            #            self._selected_widget = self._album_widget
+            #    else:
+            #        self._selected_widget.handle_key(key)
 
 
 
     def change_playing(self, x):
         self._playing = x
 
+usecache = False
 
-def chinput():
-    term = Terminal()
-    screen = {}
+def main():
+    print 'Loading albums'
+    args = get_parser().parse_args()
+    if not usecache:
+        library = get_library(args.host)
+        albums_by_artist = group_albums_by_artist(add_data_to_tracks(library['albums']))
+        playlists = get_playlists(args.host)
 
-    def get_ch(timeout=0.1):
-        key = term.inkey(timeout=timeout)
-        if not key:
-            return None
-        if len(key) > 1:
-            return key
-        if ord(key) == 27:
-            nextkey = term.inkey(timeout=0.0001)
-            if not nextkey:
-                # THIS IS REALLY SLOW
-                return 'ESC'
-            raise KeyError(repr(nextkey))
-        return key
+        with open("my.cache", "w") as fp:
+            fp.write(json.dumps({
+                'albums': albums_by_artist,
+                'playlists': playlists,
+                }))
+    else:
+        cache = json.loads(open("my.cache", "r").read())
+        albums_by_artist = cache['albums']
+        playlists = cache['playlists']
 
-    with term.hidden_cursor(), \
-            term.raw(), \
-            term.location(), \
-            term.fullscreen(), \
-            term.keypad():
-        inp = None
-        while True:
-            ch = get_ch()
-            if ch:
-                print ch
-            #inp = term.inkey()
+    path_lookup = {}
+    for album in library['albums']:
+        for track in album['tracks']:
+            path_lookup[track['path']] = track
 
-            #if ord(inp) == 27:
-            #    print ord(inp)
-            #    while 1:
-            #        inp = term.inkey()
-            #        print 'follow: %s' % ord(inp)
-
-            #        # ctrl-up
-            #        #27
-            #        #  follow: 91
-            #        #            follow: 49
-            #        #                      follow: 59
-            #        #                                follow: 53
-            #        #                                          follow: 65
-
-            #        # ctrl-down
-            #        #27
-            #        #  follow: 91
-            #        #            follow: 49
-            #        #                      follow: 59
-            #        #                                follow: 53
-            #        #                                          follow: 66
+    converted_playlists = {}
+    for k,v in playlists.iteritems():
+        converted = []
+        for t in v['items']:
+            converted.append(path_lookup[t['path']])
+        converted_playlists[k] = converted
+    playlists = converted_playlists
 
 
 
-            #if len(inp) == 1:
-            #    print ord(inp)
-            #    continue
-            #if inp.is_sequence:
-            #    print 'is seq'
-            #print repr(inp)
-            #if inp == chr(3):
-            #    # ^c exits
-            #    break
+    def save_and_play_playlist(paths, index):
+        loadplaylist(args.host, "quick album", paths)
+        playlist = get_playlists(args.host)['playlists']['quick album']
+        track_id = playlist['items'][index]['id']
+        first_track = get_playlists(args.host) #, "quick album")['items'][index]['id']
+        playplaylist(args.host, "quick album", track_id)
 
-            #elif inp == chr(19):
-            #    save
-            #    continue
+    # curses setup
+    locale.setlocale(locale.LC_ALL,"")
+    screen = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    curses.curs_set(0)
+    
+    screen.nodelay(1)
+    
+    curses.mousemask(1)
+    curses.start_color()
+    curses.use_default_colors()
 
-            #elif inp == chr(12):
-            #    # ^l refreshes
-            #    redraw
+    ui = UI(screen, albums_by_artist, playlists, save_and_play_playlist)
 
-            #else:
-            #    n_csr = lookup_move(inp.code, csr, term)
+    t = threading.Thread(target=websocket_worker, args=(args.host, ui.change_playing))
+    #t.start()
 
-            #if n_csr != csr:
-            #    # erase old cursor,
-            #    echo_yx(csr, screen.get((csr.y, csr.x), u' '))
-            #    csr = n_csr
-
-            #elif input_filter(inp):
-            #    echo_yx(csr, inp)
-            #    screen[(csr.y, csr.x)] = inp.__str__()
-            #    n_csr = right_of(csr, 1)
-            #    if n_csr == csr:
-            #        # wrap around margin
-            #        n_csr = home(below(csr, 1))
-            #    csr = n_csr
+    ui.run()
 
 if __name__ == '__main__':
-    #chinput()
-    main()
+    try:
+        main()
+    finally:
+        try:
+            curses.endwin()
+        except:
+            pass
 

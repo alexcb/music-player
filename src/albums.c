@@ -60,6 +60,7 @@ int setup_album( AlbumList *album_list, Album *album )
 			goto error;
 		}
 
+		// TODO why can't the track just point to the id3_item instead of making new copies?
 		Track *track = malloc(sizeof(Track));
 		track->artist = id3_item->artist;
 		track->title = id3_item->title;
