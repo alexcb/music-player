@@ -564,6 +564,7 @@ static int web_handler_albums(
 			json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
 			json_object_object_add( track, "path", json_object_new_string( t->path ) );
 			json_object_array_add( tracks, track );
+			LOG_DEBUG("path=s how the path is represented on the server", t->path);
 		}
 		json_object_object_add( album, "tracks", tracks );
 
@@ -607,10 +608,8 @@ static int web_handler_play(
 	int track = 0;
 	const char *track_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
 	if( track_str ) {
-		printf("----- %s ----\n", track_str);
 		track = atoi(track_str);
-		printf("-----conv %d ----\n", track);
-		if( track == 0 && ( track_str[0] != '0' || track_str[0] != '\0' ) ) {
+		if( track == 0 && strcmp(track_str, "0") != 0 ) {
 			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad track" );
 		}
 	} else {
