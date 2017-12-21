@@ -9,26 +9,48 @@ class PlaylistWidget(object):
             playlists['default'] = []
         self._active_playlist = 'default'
         self._selected = 0
+        self._first_displayed = 0
         self._has_cursor = False
         self._save_and_play_playlist = save_and_play_playlist
 
     def draw(self, screen, x, y, width, height, nprint):
         tracks = self._playlists[self._active_playlist]
-        first_displayed_i = max(min(self._selected - 5, len(tracks) - height), 0)
+        total_max_items_visible = height - 1
+
+        tmp = max(self._selected - (total_max_items_visible-1), 0)
+        if tmp > self._first_displayed:
+            self._first_displayed = tmp
+        if self._selected < self._first_displayed:
+            self._first_displayed = self._selected
 
         nprint(0, 0, "Playlist: %s" % self._active_playlist)
         for i, y in enumerate(xrange(1, height)):
-            i += first_displayed_i
+            i += self._first_displayed
             attr = None
             if i == self._selected and self._has_cursor:
                 attr = curses.A_REVERSE
             if i < len(tracks):
-                s = self._format_track(tracks[i])
+                s = self._format_track(tracks[i], width)
                 nprint(0, y, s, attr)
             #sys.stdout.write(terminal.normal)
 
-    def _format_track(self, track):
-        return '%s - %s - %s - %s - %s' % (track['artist'], track['album'], track['track_number'], track['title'], track['year'])
+    def _format_track(self, track, width):
+        num_col = 5
+        year_width = 4
+        track_num_width = 2
+        spacer = '  '
+        remaining_width = width - year_width - track_num_width - (num_col-1)*len(spacer)
+        flex_width = remaining_width / 3
+
+        text = [
+            track['artist'].ljust(flex_width),
+            track['album'].ljust(flex_width),
+            str(track['track_number']).ljust(track_num_width),
+            track['title'].ljust(flex_width),
+            str(track['year']).ljust(year_width),
+                ]
+
+        return spacer.join(text)
 
     def next_playlist(self):
         self.change_playlist_rel(1)

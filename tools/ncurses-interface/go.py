@@ -62,11 +62,16 @@ def playplaylist(host, playlist_name, track_num):
     r = requests.post(url)
     r.raise_for_status()
 
+def strip_prefix(s, prefix):
+    if s.startswith(prefix):
+        return s[len(prefix):]
+    return s
+
 def group_albums_by_artist(albums):
     collection = defaultdict(list)
     for x in albums:
         collection[x['artist']].append(x)
-    return [x[1] for x in sorted(collection.items(), key=lambda x: x[0].lower())]
+    return [x[1] for x in sorted(collection.items(), key=lambda x: strip_prefix(x[0].lower(), "the").strip())]
 
 def add_data_to_tracks(albums):
     for album in albums:
@@ -133,11 +138,18 @@ class UI(object):
         while True:
             self._screen.clear()
             height, width = self._screen.getmaxyx()
-            col_size = (width - spacing) / 2
 
-            self._album_widget.draw(self._screen, 0, 4, col_size, height - 4 - 1, self._get_print_func(0, 4))
-            self._playlist_widget.draw(self._screen, col_size + spacing, 4 - 1, col_size, height - 4, self._get_print_func(col_size + spacing, 4))
-            self._search_widget.draw(self._screen, 0, height - 1, width, 1, self._get_print_func(0, height - 1))
+            col1 = 0
+            col1_width = width / 3
+            col2 = col1_width + 2
+            col2_width = width - col2
+            bottom_row = height - 1
+            main_height = height - 2
+
+            self._album_widget.draw(   self._screen, col1, 1, col1_width, main_height, self._get_print_func(col1, 1))
+            self._playlist_widget.draw(self._screen, col2, 1, col2_width, main_height, self._get_print_func(col2, 1))
+
+            self._search_widget.draw(  self._screen,    0, bottom_row, width, 1, self._get_print_func(0, height - 1))
 
             #screen.addstr(0,0, "%s - %s" % (int(time.time()), ch))
             self._screen.refresh()
