@@ -527,6 +527,7 @@ static int web_handler_playlists(
 
 	const char *s = json_object_to_json_string( root_obj );
 	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
+	MHD_add_response_header( response, "Content-Type", "application/json; charset=utf-8" );
 
 	// this causes the json string to be released
 	json_object_put( root_obj );
@@ -582,6 +583,7 @@ static int web_handler_albums(
 
 	const char *s = json_object_to_json_string( root_obj );
 	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
+	MHD_add_response_header( response, "Content-Type", "application/json; charset=utf-8" );
 
 	// this causes the json string to be released
 	json_object_put( root_obj );
