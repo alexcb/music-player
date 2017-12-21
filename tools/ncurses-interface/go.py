@@ -57,12 +57,9 @@ def get_playlists(host):
     r.raise_for_status()
     return r.json()['playlists']
 
-def playplaylist(host, playlist_name, item_id):
-    print '---- playing ---'
-    print (playlist_name, item_id)
-    r = requests.post('http://%s/play?playlist=%s&id=%s' % (host, playlist_name, item_id))
-    print r.status_code
-    print r.text
+def playplaylist(host, playlist_name, track_num):
+    url = 'http://%s/play?playlist=%s&track=%s' % (host, playlist_name, track_num)
+    r = requests.post(url)
     r.raise_for_status()
 
 def group_albums_by_artist(albums):
@@ -240,11 +237,7 @@ def main():
 
     def save_and_play_playlist(playlist_name, paths, index):
         loadplaylist(args.host, playlist_name, paths)
-        playlist = get_playlists(args.host)[playlist_name]
-        track_id = playlist['items'][index]['id']
-        first_track = get_playlists(args.host) #, "quick album")['items'][index]['id']
-        raise ValueError(track_id)
-        playplaylist(args.host, playlist_name, track_id)
+        playplaylist(args.host, playlist_name, index)
 
     # curses setup
     locale.setlocale(locale.LC_ALL,"")

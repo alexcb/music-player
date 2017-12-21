@@ -604,58 +604,61 @@ static int web_handler_play(
 	struct MHD_Response *response;
 	int res;
 
-	int id = 0;
-	const char *id_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "id" );
-	if( id_str ) {
-		id = atoi(id_str);
-		if( id == 0 && ( id_str[0] != '0' || id_str[0] != '\0' ) ) {
-			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad id" );
+	int track = 0;
+	const char *track_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
+	if( track_str ) {
+		printf("----- %s ----\n", track_str);
+		track = atoi(track_str);
+		printf("-----conv %d ----\n", track);
+		if( track == 0 && ( track_str[0] != '0' || track_str[0] != '\0' ) ) {
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad track" );
 		}
+	} else {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "no track" );
 	}
 
-	const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
-	if( stream ) {
-		LOG_DEBUG("stream=s playing stream", stream);
-		goto done;
-	}
+	//const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
+	//if( stream ) {
+	//	LOG_DEBUG("stream=s playing stream", stream);
+	//	goto done;
+	//}
 
-	const char *album = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
-	if( album ) {
-		LOG_DEBUG("album=s playing album", album);
-		goto done;
-	}
+	//const char *album = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "album" );
+	//if( album ) {
+	//	LOG_DEBUG("album=s playing album", album);
+	//	goto done;
+	//}
 
 	const char *playlist_name = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "playlist" );
-	if( playlist_name ) {
-		LOG_DEBUG("playlist=s playing playlist", playlist_name);
+	if( playlist_name == NULL ) {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "missing playlist" );
+	}
+	LOG_DEBUG("playlist=s track=d handling play request", playlist_name, track);
 
-		Playlist *playlist;
-		res = playlist_manager_get_playlist( data->my_data->playlist_manager, playlist_name, &playlist );
-		if( res ) {
-			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to find playlist" );
-		}
-
-		PlaylistItem *x = playlist->root;
-		if( id_str != NULL ) {
-			for( ; x != NULL && x->id != id; x = x->next );
-		}
-		if( x == NULL ) {
-			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "id not found (or playlist is empty)" );
-		}
-	
-		res = player_change_track( data->my_data->player, playlist->root, TRACK_CHANGE_IMMEDIATE );
-		if( res ) {
-			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to change track" );
-		}
-
-		player_set_playing( data->my_data->player, true );
-
-		goto done;
+	Playlist *playlist;
+	res = playlist_manager_get_playlist( data->my_data->playlist_manager, playlist_name, &playlist );
+	if( res ) {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to find playlist" );
 	}
 
-	return error_handler( connection, MHD_HTTP_BAD_REQUEST, "missing play options" );
+	PlaylistItem *x = playlist->root;
+	if( x == NULL ) {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "playlist is empty" );
+	}
+	for( int i = 0; i < track; i++ ) {
+		if( x == NULL ) {
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "invalid track index" );
+		}
+		x = x->next;
+	}
 	
-done:
+	res = player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
+	if( res ) {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to change track" );
+	}
+
+	player_set_playing( data->my_data->player, true );
+
 	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
 	MHD_destroy_response(response);
