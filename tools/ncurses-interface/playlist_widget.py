@@ -12,8 +12,10 @@ class PlaylistWidget(object):
         self._first_displayed = 0
         self._has_cursor = False
         self._save_and_play_playlist = save_and_play_playlist
+        self._height = 10
 
     def draw(self, screen, x, y, width, height, nprint):
+        self._height = height
         tracks = self._playlists[self._active_playlist]
         total_max_items_visible = height - 1
 
@@ -74,7 +76,7 @@ class PlaylistWidget(object):
         if key == 'up':
             self._selected = max(self._selected - 1, 0)
         elif key == 'page-up':
-            self._selected = max(self._selected - 10, 0)
+            self._selected = max(self._selected - self._height/2, 0)
         elif key == 'down':
             self._selected = min(self._selected + 1, len(tracks) - 1)
         elif key == 'ctrl-left':
@@ -82,7 +84,7 @@ class PlaylistWidget(object):
         elif key == 'ctrl-right':
             self.next_playlist()
         elif key == 'page-down':
-            self._selected = min(self._selected + 10, len(tracks) - 1)
+            self._selected = min(self._selected + self._height/2, len(tracks) - 1)
         elif key == 'left':
             self._parent.set_focus(self._parent._album_widget)
         elif key == ord(' '):

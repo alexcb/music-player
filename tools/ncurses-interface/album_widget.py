@@ -9,8 +9,10 @@ class AlbumsWidget(object):
         self._playing = None
         self._expanded = set()
         self._selected = 0
+        self._first_displayed = 0
         self._has_cursor = False
         self._filter = ''
+        self._height = 10
 
         self._lines = list(self._get_lines_helper())
         self._add_track = add_track_func
@@ -74,10 +76,18 @@ class AlbumsWidget(object):
             self._add_track(track)
 
     def draw(self, screen, xx, yy, width, height, nprint):
+        self._height = height
+        total_max_items_visible = height - 1
+
+        tmp = max(self._selected - (total_max_items_visible-1), 0)
+        if tmp > self._first_displayed:
+            self._first_displayed = tmp
+        if self._selected < self._first_displayed:
+            self._first_displayed = self._selected
+
         nprint(0, 0, "Albums:")
-        first_displayed_i = max(min(self._selected - 5, len(self._lines) - height), 0)
         for i, y in enumerate(xrange(1, height)):
-            i += first_displayed_i
+            i += self._first_displayed
             attr = None
             if i == self._selected and self._has_cursor:
                 attr = curses.A_REVERSE
@@ -85,6 +95,7 @@ class AlbumsWidget(object):
                 key, s = self._lines[i]
                 nprint(0, y, s, attr)
             #sys.stdout.write(terminal.normal)
+
 
     def filter(self, text):
         self._filter = text
@@ -99,11 +110,11 @@ class AlbumsWidget(object):
         if key == 'up':
             self._selected = max(self._selected - 1, 0)
         elif key == 'page-up':
-            self._selected = max(self._selected - 10, 0)
+            self._selected = max(self._selected - self._height/2, 0)
         elif key == 'down':
             self._selected = min(self._selected + 1, len(self._lines) - 1)
         elif key == 'page-down':
-            self._selected = min(self._selected + 10, len(self._lines) - 1)
+            self._selected = min(self._selected + self._height/2, len(self._lines) - 1)
         if key == 'right':
             self._parent.set_focus(self._parent._playlist_widget)
         elif key == ord('\n'):
