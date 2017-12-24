@@ -66,6 +66,7 @@ int setup_album( AlbumList *album_list, Album *album )
 		track->title = id3_item->title;
 		track->path = id3_item->path;
 		track->track = id3_item->track;
+		track->album = id3_item->album;
 
 		album->artist = id3_item->artist;
 		album->album = id3_item->album;

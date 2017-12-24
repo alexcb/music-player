@@ -110,6 +110,8 @@ void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, vo
 	if( track->playlist_item ) {
 		json_object_object_add( state, "path", json_object_new_string( track->playlist_item->track->path ) );
 		json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->track->artist ) );
+		json_object_object_add( state, "album", json_object_new_string( track->playlist_item->track->album ) );
+		json_object_object_add( state, "track", json_object_new_int( track->playlist_item->track->track ) );
 		json_object_object_add( state, "title", json_object_new_string( track->playlist_item->track->title ) );
 	}
 	const char *s = json_object_to_json_string( state );
@@ -130,13 +132,8 @@ void websocket_push_thread( WebHandlerData *data )
 	int cond_wait_res;
 	sds local_payload = NULL;
 	for(;;) {
-		LOG_DEBUG("p=p here", data);
-		LOG_DEBUG("p=p here", &data->current_track_payload_lock);
-		LOG_DEBUG("p=p here", &data->current_track_payload_cond);
 		pthread_mutex_lock( &data->current_track_payload_lock );
-		LOG_DEBUG("here");
 		cond_wait_res = pthread_cond_wait( &data->current_track_payload_cond, &data->current_track_payload_lock );
-		LOG_DEBUG("here");
 		if( data->current_track_payload )
 			local_payload = sdscpy( local_payload, data->current_track_payload );
 		pthread_mutex_unlock( &data->current_track_payload_lock );
@@ -666,6 +663,26 @@ static int web_handler_play(
 	return ret;
 }
 
+static int web_handler_pause(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const sds request_body,
+		void **con_cls)
+{
+	int ret;
+	struct MHD_Response *response;
+
+	data->my_data->player->playing = !data->my_data->player->playing;
+
+	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
 //static int web_handler_albums_play(
 //		WebHandlerData *data,
 //		struct MHD_Connection *connection,
@@ -756,6 +773,10 @@ static int web_handler(
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/play") == 0 ) {
 		return web_handler_play( data, connection, url, method, version, request_session->body, con_cls );
+	}
+
+	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/pause") == 0 ) {
+		return web_handler_pause( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "GET" ) == 0 && has_prefix(url, "/static/") ) {

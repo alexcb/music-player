@@ -14,6 +14,7 @@ typedef struct Track
 	sds artist;
 	sds title;
 	sds path;
+	sds album;
 	uint32_t track;
 
 	// used to order tracks in an album

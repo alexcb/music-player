@@ -28,6 +28,7 @@ def get_library(host):
     return r.json()
 
 def websocket_worker(host, cb):
+    text = ''
     while 1:
         try:
             ws = websocket.WebSocket()
@@ -35,13 +36,15 @@ def websocket_worker(host, cb):
             while 1:
                 status = json.loads(ws.recv())
                 try:
-                    text = '%s - %s' % (status['artist'], status['title'])
+                    playing = 'Playing' if status['playing'] else 'Paused'
+                    text = '%s: %s - %s - %s - %s' % (playing, status['artist'], status['album'], status['track'], status['title'])
                 except KeyError:
                     text = 'unknown state: %s' % str(status)
                 cb(text)
         except Exception as e:
             pass
-        print 'lost websocket connection'
+        cb(text + '(lost conn)')
+        #print 'lost websocket connection'
         time.sleep(1)
 
 def loadplaylist(host, playlist_name, tracks):
@@ -82,14 +85,18 @@ def add_data_to_tracks(albums):
     return albums
 
 
+
+
 from album_widget import AlbumsWidget
 from playlist_widget import PlaylistWidget
 from search_widget import SearchWidget
 
 class UI(object):
-    def __init__(self, screen, albums_by_artist, playlists, save_and_play_playlist):
+    def __init__(self, screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause):
         self._screen = screen
-        self._playing = None
+        self._playing = ''
+
+        self._toggle_pause = toggle_pause
 
         self._album_widget = AlbumsWidget(self, albums_by_artist, self._add_track)
         self._playlist_widget = PlaylistWidget(self, playlists, save_and_play_playlist)
@@ -138,6 +145,8 @@ class UI(object):
         while True:
             self._screen.clear()
             height, width = self._screen.getmaxyx()
+            screenprint = self._get_print_func(0, 0)
+            screenprint(0, 0, self._playing)
 
             col1 = 0
             col1_width = width / 3
@@ -168,6 +177,8 @@ class UI(object):
                 elif key == ord('n') and self._selected_widget != self._search_widget:
                     self._search_widget.set_mode('New Playlist', None, self._on_new_playlist, self._album_widget)
                     self.set_focus(self._search_widget)
+                elif key == ord('p') and self._selected_widget != self._search_widget:
+                    self._toggle_pause()
                 else:
                     self._selected_widget.handle_key(key)
 
@@ -251,6 +262,10 @@ def main():
         loadplaylist(args.host, playlist_name, paths)
         playplaylist(args.host, playlist_name, index)
 
+    def toggle_pause():
+        r = requests.post('http://%s/pause' % args.host)
+        r.raise_for_status()
+
     # curses setup
     locale.setlocale(locale.LC_ALL,"")
     screen = curses.initscr()
@@ -264,10 +279,10 @@ def main():
     curses.start_color()
     curses.use_default_colors()
 
-    ui = UI(screen, albums_by_artist, playlists, save_and_play_playlist)
+    ui = UI(screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause)
 
     t = threading.Thread(target=websocket_worker, args=(args.host, ui.change_playing))
-    #t.start()
+    t.start()
 
     ui.run()
 
