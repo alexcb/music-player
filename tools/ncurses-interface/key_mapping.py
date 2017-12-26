@@ -29,6 +29,8 @@ def _get_escape_mapping():
     27 91 49 59 53 65 ctrl-up
     27 91 49 59 53 66 ctrl-down
 
+    27 91 77 mouse
+
     27 91 49 59 50 67 shift-right
     27 91 49 59 50 68 shift-left
     27 91 49 59 50 65 shift-up
@@ -74,28 +76,33 @@ MOUSE_EVENT = object()
 KEY_EVENT = object()
 
 ESCAPE = 27
-MOUSE = 409
 def get_ch(stdscr):
-    c = stdscr.getch()
-    if c == -1:
-        return None
-    if c == ESCAPE:
-        mapping = key_mapping[27]
+    lookups_debug = []
+    try:
         c = stdscr.getch()
+        lookups_debug.append(c)
         if c == -1:
-            return KEY_EVENT, 'escape'
-
-        mapping = mapping[c]
-        while isinstance(mapping, dict):
-            c = stdscr.getch()
-            if c == -1:
-                raise RuntimeError("escape underflow")
-            mapping = mapping[c]
-        return KEY_EVENT, mapping
-    if c == MOUSE:
-        try:
-            return MOUSE_EVENT, curses.getmouse()
-        except:
             return None
-    else:
-        return KEY_EVENT, c
+        if c == ESCAPE:
+            mapping = key_mapping[27]
+            c = stdscr.getch()
+            lookups_debug.append(c)
+            if c == -1:
+                return KEY_EVENT, 'escape'
+
+            mapping = mapping[c]
+            while isinstance(mapping, dict):
+                c = stdscr.getch()
+                lookups_debug.append(c)
+                if c == -1:
+                    raise RuntimeError("escape underflow")
+                mapping = mapping[c]
+
+            if mapping == 'mouse':
+                return MOUSE_EVENT, None
+
+            return KEY_EVENT, mapping
+        else:
+            return KEY_EVENT, c
+    except Exception as e:
+        raise RuntimeError('failed to lookup: %s; exception: %s' % (lookups_debug, e))

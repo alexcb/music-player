@@ -169,7 +169,7 @@ class UI(object):
                 continue
             key_type, key = ch
             if key_type is MOUSE_EVENT:
-                asdf
+                pass
             elif key_type is KEY_EVENT:
                 if key == ord('/') and self._selected_widget != self._search_widget:
                     self._search_widget.set_mode('Search', self._on_search, None, self._album_widget)
@@ -256,8 +256,6 @@ def main():
         converted_playlists[k] = converted
     playlists = converted_playlists
 
-
-
     def save_and_play_playlist(playlist_name, paths, index):
         loadplaylist(args.host, playlist_name, paths)
         playplaylist(args.host, playlist_name, index)
@@ -272,10 +270,11 @@ def main():
     curses.noecho()
     curses.cbreak()
     curses.curs_set(0)
-    
+
     screen.nodelay(1)
-    
-    curses.mousemask(1)
+
+    #availmask, oldmask = curses.mousemask(1)
+    #assert availmask == 1, "mouse mode not available"
     curses.start_color()
     curses.use_default_colors()
 

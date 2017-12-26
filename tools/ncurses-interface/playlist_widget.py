@@ -1,5 +1,7 @@
 import curses
 
+from unicode_utils import width as str_width
+
 
 class PlaylistWidget(object):
     def __init__(self, parent, playlists, save_and_play_playlist):
@@ -44,13 +46,25 @@ class PlaylistWidget(object):
         remaining_width = width - year_width - track_num_width - (num_col-1)*len(spacer)
         flex_width = remaining_width / 3
 
+        def format(s, w):
+            if not isinstance(s, unicode):
+                s = unicode(s)
+            width = str_width(s)
+            if width > w:
+                s = s[:(w-3)] + '...'
+            else:
+                pad = w - width
+                s = s + ' ' * pad
+
+            return s
+
         text = [
-            track['artist'].ljust(flex_width),
-            track['album'].ljust(flex_width),
-            str(track['track_number']).ljust(track_num_width),
-            track['title'].ljust(flex_width),
-            str(track['year']).ljust(year_width),
-                ]
+            format(track['artist'],       flex_width      ),
+            format(track['album'],        flex_width      ),
+            format(track['track_number'], track_num_width ),
+            format(track['title'],        flex_width      ),
+            format(track['year'],         year_width      ),
+            ]
 
         return spacer.join(text)
 
