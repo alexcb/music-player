@@ -92,14 +92,14 @@ from playlist_widget import PlaylistWidget
 from search_widget import SearchWidget
 
 class UI(object):
-    def __init__(self, screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause):
+    def __init__(self, screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause, save_playlist):
         self._screen = screen
         self._playing = ''
 
         self._toggle_pause = toggle_pause
 
         self._album_widget = AlbumsWidget(self, albums_by_artist, self._add_track)
-        self._playlist_widget = PlaylistWidget(self, playlists, save_and_play_playlist)
+        self._playlist_widget = PlaylistWidget(self, playlists, save_and_play_playlist, save_playlist)
         self._search_widget = SearchWidget(self)
 
         self._selected_widget = None
@@ -264,6 +264,9 @@ def main():
         r = requests.post('http://%s/pause' % args.host)
         r.raise_for_status()
 
+    def save_playlist(playlist_name, paths):
+        loadplaylist(args.host, playlist_name, paths)
+
     # curses setup
     locale.setlocale(locale.LC_ALL,"")
     screen = curses.initscr()
@@ -278,7 +281,7 @@ def main():
     curses.start_color()
     curses.use_default_colors()
 
-    ui = UI(screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause)
+    ui = UI(screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause, save_playlist)
 
     t = threading.Thread(target=websocket_worker, args=(args.host, ui.change_playing))
     t.start()

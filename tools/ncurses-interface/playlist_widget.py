@@ -4,7 +4,7 @@ from unicode_utils import width as str_width
 
 
 class PlaylistWidget(object):
-    def __init__(self, parent, playlists, save_and_play_playlist):
+    def __init__(self, parent, playlists, save_and_play_playlist, save_playlist):
         self._parent = parent
         self._playlists = playlists
         if 'default' not in playlists:
@@ -14,6 +14,7 @@ class PlaylistWidget(object):
         self._first_displayed = 0
         self._has_cursor = False
         self._save_and_play_playlist = save_and_play_playlist
+        self._save_playlist = save_playlist
         self._height = 10
 
     def draw(self, screen, x, y, width, height, nprint):
@@ -121,6 +122,9 @@ class PlaylistWidget(object):
         elif key == ord('\n'):
             tracks = [x['path'] for x in tracks]
             self._save_and_play_playlist(self._active_playlist, tracks, self._selected)
+        elif key == ord('s'):
+            tracks = [x['path'] for x in tracks]
+            self._save_playlist(self._active_playlist, tracks)
         elif key == ord('n'):
             asdfasdf
 
