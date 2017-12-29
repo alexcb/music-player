@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-int playlist_id_next = 0;
+int playlist_id_next = 1;
 
 int playlist_new( Playlist **playlist, const char *name )
 {
@@ -93,7 +93,7 @@ int read_metadata( const char *path, sds *artist, sds *title)
 	return OK;
 }
 
-int playlist_add_file( Playlist *playlist, const Track *track )
+int playlist_add_file( Playlist *playlist, const Track *track, int track_id )
 {
 	PlaylistItem *item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
 	item->track = track;
@@ -112,7 +112,11 @@ int playlist_add_file( Playlist *playlist, const Track *track )
 
 	*p = item;
 	item->prev = prev;
-	item->id = playlist_id_next++;
+	if( track_id > 0 ) {
+		item->id = track_id;
+	} else {
+		item->id = playlist_id_next++;
+	}
 
 	return OK;
 }
@@ -159,6 +163,58 @@ int playlist_clear( Playlist *playlist )
 	}
 	
 	playlist->root = NULL;
+	return 0;
+}
+
+PlaylistItem* pop_item_with_track_id( PlaylistItem **root, int track_id )
+{
+	PlaylistItem *x = *root;
+	while( x ) {
+		if( x->id == track_id ) {
+			*root = x->next;
+			return x;
+		}
+		root = &(x->next);
+		x = x->next;
+	}
+	return NULL;
+}
+
+// this function will steal the ref counts
+int playlist_update( Playlist *playlist, PlaylistItem *item )
+{
+	PlaylistItem *old_root = playlist->root;
+	PlaylistItem *last = NULL;
+	PlaylistItem *p = NULL;
+
+	PlaylistItem *x = item;
+	while( x ) {
+		p = NULL;
+		if( x->id > 0 ) {
+			p = pop_item_with_track_id( &old_root, x->id );
+			LOG_DEBUG("p=p path=s id=d popped item", p, p->track->path, p->id);
+		}
+		if( p == NULL ) {
+			p = x;
+			p->id = playlist_id_next++;
+		}
+
+		p->parent = playlist;
+		p->prev = NULL; //TODO is prev used anywhere? maybe we can just remove it?
+
+		if( last == NULL ) {
+			LOG_DEBUG("p=p path=s id=d adding root", p, p->track->path, p->id);
+			playlist->root = p;
+		} else {
+			last->next = p;
+			LOG_DEBUG("p=p path=s id=d adding next", p, p->track->path, p->id);
+		}
+
+		last = p;
+		x = x->next;
+	}
+	
+	playlist->root = item;
 	return 0;
 }
 

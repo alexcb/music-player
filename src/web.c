@@ -113,6 +113,7 @@ void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, vo
 		json_object_object_add( state, "album", json_object_new_string( track->playlist_item->track->album ) );
 		json_object_object_add( state, "track", json_object_new_int( track->playlist_item->track->track ) );
 		json_object_object_add( state, "title", json_object_new_string( track->playlist_item->track->title ) );
+		json_object_object_add( state, "id", json_object_new_int( track->playlist_item->id ) );
 	}
 	const char *s = json_object_to_json_string( state );
 
@@ -396,7 +397,8 @@ static int web_handler_playlists_load(
 	int res;
 	const char *name;
 	const char *s;
-	json_object *root_obj, *playlist_obj, *element_obj, *name_obj;
+	int track_id;
+	json_object *root_obj, *playlist_obj, *element_obj, *name_obj, *path_obj, *id_obj;
 	Playlist *playlist;
 
 	LOG_DEBUG("in web_handler_playlists_load");
@@ -418,27 +420,73 @@ static int web_handler_playlists_load(
 		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed decoding json, playlist" );
 	}
 
-	// create new playlist (or get pre-existing)
-	playlist_manager_lock( data->my_data->playlist_manager );
-	playlist_manager_new_playlist( data->my_data->playlist_manager, name, &playlist );
-	playlist_clear( playlist );
+	PlaylistItem *root = NULL;
+	PlaylistItem *last = NULL;
+	PlaylistItem *item = NULL;
 
 	int len = json_object_array_length( playlist_obj );
 	for( int i = 0; i < len; i++ ) {
 		element_obj = json_object_array_get_idx( playlist_obj, i );
-		if( !json_object_is_type( element_obj, json_type_string ) ) {
-			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "expected json array with string elements" );
+		if( !json_object_is_type( element_obj, json_type_array ) ) {
+			//FIXME deadlock, lock never released
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "expected json array with arrays" );
 		}
-		s = json_object_get_string( element_obj );
-		LOG_DEBUG("s=s adding", s);
+
+		int len2 = json_object_array_length( element_obj );
+		if( len2 != 2 ) {
+			//FIXME deadlock, lock never released
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad length" );
+		}
+
+		path_obj = json_object_array_get_idx( element_obj, 0 );
+		if( !json_object_is_type( path_obj, json_type_string ) ) {
+			//FIXME deadlock, lock never released
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "expected string" );
+		}
+		s = json_object_get_string( path_obj );
+
+		id_obj = json_object_array_get_idx( element_obj, 1 );
+		track_id = 0;
+		if( json_object_is_type( id_obj, json_type_int ) ) {
+			track_id = json_object_get_int( id_obj );
+		}
+
+		LOG_DEBUG("s=s id=d adding", s, track_id);
+
 		Track *track;
 		res = album_list_get_track( data->my_data->album_list, s, &track );
 		if( res != 0 ) {
 			LOG_ERROR("res=d path=s failed to lookup track", res, s);
 			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to lookup track" );
 		}
-		playlist_add_file( playlist, track );
+
+		item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
+		item->track = track;
+		item->id = track_id;
+		item->ref_count = 1;
+
+		item->next = NULL;
+		item->parent = NULL;
+
+		if( root == NULL ) {
+			root = item;
+		} else {
+			last->next = item;
+		}
+		last = item;
 	}
+
+
+	playlist_manager_lock( data->my_data->playlist_manager );
+	playlist_manager_new_playlist( data->my_data->playlist_manager, name, &playlist );
+
+	playlist_update( playlist, root );
+
+	res = player_reload_next_track( data->my_data->player );
+	if( res ) {
+		LOG_ERROR("failed to reload");
+	}
+
 	playlist_manager_save( data->my_data->playlist_manager );
 	playlist_manager_unlock( data->my_data->playlist_manager );
 

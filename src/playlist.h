@@ -33,7 +33,8 @@ typedef struct Playlist
 int playlist_new( Playlist **playlist, const char *name );
 int playlist_rename( Playlist *playlist, const char *name );
 int playlist_clear( Playlist *playlist );
-int playlist_add_file( Playlist *playlist, const struct Track *track );
+int playlist_update( Playlist *playlist, PlaylistItem *item );
+int playlist_add_file( Playlist *playlist, const struct Track *track, int track_id );
 int playlist_remove_item( Playlist *playlist, PlaylistItem *item );
 void playlist_sort_by_path( Playlist *playlist );
 

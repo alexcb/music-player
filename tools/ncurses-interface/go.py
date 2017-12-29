@@ -38,6 +38,7 @@ def websocket_worker(host, cb):
                 try:
                     playing = 'Playing' if status['playing'] else 'Paused'
                     text = '%s: %s - %s - %s - %s' % (playing, status['artist'], status['album'], status['track'], status['title'])
+                    text += ' TODO: %s' % status['id']
                 except KeyError:
                     text = 'unknown state: %s' % str(status)
                 cb(text)
@@ -48,6 +49,7 @@ def websocket_worker(host, cb):
         time.sleep(1)
 
 def loadplaylist(host, playlist_name, tracks):
+    #raise ValueError(repr(tracks))
     r = requests.post('http://%s/playlists' % host, data=json.dumps({
         'name': playlist_name,
         'playlist': tracks,
@@ -55,7 +57,6 @@ def loadplaylist(host, playlist_name, tracks):
     r.raise_for_status()
 
 def get_playlists(host):
-    print '---- playing ---'
     r = requests.get('http://%s/playlists' % host)
     r.raise_for_status()
     return r.json()['playlists']
@@ -252,20 +253,24 @@ def main():
     for k,v in playlists.iteritems():
         converted = []
         for t in v['items']:
-            converted.append(path_lookup[t['path']])
+            tt = path_lookup[t['path']]
+            tt['id'] = t['id']
+            converted.append(tt)
         converted_playlists[k] = converted
     playlists = converted_playlists
 
-    def save_and_play_playlist(playlist_name, paths, index):
-        loadplaylist(args.host, playlist_name, paths)
+    def save_and_play_playlist(playlist_name, tracks, index):
+        loadplaylist(args.host, playlist_name, tracks)
         playplaylist(args.host, playlist_name, index)
+        assert 0, "TODO need to reload playlist from server to get the valid IDs"
 
     def toggle_pause():
         r = requests.post('http://%s/pause' % args.host)
         r.raise_for_status()
 
-    def save_playlist(playlist_name, paths):
-        loadplaylist(args.host, playlist_name, paths)
+    def save_playlist(playlist_name, tracks):
+        loadplaylist(args.host, playlist_name, tracks)
+        assert 0, "TODO need to reload playlist from server to get the valid IDs"
 
     # curses setup
     locale.setlocale(locale.LC_ALL,"")

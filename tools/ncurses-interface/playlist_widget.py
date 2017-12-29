@@ -120,10 +120,10 @@ class PlaylistWidget(object):
                 tracks[i], tracks[j] = tracks[j], tracks[i]
                 self._selected += 1
         elif key == ord('\n'):
-            tracks = [x['path'] for x in tracks]
+            tracks = [(x['path'], x.get('id')) for x in tracks]
             self._save_and_play_playlist(self._active_playlist, tracks, self._selected)
         elif key == ord('s'):
-            tracks = [x['path'] for x in tracks]
+            tracks = [(x['path'], x.get('id')) for x in tracks]
             self._save_playlist(self._active_playlist, tracks)
         elif key == ord('n'):
             asdfasdf

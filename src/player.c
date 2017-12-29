@@ -128,6 +128,23 @@ int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 	return 0;
 }
 
+int player_reload_next_track( Player *player)
+{
+	LOG_DEBUG("reloading next track data");
+	if( player->current_track.playlist_item == NULL ) {
+		return 0;
+	}
+	PlaylistItem *item = player->current_track.playlist_item->next;
+	if( item == NULL ) {
+		item = player->current_track.playlist_item->parent->root;
+		if( item == NULL ) {
+			return 1;
+		}
+	}
+	player_change_track( player, item, TRACK_CHANGE_NEXT );
+	return 0;
+}
+
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item )
 {
 	// TODO trigger a reload buffer event if required
