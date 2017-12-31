@@ -17,15 +17,7 @@
 #define TRACK_CHANGE_IMMEDIATE 1
 #define TRACK_CHANGE_NEXT 2
 
-typedef struct PlayerTrackInfo {
-	char artist[PLAYER_ARTIST_LEN];
-	char title[PLAYER_TITLE_LEN];
-	PlaylistItem *playlist_item;
-	bool is_stream;
-	char icy_name[PLAYER_TITLE_LEN];
-} PlayerTrackInfo;
-
-typedef void (*MetadataObserver)(bool playing, const PlayerTrackInfo *track, void *data);
+typedef void (*MetadataObserver)(bool playing, const PlaylistItem *playlist_item, void *data);
 
 typedef struct Player
 {
@@ -53,7 +45,7 @@ typedef struct Player
 	CircularBuffer circular_buffer;
 
 	PlayQueue play_queue;
-	pthread_mutex_t play_queue_lock;
+	pthread_mutex_t the_lock;
 
 	struct httpdata hd;
 
@@ -64,7 +56,12 @@ typedef struct Player
 	MetadataObserver *metadata_observers;
 	void **metadata_observers_data;
 
-	PlayerTrackInfo current_track;
+	bool stop_next;
+	pthread_cond_t load_cond;
+
+	PlaylistItem *current_track;
+
+	PlaylistItem *playlist_item_to_buffer;
 
 	// when true play, when false, pause / stop
 	volatile bool playing;
@@ -73,9 +70,11 @@ typedef struct Player
 	int reading_playlist_track;
 	
 	// control over changing tracks
-	pthread_mutex_t change_track_lock;
+	//pthread_mutex_t change_track_lock;
 	int change_track; // 0 when false; 1 insert after current song; 2 change immediately
 	PlaylistItem *change_playlist_item;
+	bool load_in_progress;
+	bool load_abort_requested;
 	
 	char *audio_thread_p[2];
 	size_t audio_thread_size[2];
@@ -90,10 +89,13 @@ typedef struct Player
 int init_player( Player *player );
 int start_player( Player *player );
 
+void player_lock( Player *player );
+void player_unlock( Player *player );
+void player_rewind_buffer_unsafe( Player *player );
+
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );
 
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when );
-int player_reload_next_track( Player *player );
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item );
 
 void player_set_playing( Player *player, bool playing );

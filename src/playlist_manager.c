@@ -84,15 +84,15 @@ int playlist_manager_load( PlaylistManager *manager )
 	return 0;
 }
 
-void playlist_manager_lock( PlaylistManager *manager )
-{
-	pthread_mutex_lock( &manager->lock );
-}
-
-void playlist_manager_unlock( PlaylistManager *manager )
-{
-	pthread_mutex_unlock( &manager->lock );
-}
+//void playlist_manager_lock( PlaylistManager *manager )
+//{
+//	pthread_mutex_lock( &manager->lock );
+//}
+//
+//void playlist_manager_unlock( PlaylistManager *manager )
+//{
+//	pthread_mutex_unlock( &manager->lock );
+//}
 
 int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name )
 {

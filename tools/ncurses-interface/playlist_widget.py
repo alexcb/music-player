@@ -16,6 +16,10 @@ class PlaylistWidget(object):
         self._save_and_play_playlist = save_and_play_playlist
         self._save_playlist = save_playlist
         self._height = 10
+        self._playing_id = None
+
+    def set_playing(self, id):
+        self._playing_id = id
 
     def draw(self, screen, x, y, width, height, nprint):
         self._height = height
@@ -31,12 +35,15 @@ class PlaylistWidget(object):
         nprint(0, 0, "Playlist: %s" % self._active_playlist)
         for i, y in enumerate(xrange(1, height)):
             i += self._first_displayed
-            attr = None
+            if i >= len(tracks):
+                break
+            attr = 0
             if i == self._selected and self._has_cursor:
                 attr = curses.A_REVERSE
-            if i < len(tracks):
-                s = self._format_track(tracks[i], width)
-                nprint(0, y, s, attr)
+            if tracks[i].get('id') == self._playing_id and self._playing_id:
+                attr |= curses.color_pair(1)
+            s = self._format_track(tracks[i], width)
+            nprint(0, y, s, attr)
             #sys.stdout.write(terminal.normal)
 
     def _format_track(self, track, width):
@@ -60,11 +67,11 @@ class PlaylistWidget(object):
             return s
 
         text = [
-            format(track['artist'],       flex_width      ),
-            format(track['album'],        flex_width      ),
-            format(track['track_number'], track_num_width ),
-            format(track['title'],        flex_width      ),
-            format(track['year'],         year_width      ),
+            format(track['artist'],       flex_width              ),
+            format(track['album'],        flex_width              ),
+            format(track['track_number'], track_num_width         ),
+            format(track['title'],        flex_width              ),
+            format(track['year'],         year_width              ),
             ]
 
         return spacer.join(text)

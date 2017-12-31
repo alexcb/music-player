@@ -95,55 +95,53 @@ int read_metadata( const char *path, sds *artist, sds *title)
 
 int playlist_add_file( Playlist *playlist, const Track *track, int track_id )
 {
-	PlaylistItem *item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
-	item->track = track;
-	item->ref_count = 1;
-
-	item->next = NULL;
-	item->parent = playlist;
-
-	// TODO add a pointer to the last song in addition to root
-	PlaylistItem *prev = NULL;
-	PlaylistItem **p = &(playlist->root);
-	while( *p != NULL ) {
-		prev = *p;
-		p = &((*p)->next);
-	}
-
-	*p = item;
-	item->prev = prev;
-	if( track_id > 0 ) {
-		item->id = track_id;
-	} else {
-		item->id = playlist_id_next++;
-	}
-
+	assert(0);
+//	PlaylistItem *item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
+//	item->track = track;
+//	item->ref_count = 1;
+//
+//	item->next = NULL;
+//	item->parent = playlist;
+//
+//	PlaylistItem **p = &(playlist->root);
+//	while( *p != NULL ) {
+//		p = &((*p)->next);
+//	}
+//
+//	*p = item;
+//	if( track_id > 0 ) {
+//		item->id = track_id;
+//	} else {
+//		item->id = playlist_id_next++;
+//	}
+//
 	return OK;
 }
 
 int playlist_remove_item( Playlist *playlist, PlaylistItem *item )
 {
-	if( item->prev ) {
-		item->prev->next = item->next;
-	}
-	if( item->next ) {
-		item->next->prev = item->prev;
-	}
-	playlist_item_ref_down( item );
+	assert(0);
+	//if( item->prev ) {
+	//	item->prev->next = item->next;
+	//}
+	//if( item->next ) {
+	//	item->next->prev = item->prev;
+	//}
+	//playlist_item_ref_down( item );
 	return 0;
 }
 
 int playlist_item_ref_up( PlaylistItem *item )
 {
 	item->ref_count++;
-	LOG_DEBUG("path=s count=d playlist_item_ref_up", item->track->path, item->ref_count);
+	//LOG_DEBUG("path=s count=d playlist_item_ref_up", item->track->path, item->ref_count);
 	return 0;
 }
 
 int playlist_item_ref_down( PlaylistItem *item )
 {
 	item->ref_count--;
-	LOG_DEBUG("path=s count=d playlist_item_ref_down", item->track->path, item->ref_count);
+	//LOG_DEBUG("path=s count=d playlist_item_ref_down", item->track->path, item->ref_count);
 	if( item->ref_count > 0 ) {
 		return 0;
 	}
@@ -186,6 +184,7 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 	PlaylistItem *old_root = playlist->root;
 	PlaylistItem *last = NULL;
 	PlaylistItem *p = NULL;
+	PlaylistItem *n = NULL;
 
 	PlaylistItem *x = item;
 	while( x ) {
@@ -196,11 +195,11 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 		}
 		if( p == NULL ) {
 			p = x;
+			playlist_item_ref_up( x );
 			p->id = playlist_id_next++;
 		}
 
 		p->parent = playlist;
-		p->prev = NULL; //TODO is prev used anywhere? maybe we can just remove it?
 
 		if( last == NULL ) {
 			LOG_DEBUG("p=p path=s id=d adding root", p, p->track->path, p->id);
@@ -211,10 +210,20 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 		}
 
 		last = p;
-		x = x->next;
+		n = x->next;
+		playlist_item_ref_down( x );
+		x = n;
+	}
+
+	// remove any left over tracks that weren't contained in the new list
+	p = old_root;
+	while( p ) {
+		x = p->next;
+		p->parent = NULL; // this track has been orphaned; there's a chance it's currently being played
+		playlist_item_ref_down( p );
+		p = x;
 	}
 	
-	playlist->root = item;
 	return 0;
 }
 

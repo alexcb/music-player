@@ -50,7 +50,7 @@ int init_player( Player *player )
 	// TODO ensure that ID_DATA_START messages are smaller than this
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
-	pthread_mutex_init( &player->change_track_lock, NULL );
+	pthread_mutex_init( &player->the_lock, NULL );
 	player->change_track = 0;
 	player->change_playlist_item = NULL;
 
@@ -63,6 +63,15 @@ int init_player( Player *player )
 	player->audio_thread_p[1] = NULL;
 
 	player->next_track = false;
+	player->load_in_progress = false;
+	player->load_abort_requested = false;
+
+	player->playing = false;
+	player->stop_next = false;
+	player->current_track = NULL;
+
+	res = pthread_cond_init( &(player->load_cond), NULL );
+	assert( res == 0 );
 
 	res = init_circular_buffer( &player->circular_buffer, 10*1024*1024 );
 	if( res ) {
@@ -70,7 +79,6 @@ int init_player( Player *player )
 	}
 
 	play_queue_init( &player->play_queue );
-	pthread_mutex_init( &player->play_queue_lock, NULL );
 
 	player->metadata_observers_num = 0;
 	player->metadata_observers_cap = 2;
@@ -116,32 +124,21 @@ int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 	}
 
 	LOG_DEBUG("changing player track");
-	pthread_mutex_lock( &player->change_track_lock );
-	player->change_track = when;
-	if( player->change_playlist_item ) {
-		playlist_item_ref_down( player->change_playlist_item );
-	}
-	player->change_playlist_item = playlist_item;
-	playlist_item_ref_up( player->change_playlist_item );
-	pthread_mutex_unlock( &player->change_track_lock );
+	pthread_mutex_lock( &player->the_lock );
 
-	return 0;
-}
+	player->playlist_item_to_buffer = playlist_item;
+	player->next_track = true;
 
-int player_reload_next_track( Player *player)
-{
-	LOG_DEBUG("reloading next track data");
-	if( player->current_track.playlist_item == NULL ) {
-		return 0;
-	}
-	PlaylistItem *item = player->current_track.playlist_item->next;
-	if( item == NULL ) {
-		item = player->current_track.playlist_item->parent->root;
-		if( item == NULL ) {
-			return 1;
-		}
-	}
-	player_change_track( player, item, TRACK_CHANGE_NEXT );
+	player_rewind_buffer_unsafe( player );
+
+	//player->change_track = when;
+	//if( player->change_playlist_item ) {
+	//	playlist_item_ref_down( player->change_playlist_item );
+	//}
+	//player->change_playlist_item = playlist_item;
+	//playlist_item_ref_up( player->change_playlist_item );
+	pthread_mutex_unlock( &player->the_lock );
+
 	return 0;
 }
 
@@ -166,7 +163,7 @@ int player_add_metadata_observer( Player *player, MetadataObserver observer, voi
 void call_observers( Player *player ) {
 	LOG_DEBUG("start call observers");
 	for( int i = 0; i < player->metadata_observers_num; i++ ) {
-		player->metadata_observers[i]( player->playing, &player->current_track, player->metadata_observers_data[i] );
+		player->metadata_observers[i]( player->playing, player->current_track, player->metadata_observers_data[i] );
 	}
 	LOG_DEBUG("done call observers");
 }
@@ -200,7 +197,6 @@ void rewind2( Player *player )
 
 			switch( payload_id ) {
 				case ID_DATA_START:
-					num_read += sizeof(PlayerTrackInfo);
 					break;
 				case ID_DATA_END:
 					break;
@@ -225,12 +221,21 @@ void rewind2( Player *player )
 	pthread_mutex_unlock( &player->circular_buffer.lock );
 }
 
-void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
+bool player_should_abort_load( Player *player )
+{
+	bool b = false;
+	pthread_mutex_lock( &player->the_lock );
+	b = player->load_abort_requested;
+	pthread_mutex_unlock( &player->the_lock );
+	return b;
+}
+
+void player_load_into_buffer( Player *player, PlaylistItem *item )
 {
 	bool done;
 	int res;
 	char *p;
-	int fd;
+	int fd = 0;
 	size_t buffer_free;
 	size_t decoded_size;
 
@@ -240,95 +245,77 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 	char *icy_title;
 	char *icy_name = NULL;
 	size_t bytes_written;
-	PlayerTrackInfo *track_info;
 	
-	mpg123_id3v1 *v1;
-	mpg123_id3v2 *v2;
-
 	PlayQueueItem *pqi = NULL;
+	const char *path = item->track->path;
 
 	// dont start loading a stream if paused
-	if( strstr(playlist_item->track->path, "http://") ) {
+	if( strstr(path, "http://") ) {
 		while( !player->playing ) {
 			usleep(100);
+			if( player_should_abort_load( player )) { goto done; }
 		}
 	}
 
-	LOG_DEBUG("path=s opening file in reader", playlist_item->track->path);
-	res = open_fd( playlist_item->track->path, &fd, &is_stream, &icy_interval, &icy_name );
+	LOG_DEBUG("path=s opening file in reader", path);
+	res = open_fd( path, &fd, &is_stream, &icy_interval, &icy_name );
 	if( res ) {
 		LOG_ERROR( "unable to open" );
-		playlist_manager_unlock( player->playlist_manager );
-		return;
+		goto done;
 	}
 
 	mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0);
 
 	if( mpg123_open_fd( player->mh, fd ) != MPG123_OK ) {
 		LOG_ERROR( "mpg123_open_fd failed" );
-		close( fd );
-		return;
+		goto done;
 	}
 
+	// acquire a buffer to write to (busy-wait until one is free)
 	for(;;) {
 		res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 		if( res ) {
-			//LOG_DEBUG("buffer full");
-			sleep(1);
+			if( player_should_abort_load( player )) { goto done; }
+			usleep(100);
 			continue;
 		}
 		break;
 	}
 
+	// acquire an empty play queue item (busy-wait until one is free)
 	for(;;) {
-		pthread_mutex_lock( &player->play_queue_lock );
+		pthread_mutex_lock( &player->the_lock );
 		res = play_queue_add( &player->play_queue, &pqi );
-		pthread_mutex_unlock( &player->play_queue_lock );
 		if( res ) {
+			pthread_mutex_unlock( &player->the_lock );
 			LOG_DEBUG( "play queue full" );
-			sleep(1);
+			if( player_should_abort_load( player )) { goto done; }
+			usleep(100);
 			continue;
 		}
+		
+		pqi->buf_start = p;
+		pqi->playlist_item = item;
+		playlist_item_ref_up( item );
+		pqi = NULL;
+
+		pthread_mutex_unlock( &player->the_lock );
 		break;
 	}
 
-	pqi->buf_start = p;
-	pqi->playlist_item = playlist_item;
-	pqi = NULL;
 
 	//LOG_DEBUG("p=p writing ID_DATA_START header", p);
 	*((unsigned char*)p) = ID_DATA_START;
 	p++;
-	track_info = (PlayerTrackInfo*) p;
-	memset( track_info, 0, sizeof(PlayerTrackInfo) );
-	track_info->playlist_item = playlist_item;
-	track_info->is_stream = is_stream;
 	if( icy_name ) {
-		strcpy( track_info->icy_name, icy_name );
+		LOG_DEBUG("icy=s TODO something with icy name", icy_name);
 	}
 
-	res = mpg123_seek( player->mh, 0, SEEK_SET );
-	if( mpg123_id3( player->mh, &v1, &v2 ) == MPG123_OK ) {
-		if( v1 != NULL ) {
-			strcpy( track_info->artist, v1->artist );
-			strcpy( track_info->title, v1->title );
-		}
-	}
-
-	buffer_mark_written( &player->circular_buffer, 1 + sizeof(PlayerTrackInfo) );
-
+	buffer_mark_written( &player->circular_buffer, 1 );
 	
 	done = false;
 	while( !done ) {
-		pthread_mutex_lock( &player->change_track_lock );
-		if( player->change_track == TRACK_CHANGE_IMMEDIATE ) {
-			LOG_DEBUG("quiting read loop due to immediate change");
-			done = true;
-		}
-		pthread_mutex_unlock( &player->change_track_lock );
-		if( done ) {
-			break;
-		}
+		if( player_should_abort_load( player )) { goto done; }
 
 		if( !player->playing && is_stream ) {
 			// can't pause a stream; just quit
@@ -339,8 +326,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 		// TODO ensure there is enough room for audio + potential ICY data; FIXME for now just multiply by 2
 		res = get_buffer_write( &player->circular_buffer, player->max_payload_size * 2, &p, &buffer_free );
 		if( res ) {
-			//LOG_DEBUG("buffer full");
-			sleep(1);
+			usleep(100);
 			continue;
 		}
 
@@ -368,17 +354,17 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 				} else {
 					*((unsigned char*)p) = ID_DATA_START;
 					p++;
-					track_info = (PlayerTrackInfo*) p;
-					p += sizeof(PlayerTrackInfo);
 
-					bytes_written += 1 + sizeof(PlayerTrackInfo);
+					LOG_DEBUG("icymeta=s TODO something with icy title", icy_title );
 
-					memset( track_info, 0, sizeof(PlayerTrackInfo) );
-					track_info->playlist_item = playlist_item;
-					track_info->is_stream = is_stream;
-					strcpy( track_info->artist, "" );
-					strcpy( track_info->title, icy_title );
-					strcpy( track_info->icy_name, icy_name );
+					bytes_written += 1;
+
+					//memset( track_info, 0, sizeof(PlayerTrackInfo) );
+					//track_info->playlist_item = NULL;
+					//track_info->is_stream = is_stream;
+					//strcpy( track_info->artist, "" );
+					//strcpy( track_info->title, icy_title );
+					//strcpy( track_info->icy_name, icy_name );
 					free( icy_title );
 				}
 			}
@@ -406,72 +392,99 @@ void player_load_into_buffer( Player *player, PlaylistItem *playlist_item )
 			buffer_mark_written( &player->circular_buffer, bytes_written );
 		}
 	}
-	mpg123_close( player->mh );
-	close( fd );
 
 	LOG_DEBUG("writting end data msg");
 	*((unsigned char*)p) = ID_DATA_END;
 	p++;
 	buffer_mark_written( &player->circular_buffer, 1 );
+
+done:
+	// no easy way to see if is open, but closing a closed reader is fine.
+	mpg123_close( player->mh );
+	if( fd ) {
+		close( fd );
+	}
+}
+
+// caller must first lock the player before calling this
+void player_rewind_buffer_unsafe( Player *player )
+{
+	PlayQueueItem *pqi = NULL;
+
+	player->stop_next = true;
+
+	LOG_DEBUG("handling player_rewind_buffer_unsafe");
+	int res = play_queue_head( &player->play_queue, &pqi );
+	if( !res ) {
+		//1. ensure the loader is not running
+		while( player->load_in_progress ) {
+			LOG_DEBUG("waiting for track loader to respond to abort request");
+			player->load_abort_requested = true;
+			res = pthread_cond_wait( &player->load_cond, &player->the_lock );
+			assert( res == 0 );
+		}
+		
+		//2. rewind the buffer
+		LOG_DEBUG("rewinding");
+		buffer_lock( &player->circular_buffer );
+		buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
+		buffer_unlock( &player->circular_buffer );
+	}
+	LOG_DEBUG("clearing play queue");
+	play_queue_clear( &player->play_queue );
+
+	player->stop_next = false;
 }
 
 void player_reader_thread_run( void *data )
 {
 	Player *player = (Player*) data;
-	PlaylistItem *playlist_item = NULL;
-	int change_track = 0;
-	int res;
-	PlayQueueItem *pqi = NULL;
+	PlaylistItem *item = NULL;
 
 	for(;;) {
-		pthread_mutex_lock( &player->change_track_lock );
-		if( player->change_track ) {
-			change_track = player->change_track;
-			playlist_item = player->change_playlist_item;
-			player->change_track = 0;
-		}
-		pthread_mutex_unlock( &player->change_track_lock );
+		pthread_mutex_lock( &player->the_lock );
 
-		if( !playlist_item ) {
+		if( player->playlist_item_to_buffer != NULL ) {
+			item = player->playlist_item_to_buffer;
+			playlist_item_ref_up( item );
+			player->load_in_progress = true;
+			player->load_abort_requested = false;
+		} else {
+			item = NULL;
+		}
+
+		pthread_mutex_unlock( &player->the_lock );
+
+		if( item == NULL ) {
 			usleep(1000);
 			continue;
 		}
 
-		if( change_track == TRACK_CHANGE_IMMEDIATE ) {
-			LOG_DEBUG("handling TRACK_CHANGE_IMMEDIATE");
-			pthread_mutex_lock( &player->play_queue_lock );
-			play_queue_clear( &player->play_queue );
-			rewind2( player );
-			player->next_track = true;
-			pthread_mutex_unlock( &player->play_queue_lock );
-			change_track = 0;
-		} else if( change_track == TRACK_CHANGE_NEXT ) {
-			LOG_DEBUG("handling TRACK_CHANGE_NEXT");
-			pthread_mutex_lock( &player->play_queue_lock );
-			res = play_queue_head( &player->play_queue, &pqi );
-			if( !res ) {
-				LOG_DEBUG("rewinding");
-				buffer_lock( &player->circular_buffer );
-				buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
-				buffer_unlock( &player->circular_buffer );
+		player_load_into_buffer( player, item );
+
+		pthread_mutex_lock( &player->the_lock );
+
+		playlist_item_ref_down( item );
+		item = NULL;
+
+		player->load_in_progress = false;
+		pthread_cond_signal( &player->load_cond );
+
+		if( player->playlist_item_to_buffer != NULL ) {
+			LOG_DEBUG("playlist_item=p next=p parent=p current=s setting next song", player->playlist_item_to_buffer, player->playlist_item_to_buffer->next, player->playlist_item_to_buffer->parent, player->playlist_item_to_buffer->track->path);
+			if( player->playlist_item_to_buffer->next ) {
+				player->playlist_item_to_buffer = player->playlist_item_to_buffer->next;
+			} else {
+				player->playlist_item_to_buffer = player->playlist_item_to_buffer->parent->root;
 			}
-			play_queue_clear( &player->play_queue );
-			pthread_mutex_unlock( &player->play_queue_lock );
-			change_track = 0;
 		}
 
-		player_load_into_buffer( player, playlist_item );
-
-		playlist_manager_lock( player->playlist_manager );
-		LOG_DEBUG("playlist_item=p next=p setting next song", playlist_item, playlist_item->next);
-		if( playlist_item->next ) {
-			playlist_item = playlist_item->next;
-		} else {
-			playlist_item = playlist_item->parent->root;
-		}
-		playlist_manager_unlock( player->playlist_manager );
+		pthread_mutex_unlock( &player->the_lock );
 	}
 }
+
+void player_lock( Player *player ) { pthread_mutex_lock( &player->the_lock ); }
+void player_unlock( Player *player ) { pthread_mutex_unlock( &player->the_lock ); }
 
 void player_audio_thread_run( void *data )
 {
@@ -492,18 +505,25 @@ void player_audio_thread_run( void *data )
 	bool last_play_state;
 	
 	for(;;) {
-		pthread_mutex_lock( &player->play_queue_lock );
+		pthread_mutex_lock( &player->the_lock );
+		if( player->stop_next ) {
+			usleep(100);
+			pthread_mutex_unlock( &player->the_lock );
+			continue; // don't move on to next song, a playlist change is currently happening
+		}
 		res = play_queue_head( &player->play_queue, &pqi );
 		if( !res ) {
+			player->current_track = pqi->playlist_item;
+			LOG_DEBUG( "p=p path=s popped play queue item", pqi->buf_start, player->current_track->track->path );
+			pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
 			play_queue_pop( &player->play_queue );
-			pqi = NULL;
 		}
-		pthread_mutex_unlock( &player->play_queue_lock );
+		pthread_mutex_unlock( &player->the_lock );
 		if( res ) {
-			//TODO call observers saying we're not playing anything. but only the first time.
-			// no track available
+			// notify nothing is playing
 			if( !notified_no_songs ) {
-				memset( &player->current_track, 0, sizeof(PlayerTrackInfo) );
+				LOG_DEBUG( "nothing in the play queue" );
+				player->current_track = NULL;
 				call_observers( player );
 				notified_no_songs = true;
 			}
@@ -535,11 +555,10 @@ void player_audio_thread_run( void *data )
 			if( payload_id == ID_DATA_START ) {
 				LOG_DEBUG( " ------------ reading ID_DATA_START ------------ " );
 				player->next_track = false;
-				memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
-				player->current_track.playlist_item->parent->current = player->current_track.playlist_item;
-				LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
+				//memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
+				//player->current_track.playlist_item->parent->current = player->current_track.playlist_item;
+				//LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
 				call_observers( player );
-				num_read += sizeof(PlayerTrackInfo);
 				buffer_mark_read( &player->circular_buffer, num_read );
 				continue;
 			}
@@ -566,7 +585,7 @@ void player_audio_thread_run( void *data )
 				if( !player->next_track ) {
 					bool should_play = true;
 					if( !player->playing ) {
-						if( !player->current_track.is_stream) {
+						if( !strstr(player->current_track->track->path, "http://") ) {
 							usleep(100);
 							continue;
 						}

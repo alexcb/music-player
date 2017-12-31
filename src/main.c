@@ -23,52 +23,23 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include "id3.h"
 
 struct httpdata hd;
 
-void change_playlist( Player *player, PlaylistManager *manager, int dir )
-{
-	LOG_DEBUG("player=p manager=p change_playlist", player, manager);
-	PlaylistItem *x = player->current_track.playlist_item;
-	if( !x ) {
-		LOG_ERROR("no playlist item");
-		return;
-	}
-	Playlist *p = x->parent;
-	if( !p ) {
-		LOG_ERROR("no parent playlist");
-		return;
-	}
-	if( dir > 0 ) {
-		p = p->next;
-		if( p == NULL ) {
-			p = manager->root;
-		}
-	} else if( dir < 0 ) {
-		p = p->prev;
-		if( p == NULL ) {
-			p = manager->root;
-			if( p ) {
-				while( p->next ) {
-					p = p->next;
-				}
-			}
-		}
-	}
-	if( p ) {
-		PlaylistItem *x = p->root;
-		if( p->current && p->current->next ) {
-			x = p->current->next;
-		}
-		player_change_track( player, x, TRACK_CHANGE_IMMEDIATE );
-	}
+void ignore_singal_init() {
+	// Ignore these signals
+	signal(SIGPIPE, SIG_IGN);
 }
+
 
 
 int main(int argc, char *argv[])
 {
+	ignore_singal_init();
+
 	int res;
 	Player player;
 	ID3Cache *cache;
@@ -157,10 +128,10 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if( playlist_manager.root ) {
-		PlaylistItem *x = playlist_manager.root->root;
-		player_change_track( &player, x, TRACK_CHANGE_IMMEDIATE );
-	}
+	//if( playlist_manager.root ) {
+	//	PlaylistItem *x = playlist_manager.root->root;
+	//	player_change_track( &player, x, TRACK_CHANGE_IMMEDIATE );
+	//}
 
 	LOG_DEBUG("running server");
 	res = start_http_server( &web_handler_data );

@@ -35,13 +35,14 @@ def websocket_worker(host, cb):
             ws.connect("ws://%s/websocket" % host)
             while 1:
                 status = json.loads(ws.recv())
+                track_id = None
                 try:
                     playing = 'Playing' if status['playing'] else 'Paused'
                     text = '%s: %s - %s - %s - %s' % (playing, status['artist'], status['album'], status['track'], status['title'])
-                    text += ' TODO: %s' % status['id']
+                    track_id = status.get('id')
                 except KeyError:
                     text = 'unknown state: %s' % str(status)
-                cb(text)
+                cb(text, track_id)
         except Exception as e:
             pass
         cb(text + '(lost conn)')
@@ -221,8 +222,9 @@ class UI(object):
 
 
 
-    def change_playing(self, x):
+    def change_playing(self, x, track_id):
         self._playing = x
+        self._playlist_widget.set_playing(track_id)
 
 usecache = False
 
@@ -285,6 +287,8 @@ def main():
     #assert availmask == 1, "mouse mode not available"
     curses.start_color()
     curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_RED, -1)
+
 
     ui = UI(screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause, save_playlist)
 

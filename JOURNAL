@@ -110,3 +110,5 @@ WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/
 
 Then change the playlist with:
 ./tools/ncurses-interface/go.py
+
+sudo gdb ./my123 -ex 'handle SIGPIPE nostop noprint pass' -ex 'run ~/music streams playlists local-music-cache'

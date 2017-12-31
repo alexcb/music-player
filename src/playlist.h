@@ -15,7 +15,6 @@ typedef struct PlaylistItem
 	const struct Track *track;
 	bool is_stream;
 	struct PlaylistItem *next;
-	struct PlaylistItem *prev;
 	struct Playlist *parent;
 } PlaylistItem;
 

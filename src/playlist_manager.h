@@ -14,8 +14,8 @@ typedef struct PlaylistManager
 
 int playlist_manager_init( PlaylistManager *manager, const char *path );
 
-void playlist_manager_lock( PlaylistManager *manager );
-void playlist_manager_unlock( PlaylistManager *manager );
+//void playlist_manager_lock( PlaylistManager *manager );
+//void playlist_manager_unlock( PlaylistManager *manager );
 
 int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, Playlist **p );
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p );

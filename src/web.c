@@ -44,12 +44,13 @@ int send_all( int sockfd, const char *buf, size_t len )
 	LOG_DEBUG( "payload=s len=d send_all", buf, len );
 	int res;
 	while( len > 0 ) {
+		LOG_DEBUG( "payload=s len=d send", buf, len );
 		res = send( sockfd, buf, len, 0);
-		if( errno == EAGAIN ) {
-			res = 0;
-			continue;
-		}
+		LOG_DEBUG( "res=d errno=d send", res, errno );
 		if( res < 0 ) {
+			if( errno == EAGAIN ) {
+				continue;
+			}
 			return SOCK_SEND_ERROR;
 		}
 		buf += res;
@@ -99,21 +100,20 @@ int websocket_send( WebsocketData *ws, const char *payload )
 	return res;
 }
 
-void update_metadata_web_clients( bool playing, const PlayerTrackInfo *track, void *d )
+void update_metadata_web_clients( bool playing, const PlaylistItem *item, void *d )
 {
-	assert(track);
 	WebHandlerData *data = (WebHandlerData*) d;
-	LOG_DEBUG( "playlistitem=p update_metadata_web_clients was called", track->playlist_item );
+	LOG_DEBUG( "playlistitem=p update_metadata_web_clients was called", item );
 
 	json_object *state = json_object_new_object();
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
-	if( track->playlist_item ) {
-		json_object_object_add( state, "path", json_object_new_string( track->playlist_item->track->path ) );
-		json_object_object_add( state, "artist", json_object_new_string( track->playlist_item->track->artist ) );
-		json_object_object_add( state, "album", json_object_new_string( track->playlist_item->track->album ) );
-		json_object_object_add( state, "track", json_object_new_int( track->playlist_item->track->track ) );
-		json_object_object_add( state, "title", json_object_new_string( track->playlist_item->track->title ) );
-		json_object_object_add( state, "id", json_object_new_int( track->playlist_item->id ) );
+	if( item != NULL ) {
+		json_object_object_add( state, "path", json_object_new_string( item->track->path ) );
+		json_object_object_add( state, "artist", json_object_new_string( item->track->artist ) );
+		json_object_object_add( state, "album", json_object_new_string( item->track->album ) );
+		json_object_object_add( state, "track", json_object_new_int( item->track->track ) );
+		json_object_object_add( state, "title", json_object_new_string( item->track->title ) );
+		json_object_object_add( state, "id", json_object_new_int( item->id ) );
 	}
 	const char *s = json_object_to_json_string( state );
 
@@ -143,7 +143,6 @@ void websocket_push_thread( WebHandlerData *data )
 			continue;
 		}
 
-		LOG_DEBUG("here");
 		pthread_mutex_lock( &data->connections_lock );
 		LOG_DEBUG( "num_connections=d state=s updating web clients", data->num_connections, local_payload );
 		for( int i = 0; i < data->num_connections; ) {
@@ -428,19 +427,16 @@ static int web_handler_playlists_load(
 	for( int i = 0; i < len; i++ ) {
 		element_obj = json_object_array_get_idx( playlist_obj, i );
 		if( !json_object_is_type( element_obj, json_type_array ) ) {
-			//FIXME deadlock, lock never released
 			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "expected json array with arrays" );
 		}
 
 		int len2 = json_object_array_length( element_obj );
 		if( len2 != 2 ) {
-			//FIXME deadlock, lock never released
 			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad length" );
 		}
 
 		path_obj = json_object_array_get_idx( element_obj, 0 );
 		if( !json_object_is_type( path_obj, json_type_string ) ) {
-			//FIXME deadlock, lock never released
 			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "expected string" );
 		}
 		s = json_object_get_string( path_obj );
@@ -477,18 +473,38 @@ static int web_handler_playlists_load(
 	}
 
 
-	playlist_manager_lock( data->my_data->playlist_manager );
+	LOG_DEBUG("... lock");
+	player_lock( data->my_data->player );
+
+	Playlist *current_playlist = NULL;
+	if( data->my_data->player->current_track ) {
+		current_playlist = data->my_data->player->current_track->parent;
+	}
+	
+	//playlist_manager_lock( data->my_data->playlist_manager );
 	playlist_manager_new_playlist( data->my_data->playlist_manager, name, &playlist );
 
+	// this will steal the references of the items under root
 	playlist_update( playlist, root );
+	root = NULL;
 
-	res = player_reload_next_track( data->my_data->player );
-	if( res ) {
-		LOG_ERROR("failed to reload");
+	if( current_playlist == playlist ) {
+		// we changed the current playlist, it needs to be re-buffered
+		player_rewind_buffer_unsafe( data->my_data->player );
+		if( data->my_data->player->current_track->next && data->my_data->player->current_track->parent == playlist ) {
+			data->my_data->player->playlist_item_to_buffer = data->my_data->player->current_track->next;
+		} else {
+			data->my_data->player->playlist_item_to_buffer = playlist->root;
+		}
+		LOG_DEBUG("path=s changing next song", data->my_data->player->playlist_item_to_buffer->track->path);
+	} else {
+		LOG_DEBUG("saved playlist isn't current, no reload/rewind needed");
 	}
 
 	playlist_manager_save( data->my_data->playlist_manager );
-	playlist_manager_unlock( data->my_data->playlist_manager );
+	//playlist_manager_unlock( data->my_data->playlist_manager );
+	player_unlock( data->my_data->player );
+	LOG_DEBUG("... unlock");
 
 	struct MHD_Response *response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -545,7 +561,7 @@ static int web_handler_playlists(
 
 	json_object *playlists = json_object_new_object();
 
-	playlist_manager_lock( data->my_data->playlist_manager );
+	//playlist_manager_lock( data->my_data->playlist_manager );
 
 	for( Playlist *p = data->my_data->playlist_manager->root; p; p = p->next ) {
 		json_object *playlist = json_object_new_object();
@@ -568,7 +584,7 @@ static int web_handler_playlists(
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "playlists", playlists );
 
-	playlist_manager_unlock( data->my_data->playlist_manager );
+	//playlist_manager_unlock( data->my_data->playlist_manager );
 
 	const char *s = json_object_to_json_string( root_obj );
 	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
@@ -610,7 +626,7 @@ static int web_handler_albums(
 			json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
 			json_object_object_add( track, "path", json_object_new_string( t->path ) );
 			json_object_array_add( tracks, track );
-			LOG_DEBUG("path=s how the path is represented on the server", t->path);
+			//LOG_DEBUG("path=s how the path is represented on the server", t->path);
 		}
 		json_object_object_add( album, "tracks", tracks );
 
