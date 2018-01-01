@@ -38,6 +38,8 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	long num_frames = mpg123_framelength(cache->mh);
 	float length_estimate = num_frames * tpf;
 
+	LOG_DEBUG("path=s length=f track length", path, length_estimate);
+
 	item->path = sdsnew( path );
 	item->track = 0; //TODO stored in comment[30] of id3
 

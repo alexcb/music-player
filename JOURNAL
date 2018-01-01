@@ -96,7 +96,6 @@ Running on the pi:
 cd ~/mpg123hack/
 git fetch && git checkout origin/non-pi-version && make clean && make
 WEB_ROOT=/home/alex/mpg123hack/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists /home/alex/id3_cache
-a
 
 Running locally with all music:
 
@@ -112,3 +111,13 @@ Then change the playlist with:
 ./tools/ncurses-interface/go.py
 
 sudo gdb ./my123 -ex 'handle SIGPIPE nostop noprint pass' -ex 'run ~/music streams playlists local-music-cache'
+
+updating libmpg123 on raspberrypi:
+mkdir ~/mpg123_src
+cd ~/mpg123_src
+wget 'https://downloads.sourceforge.net/project/mpg123/mpg123/1.25.6/mpg123-1.25.6.tar.bz2?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fmpg123%2Ffiles%2F&ts=1514839666&use_mirror=newcontinuum'
+tar xvjf mpg123.tar.bz2
+cd mpg123-1.25.6
+./configure
+make
+sudo make install
