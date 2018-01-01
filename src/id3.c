@@ -30,38 +30,75 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 		res = 1;
 		goto error;
 	}
-	//mpg123_scan( cache->mh );
 
-	size_t decoded_size;
-	float length = 0.0;
-	bool done = false;
-	while( !done ) {
-		res = mpg123_read( cache->mh, decode_buf, 102400, &decoded_size);
-		switch( res ) {
-			case MPG123_OK:
-				break;
-			case MPG123_NEW_FORMAT:
-				LOG_DEBUG("TODO handle new format");
-				break;
-			case MPG123_DONE:
-				done = true;
-				break;
-			default:
-				LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
-				break;
-		}
-		length += decoded_size;
+	mpg123_scan( cache->mh );
+	// frame duration in seconds
+	float tpf = (float) mpg123_tpf(cache->mh);
+	long num_frames = mpg123_framelength(cache->mh);
+	float length_estimate = num_frames * tpf;
+
+	bool decode_to_get_length = false;
+	if( strstr(path, "US") ) {
+		decode_to_get_length = true;
+		//struct mpg123_frameinfo info;
+		//while(1) {
+		//	res = mpg123_framebyframe_next( cache->mh );
+		//	LOG_DEBUG( "res=d frame by frame", res );
+		//	if( res < 0 ) {
+		//		break;
+		//	}
+		//	float tpf = (float) mpg123_tpf(cache->mh);
+		//	res = mpg123_info( cache->mh, &info );
+		//	LOG_DEBUG( "res=d bitrate=d vbr=d tpf=f bitrate", res, info.bitrate, info.vbr, tpf );
+		//}
+		//
+		//
 	}
 
-	long rate;
-	int channels;
-	int encoding;
-	mpg123_getformat( cache->mh, &rate, &channels, &encoding );
 
-	length /= rate;
-	length /= channels;
-	length /= 2; // TODO where can I get the fact that it's 16bits?
-	// TODO come up with a faster way to calculate this, and only fall back to this when VBR is encountered
+
+	
+
+	float length_accurate = 0.0;
+	if( decode_to_get_length ) {
+		size_t decoded_size;
+		bool done = false;
+		while( !done ) {
+			res = mpg123_read( cache->mh, decode_buf, 102400, &decoded_size);
+			switch( res ) {
+				case MPG123_OK:
+					break;
+				case MPG123_NEW_FORMAT:
+					LOG_DEBUG("TODO handle new format");
+					break;
+				case MPG123_DONE:
+					done = true;
+					break;
+				default:
+					LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
+					break;
+			}
+			length_accurate += decoded_size;
+		}
+
+		long rate;
+		int channels;
+		int encoding;
+		mpg123_getformat( cache->mh, &rate, &channels, &encoding );
+
+		length_accurate /= rate;
+		length_accurate /= channels;
+		length_accurate /= 2; // TODO where can I get the fact that it's 16bits?
+		// TODO come up with a faster way to calculate this, and only fall back to this when VBR is encountered
+	}
+
+	printf("=== %s %f %f\n", path, length_estimate, length_accurate);
+	float diff = length_estimate - length_accurate;
+	if( (diff * diff) > 1.0 ) {
+		assert(0);
+	}
+
+
 
 	item->path = sdsnew( path );
 	item->track = 0; //TODO stored in comment[30] of id3
@@ -69,7 +106,7 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	item->artist = sdscpy( item->artist, "unknown artist" );
 	item->title = sdscpy( item->title, "unknown title" );
 	item->album = sdscpy( item->album, "unknown album" );
-	item->length = length;
+	item->length = length_estimate;
 
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;

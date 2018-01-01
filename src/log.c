@@ -215,6 +215,10 @@ int _slog_args(char *buf, size_t buf_size, const char *fmt, va_list arguments)
 			int val = va_arg( arguments, int );
 			snprintf( buf+buf_i, buf_size - buf_i, "%d", val );
 			buf_i += strlen(buf+buf_i);
+		} else if( val_fmt_n == 1 && val_fmt[0] == 'f' ) {
+			double val = va_arg( arguments, double );
+			snprintf( buf+buf_i, buf_size - buf_i, "%f", val );
+			buf_i += strlen(buf+buf_i);
 		} else if( val_fmt_n == 1 && val_fmt[0] == 'p' ) {
 			void* val = va_arg( arguments, void* );
 			snprintf( buf+buf_i, buf_size - buf_i, "%p", val );
