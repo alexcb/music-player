@@ -28,15 +28,7 @@ typedef struct Player
 	long rate;
 
 	mpg123_handle *mh;
-	unsigned char *buffer;
-	int copied;
-	size_t buffer_size;
-	size_t done;
-	int err;
 
-	int reading_index;
-	int playing_index;
-	int track_change_mode;
 	volatile bool next_track;
 
 	pthread_t audio_thread;
@@ -46,8 +38,6 @@ typedef struct Player
 
 	PlayQueue play_queue;
 	pthread_mutex_t the_lock;
-
-	struct httpdata hd;
 
 	PlaylistManager *playlist_manager;
 
@@ -62,23 +52,16 @@ typedef struct Player
 	PlaylistItem *current_track;
 
 	PlaylistItem *playlist_item_to_buffer;
+	PlaylistItem *playlist_item_to_buffer_override;
 
 	// when true play, when false, pause / stop
 	volatile bool playing;
 
-	int reading_playlist_id;
-	int reading_playlist_track;
-	
 	// control over changing tracks
 	//pthread_mutex_t change_track_lock;
-	int change_track; // 0 when false; 1 insert after current song; 2 change immediately
-	PlaylistItem *change_playlist_item;
 	bool load_in_progress;
 	bool load_abort_requested;
 	
-	char *audio_thread_p[2];
-	size_t audio_thread_size[2];
-
 	size_t max_payload_size;
 
 	size_t decode_buffer_size;

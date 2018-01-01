@@ -51,16 +51,6 @@ int init_player( Player *player )
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
 	pthread_mutex_init( &player->the_lock, NULL );
-	player->change_track = 0;
-	player->change_playlist_item = NULL;
-
-	player->reading_playlist_id = -1;
-	player->reading_playlist_track = -1;
-
-	player->audio_thread_size[0] = 0;
-	player->audio_thread_size[1] = 0;
-	player->audio_thread_p[0] = NULL;
-	player->audio_thread_p[1] = NULL;
 
 	player->next_track = false;
 	player->load_in_progress = false;
@@ -69,6 +59,9 @@ int init_player( Player *player )
 	player->playing = false;
 	player->stop_next = false;
 	player->current_track = NULL;
+
+	player->playlist_item_to_buffer = NULL;
+	player->playlist_item_to_buffer_override = NULL;
 
 	res = pthread_cond_init( &(player->load_cond), NULL );
 	assert( res == 0 );
@@ -126,17 +119,11 @@ int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 	LOG_DEBUG("changing player track");
 	pthread_mutex_lock( &player->the_lock );
 
-	player->playlist_item_to_buffer = playlist_item;
-	player->next_track = true;
-
 	player_rewind_buffer_unsafe( player );
 
-	//player->change_track = when;
-	//if( player->change_playlist_item ) {
-	//	playlist_item_ref_down( player->change_playlist_item );
-	//}
-	//player->change_playlist_item = playlist_item;
-	//playlist_item_ref_up( player->change_playlist_item );
+	player->playlist_item_to_buffer_override = playlist_item;
+	player->next_track = (when == TRACK_CHANGE_IMMEDIATE);
+
 	pthread_mutex_unlock( &player->the_lock );
 
 	return 0;
@@ -409,22 +396,23 @@ done:
 // caller must first lock the player before calling this
 void player_rewind_buffer_unsafe( Player *player )
 {
+	int res;
 	PlayQueueItem *pqi = NULL;
 
 	player->stop_next = true;
 
 	LOG_DEBUG("handling player_rewind_buffer_unsafe");
-	int res = play_queue_head( &player->play_queue, &pqi );
+
+	res = play_queue_head( &player->play_queue, &pqi );
 	if( !res ) {
-		//1. ensure the loader is not running
+		//ensure the loader is not running
 		while( player->load_in_progress ) {
 			LOG_DEBUG("waiting for track loader to respond to abort request");
 			player->load_abort_requested = true;
 			res = pthread_cond_wait( &player->load_cond, &player->the_lock );
 			assert( res == 0 );
 		}
-		
-		//2. rewind the buffer
+
 		LOG_DEBUG("rewinding");
 		buffer_lock( &player->circular_buffer );
 		buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
@@ -444,10 +432,16 @@ void player_reader_thread_run( void *data )
 	for(;;) {
 		pthread_mutex_lock( &player->the_lock );
 
+		if( player->playlist_item_to_buffer_override != NULL ) {
+			player->playlist_item_to_buffer = player->playlist_item_to_buffer_override;
+			player->playlist_item_to_buffer_override = NULL;
+		}
+
 		if( player->playlist_item_to_buffer != NULL ) {
 			item = player->playlist_item_to_buffer;
 			playlist_item_ref_up( item );
 			player->load_in_progress = true;
+			LOG_DEBUG("setting load_in_progress");
 			player->load_abort_requested = false;
 		} else {
 			item = NULL;
@@ -467,19 +461,23 @@ void player_reader_thread_run( void *data )
 		playlist_item_ref_down( item );
 		item = NULL;
 
-		player->load_in_progress = false;
-		pthread_cond_signal( &player->load_cond );
-
 		if( player->playlist_item_to_buffer != NULL ) {
 			LOG_DEBUG("playlist_item=p next=p parent=p current=s setting next song", player->playlist_item_to_buffer, player->playlist_item_to_buffer->next, player->playlist_item_to_buffer->parent, player->playlist_item_to_buffer->track->path);
 			if( player->playlist_item_to_buffer->next ) {
 				player->playlist_item_to_buffer = player->playlist_item_to_buffer->next;
+			} else if( player->playlist_item_to_buffer->parent == NULL ) {
+				player->playlist_item_to_buffer = NULL;
 			} else {
 				player->playlist_item_to_buffer = player->playlist_item_to_buffer->parent->root;
 			}
 		}
 
+		LOG_DEBUG("clearing load_in_progress");
+		player->load_in_progress = false;
+		pthread_cond_signal( &player->load_cond );
+
 		pthread_mutex_unlock( &player->the_lock );
+		usleep(100); // need to sleep before re-attempting to aquire the lock, otherwise we can get stuck while changing the song
 	}
 }
 
@@ -513,6 +511,9 @@ void player_audio_thread_run( void *data )
 		}
 		res = play_queue_head( &player->play_queue, &pqi );
 		if( !res ) {
+			if( player->current_track ) {
+				playlist_item_ref_down(player->current_track);
+			}
 			player->current_track = pqi->playlist_item;
 			LOG_DEBUG( "p=p path=s popped play queue item", pqi->buf_start, player->current_track->track->path );
 			pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
@@ -523,6 +524,9 @@ void player_audio_thread_run( void *data )
 			// notify nothing is playing
 			if( !notified_no_songs ) {
 				LOG_DEBUG( "nothing in the play queue" );
+				if( player->current_track ) {
+					playlist_item_ref_down(player->current_track);
+				}
 				player->current_track = NULL;
 				call_observers( player );
 				notified_no_songs = true;

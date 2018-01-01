@@ -491,7 +491,7 @@ static int web_handler_playlists_load(
 	if( current_playlist == playlist ) {
 		// we changed the current playlist, it needs to be re-buffered
 		player_rewind_buffer_unsafe( data->my_data->player );
-		if( data->my_data->player->current_track->next && data->my_data->player->current_track->parent == playlist ) {
+		if( data->my_data->player->current_track->parent == playlist && data->my_data->player->current_track->next ) {
 			data->my_data->player->playlist_item_to_buffer = data->my_data->player->current_track->next;
 		} else {
 			data->my_data->player->playlist_item_to_buffer = playlist->root;
@@ -679,6 +679,17 @@ static int web_handler_play(
 		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "no track" );
 	}
 
+	int when;
+	const char *when_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "when" );
+	if( when_str && strcmp(when_str, "immediate") == 0 ) {
+		when = TRACK_CHANGE_IMMEDIATE;
+	}
+	else if( when_str && strcmp(when_str, "next") == 0 ) {
+		when = TRACK_CHANGE_NEXT;
+	} else {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad when value" );
+	}
+	
 	//const char *stream = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "stream" );
 	//if( stream ) {
 	//	LOG_DEBUG("stream=s playing stream", stream);
@@ -714,7 +725,7 @@ static int web_handler_play(
 		x = x->next;
 	}
 	
-	res = player_change_track( data->my_data->player, x, TRACK_CHANGE_IMMEDIATE );
+	res = player_change_track( data->my_data->player, x, when );
 	if( res ) {
 		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to change track" );
 	}

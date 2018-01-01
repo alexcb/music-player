@@ -140,13 +140,15 @@ int playlist_item_ref_up( PlaylistItem *item )
 
 int playlist_item_ref_down( PlaylistItem *item )
 {
+	assert( item );
+	assert( item->ref_count>0 );
 	item->ref_count--;
 	//LOG_DEBUG("path=s count=d playlist_item_ref_down", item->track->path, item->ref_count);
 	if( item->ref_count > 0 ) {
 		return 0;
 	}
 
-	free( item );
+	//free( item );
 	return 0;
 }
 
@@ -186,17 +188,28 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 	PlaylistItem *p = NULL;
 	PlaylistItem *n = NULL;
 
+	p = old_root;
+	LOG_DEBUG("before");
+	while( p ) {
+		LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
+		p = p->next;
+	}
+
 	PlaylistItem *x = item;
 	while( x ) {
+		n = x->next;
+
 		p = NULL;
 		if( x->id > 0 ) {
 			p = pop_item_with_track_id( &old_root, x->id );
 			LOG_DEBUG("p=p path=s id=d popped item", p, p->track->path, p->id);
 		}
 		if( p == NULL ) {
-			p = x;
-			playlist_item_ref_up( x );
+			p = x; // steal the ref counter
 			p->id = playlist_id_next++;
+		} else {
+			//discard x
+			playlist_item_ref_down( x );
 		}
 
 		p->parent = playlist;
@@ -210,18 +223,25 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 		}
 
 		last = p;
-		n = x->next;
-		playlist_item_ref_down( x );
 		x = n;
 	}
 
 	// remove any left over tracks that weren't contained in the new list
 	p = old_root;
+	LOG_DEBUG("orphans");
 	while( p ) {
 		x = p->next;
+		LOG_DEBUG("p=p path=s ref=d deleting orphaned", p, p->track->path, p->ref_count);
 		p->parent = NULL; // this track has been orphaned; there's a chance it's currently being played
 		playlist_item_ref_down( p );
 		p = x;
+	}
+
+	p = playlist->root;
+	LOG_DEBUG("after");
+	while( p ) {
+		LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
+		p = p->next;
 	}
 	
 	return 0;

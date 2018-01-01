@@ -49,7 +49,7 @@ def websocket_worker(host, cb):
         #print 'lost websocket connection'
         time.sleep(1)
 
-def loadplaylist(host, playlist_name, tracks):
+def uploadplaylist(host, playlist_name, tracks):
     #raise ValueError(repr(tracks))
     r = requests.post('http://%s/playlists' % host, data=json.dumps({
         'name': playlist_name,
@@ -62,8 +62,8 @@ def get_playlists(host):
     r.raise_for_status()
     return r.json()['playlists']
 
-def playplaylist(host, playlist_name, track_num):
-    url = 'http://%s/play?playlist=%s&track=%s' % (host, playlist_name, track_num)
+def playplaylist(host, playlist_name, track_num, when):
+    url = 'http://%s/play?playlist=%s&track=%s&when=%s' % (host, playlist_name, track_num, when)
     r = requests.post(url)
     r.raise_for_status()
 
@@ -184,118 +184,86 @@ class UI(object):
                 else:
                     self._selected_widget.handle_key(key)
 
-            #self._clear_buffer(t.width, t.height)
-            #sys.stdout.write(t.clear() + t.hide_cursor)
-            #self._selected_widget.got_cursor()
-
-            ##print 'Playing: %s' % self._playing
-            ##print ''
-
-
-
-
-            #sys.stdout.write(t.clear() + t.move(0,0) + self._get_buf())
-            #sys.stdout.flush()
-
-            #num_rows = t.height - 4
-            #first_displayed_i = max(min(selected - 5, len(self._lines) - num_rows), 0)
-            #for y in xrange(0, num_rows):
-            #    i = y + first_displayed_i
-            #    if i == selected:
-            #        sys.stdout.write(t.reverse)
-            #    if i < len(self._lines):
-            #        key, s = self._lines[i]
-            #        print s
-            #    sys.stdout.write(t.normal)
-
-            #with t.cbreak():
-            #    key = t.inkey(timeout=0.1)
-            #    if repr(key) in ('KEY_RIGHT', 'KEY_LEFT'):
-            #        # Currently there are only two widgets, so this code is super minimal
-            #        self._selected_widget.lost_cursor()
-            #        if self._selected_widget == self._album_widget:
-            #            self._selected_widget = self._playlist_widget
-            #        else:
-            #            self._selected_widget = self._album_widget
-            #    else:
-            #        self._selected_widget.handle_key(key)
-
-
-
     def change_playing(self, x, track_id):
         self._playing = x
         self._playlist_widget.set_playing(track_id)
 
-usecache = False
+class MyMain(object):
+    def __init__(self, host):
+        self._host = host
+        self._playlists = {}
+
+    def _refresh_library(self):
+        library = get_library(self._host)
+        self._albums_by_artist = group_albums_by_artist(add_data_to_tracks(library['albums']))
+
+        self._path_lookup = {}
+        for album in library['albums']:
+            for track in album['tracks']:
+                self._path_lookup[track['path']] = track
+
+    def _refresh_playlists(self):
+        playlists = get_playlists(self._host)
+
+        converted_playlists = {}
+        for k,v in playlists.iteritems():
+            converted = []
+            for t in v['items']:
+                tt = self._path_lookup[t['path']]
+                tt['id'] = t['id']
+                converted.append(tt)
+            converted_playlists[k] = converted
+
+        # ensure the same dict is kept, as its passed by ref
+        self._playlists.clear()
+        self._playlists['default'] = []
+        self._playlists.update(converted_playlists)
+
+    def save_and_play_playlist(self, playlist_name, tracks, index, when):
+        self.save_playlist(playlist_name, tracks)
+        playplaylist(self._host, playlist_name, index, when)
+
+    def toggle_pause(self):
+        r = requests.post('http://%s/pause' % self._host)
+        r.raise_for_status()
+
+    def save_playlist(self, playlist_name, tracks):
+        uploadplaylist(self._host, playlist_name, tracks)
+        self._refresh_playlists()
+
+    def run(self):
+        self._refresh_library()
+        self._refresh_playlists()
+
+
+        # curses setup
+        locale.setlocale(locale.LC_ALL,"")
+        screen = curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+        curses.curs_set(0)
+
+        screen.nodelay(1)
+
+        #availmask, oldmask = curses.mousemask(1)
+        #assert availmask == 1, "mouse mode not available"
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_RED, -1)
+
+
+        ui = UI(screen, self._albums_by_artist, self._playlists, self.save_and_play_playlist, self.toggle_pause, self.save_playlist)
+
+        t = threading.Thread(target=websocket_worker, args=(self._host, ui.change_playing))
+        t.start()
+
+        ui.run()
 
 def main():
     print 'Loading albums'
     args = get_parser().parse_args()
-    if not usecache:
-        library = get_library(args.host)
-        albums_by_artist = group_albums_by_artist(add_data_to_tracks(library['albums']))
-        playlists = get_playlists(args.host)
-
-        with open("my.cache", "w") as fp:
-            fp.write(json.dumps({
-                'albums': albums_by_artist,
-                'playlists': playlists,
-                }))
-    else:
-        cache = json.loads(open("my.cache", "r").read())
-        albums_by_artist = cache['albums']
-        playlists = cache['playlists']
-
-    path_lookup = {}
-    for album in library['albums']:
-        for track in album['tracks']:
-            path_lookup[track['path']] = track
-
-    converted_playlists = {}
-    for k,v in playlists.iteritems():
-        converted = []
-        for t in v['items']:
-            tt = path_lookup[t['path']]
-            tt['id'] = t['id']
-            converted.append(tt)
-        converted_playlists[k] = converted
-    playlists = converted_playlists
-
-    def save_and_play_playlist(playlist_name, tracks, index):
-        loadplaylist(args.host, playlist_name, tracks)
-        playplaylist(args.host, playlist_name, index)
-        assert 0, "TODO need to reload playlist from server to get the valid IDs"
-
-    def toggle_pause():
-        r = requests.post('http://%s/pause' % args.host)
-        r.raise_for_status()
-
-    def save_playlist(playlist_name, tracks):
-        loadplaylist(args.host, playlist_name, tracks)
-        assert 0, "TODO need to reload playlist from server to get the valid IDs"
-
-    # curses setup
-    locale.setlocale(locale.LC_ALL,"")
-    screen = curses.initscr()
-    curses.noecho()
-    curses.cbreak()
-    curses.curs_set(0)
-
-    screen.nodelay(1)
-
-    #availmask, oldmask = curses.mousemask(1)
-    #assert availmask == 1, "mouse mode not available"
-    curses.start_color()
-    curses.use_default_colors()
-    curses.init_pair(1, curses.COLOR_RED, -1)
-
-
-    ui = UI(screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause, save_playlist)
-
-    t = threading.Thread(target=websocket_worker, args=(args.host, ui.change_playing))
-    t.start()
-
-    ui.run()
+    mm = MyMain(args.host)
+    mm.run()
 
 if __name__ == '__main__':
     try:

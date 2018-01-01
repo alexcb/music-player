@@ -37,7 +37,11 @@ int play_queue_head( PlayQueue *pq, PlayQueueItem **item )
 
 void play_queue_clear( PlayQueue *pq )
 {
-	pq->front = pq->rear = -1;
+	PlayQueueItem *pqi;
+	while( play_queue_head( pq, &pqi ) == 0 ) {
+		playlist_item_ref_down( pqi->playlist_item );
+		play_queue_pop( pq );
+	}
 }
 
 int play_queue_pop( PlayQueue *pq )
