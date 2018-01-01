@@ -20,6 +20,7 @@ typedef struct ID3CacheItem
 	sds title;
 	uint32_t track;
 	uint32_t year;
+	float length;
 
 	// Fields for rbtree
 	char color_field;

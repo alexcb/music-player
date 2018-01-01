@@ -18,6 +18,8 @@
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(ID3CacheItem, left, right, color_field, ID3CACHE_CMPARATOR)
 
+unsigned char decode_buf[102400];
+
 int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 {
 	int res;
@@ -28,7 +30,38 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 		res = 1;
 		goto error;
 	}
-	mpg123_seek( cache->mh, 0, SEEK_SET );
+	//mpg123_scan( cache->mh );
+
+	size_t decoded_size;
+	float length = 0.0;
+	bool done = false;
+	while( !done ) {
+		res = mpg123_read( cache->mh, decode_buf, 102400, &decoded_size);
+		switch( res ) {
+			case MPG123_OK:
+				break;
+			case MPG123_NEW_FORMAT:
+				LOG_DEBUG("TODO handle new format");
+				break;
+			case MPG123_DONE:
+				done = true;
+				break;
+			default:
+				LOG_ERROR("err=s unhandled mpg123 error", mpg123_plain_strerror(res));
+				break;
+		}
+		length += decoded_size;
+	}
+
+	long rate;
+	int channels;
+	int encoding;
+	mpg123_getformat( cache->mh, &rate, &channels, &encoding );
+
+	length /= rate;
+	length /= channels;
+	length /= 2; // TODO where can I get the fact that it's 16bits?
+	// TODO come up with a faster way to calculate this, and only fall back to this when VBR is encountered
 
 	item->path = sdsnew( path );
 	item->track = 0; //TODO stored in comment[30] of id3
@@ -36,6 +69,7 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	item->artist = sdscpy( item->artist, "unknown artist" );
 	item->title = sdscpy( item->title, "unknown title" );
 	item->album = sdscpy( item->album, "unknown album" );
+	item->length = length;
 
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
@@ -113,6 +147,16 @@ int read_long( FILE *fp, long *x )
 	return 0;
 }
 
+int read_float( FILE *fp, float *x )
+{
+	int res;
+	res = fread( x, sizeof(float), 1, fp );
+	if( res != 1 ) {
+		return 1;
+	}
+	return 0;
+}
+
 int read_uint32( FILE *fp, uint32_t *x )
 {
 	int res;
@@ -171,12 +215,13 @@ int id3_cache_load( ID3Cache *cache )
 
 		printf("got %s\n", item->path);
 		LOG_INFO( "path=s loading cached entry", item->path );
-		res = read_long( fp, &item->mod_time ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
-		res = read_str( fp, &item->album     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
-		res = read_str( fp, &item->artist    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
-		res = read_str( fp, &item->title     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
-		res = read_uint32( fp, &item->year   ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
-		res = read_uint32( fp, &item->track  ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_long(   fp, &item->mod_time ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_str(    fp, &item->album    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_str(    fp, &item->artist   ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_str(    fp, &item->title    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_uint32( fp, &item->year     ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_uint32( fp, &item->track    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_float(  fp, &item->length   ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		
 		sglib_ID3CacheItem_add( &(cache->root), item );
 	}
@@ -258,6 +303,11 @@ void write_long( FILE *fp, long x )
 	fwrite( &x, sizeof(long), 1, fp );
 }
 
+void write_float( FILE *fp, float x )
+{
+	fwrite( &x, sizeof(float), 1, fp );
+}
+
 void write_uint32( FILE *fp, uint32_t x )
 {
 	fwrite( &x, sizeof(uint32_t), 1, fp );
@@ -284,6 +334,7 @@ int id3_cache_save( ID3Cache *cache )
 		write_str( fp, te->title );
 		write_uint32( fp, te->year );
 		write_uint32( fp, te->track );
+		write_float( fp, te->length );
 	}
 	LOG_INFO( "path=s done saving id3 cache", cache->path );
 

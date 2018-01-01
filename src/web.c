@@ -624,6 +624,7 @@ static int web_handler_albums(
 			json_object *track = json_object_new_object();
 			json_object_object_add( track, "title", json_object_new_string( t->title ) );
 			json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
+			json_object_object_add( track, "length", json_object_new_double( t->length ) );
 			json_object_object_add( track, "path", json_object_new_string( t->path ) );
 			json_object_array_add( tracks, track );
 			//LOG_DEBUG("path=s how the path is represented on the server", t->path);
