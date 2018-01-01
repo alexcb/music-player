@@ -18,8 +18,8 @@ class PlaylistWidget(object):
         self._height = 10
         self._playing_id = None
 
-    def set_playing(self, id):
-        self._playing_id = id
+    def set_playing(self, track_id):
+        self._playing_id = track_id
 
     def draw(self, screen, x, y, width, height, nprint):
         self._height = height

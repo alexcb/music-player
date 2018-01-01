@@ -187,6 +187,9 @@ class UI(object):
     def change_playing(self, x, track_id):
         self._playing = x
         self._playlist_widget.set_playing(track_id)
+        with open("tmp", "w") as fp:
+            fp.write(repr(x))
+            fp.write(repr(track_id))
 
 class MyMain(object):
     def __init__(self, host):
@@ -210,8 +213,12 @@ class MyMain(object):
             converted = []
             for t in v['items']:
                 tt = self._path_lookup[t['path']]
-                tt['id'] = t['id']
-                converted.append(tt)
+                t['album'] = tt['album']
+                t['artist'] = tt['artist']
+                t['title'] = tt['title']
+                t['track_number'] = tt['track_number']
+                t['year'] = tt['year']
+                converted.append(t)
             converted_playlists[k] = converted
 
         # ensure the same dict is kept, as its passed by ref

@@ -202,7 +202,9 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 		p = NULL;
 		if( x->id > 0 ) {
 			p = pop_item_with_track_id( &old_root, x->id );
-			LOG_DEBUG("p=p path=s id=d popped item", p, p->track->path, p->id);
+			if( p ) {
+				LOG_DEBUG("p=p path=s id=d popped item", p, p->track->path, p->id);
+			}
 		}
 		if( p == NULL ) {
 			p = x; // steal the ref counter
