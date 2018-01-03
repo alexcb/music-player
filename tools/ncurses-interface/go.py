@@ -282,8 +282,13 @@ def run(host):
     model_ctrl = ModelCtrl(host)
 
     def refresh():
-        model_ctrl.refresh_library()
-        model_ctrl.refresh_playlists()
+        try:
+            model_ctrl.refresh_library()
+            model_ctrl.refresh_playlists()
+        except Exception as e:
+            def wrapped():
+                raise RuntimeError(str(e))
+            model_ctrl.ready = wrapped
     load_thread = threading.Thread(target=refresh)
     load_thread.start()
 
