@@ -1,4 +1,5 @@
 import curses
+import math
 
 from unicode_utils import width as str_width
 
@@ -47,11 +48,12 @@ class PlaylistWidget(object):
             #sys.stdout.write(terminal.normal)
 
     def _format_track(self, track, width):
-        num_col = 5
+        num_col = 6
         year_width = 4
         track_num_width = 2
+        duration_width = 5
         spacer = '  '
-        remaining_width = width - year_width - track_num_width - (num_col-1)*len(spacer)
+        remaining_width = width - year_width - track_num_width - duration_width - (num_col-1)*len(spacer)
         flex_width = remaining_width / 3
 
         def format(s, w):
@@ -66,11 +68,16 @@ class PlaylistWidget(object):
 
             return s
 
+        duration_min = math.floor(track['length'] / 60)
+        duration_sec = math.floor(track['length'] - 60*duration_min)
+        duration = '%d:%02d' % (duration_min, duration_sec)
+
         text = [
             format(track['artist'],       flex_width              ),
             format(track['album'],        flex_width              ),
             format(track['track_number'], track_num_width         ),
             format(track['title'],        flex_width              ),
+            format(duration,              duration_width          ),
             format(track['year'],         year_width              ),
             ]
 

@@ -27,27 +27,30 @@ def get_library(host):
     r.raise_for_status()
     return r.json()
 
-def websocket_worker(host, cb):
-    text = ''
-    while 1:
+def get_websocket_worker(host, cb):
+    def on_message(ws, message):
         try:
-            ws = websocket.WebSocket()
-            ws.connect("ws://%s/websocket" % host)
-            while 1:
-                status = json.loads(ws.recv())
-                track_id = None
-                try:
-                    playing = 'Playing' if status['playing'] else 'Paused'
-                    text = '%s: %s - %s - %s - %s' % (playing, status['artist'], status['album'], status['track'], status['title'])
-                    track_id = status.get('id')
-                except KeyError:
-                    text = 'unknown state: %s' % str(status)
-                cb(text, track_id)
+            status = json.loads(message)
+            track_id = None
+
+            playing = 'Playing' if status['playing'] else 'Paused'
+            text = '%s: %s - %s - %s - %s' % (playing, status['artist'], status['album'], status['track'], status['title'])
+            track_id = status.get('id')
+
         except Exception as e:
-            pass
-        cb(text + '(lost conn)')
-        #print 'lost websocket connection'
-        time.sleep(1)
+            text = 'unknown state: %s; %s' % (str(message), str(e))
+
+        cb(text, track_id)
+    
+    def on_close(ws):
+        print "### closed ###"
+    
+    #websocket.enableTrace(True)
+    ws = websocket.WebSocketApp('ws://%s/websocket' % host, on_message = on_message, on_close = on_close)
+    wst = threading.Thread(target=ws.run_forever)
+    wst.daemon = True
+    wst.start()
+    return ws.close
 
 def uploadplaylist(host, playlist_name, tracks):
     #raise ValueError(repr(tracks))
@@ -181,6 +184,8 @@ class UI(object):
                     self.set_focus(self._search_widget)
                 elif key == ord('p') and self._selected_widget != self._search_widget:
                     self._toggle_pause()
+                elif key == ord('q') and self._selected_widget != self._search_widget:
+                    return
                 else:
                     self._selected_widget.handle_key(key)
 
@@ -218,6 +223,7 @@ class MyMain(object):
                 t['title'] = tt['title']
                 t['track_number'] = tt['track_number']
                 t['year'] = tt['year']
+                t['length'] = tt['length']
                 converted.append(t)
             converted_playlists[k] = converted
 
@@ -261,13 +267,12 @@ class MyMain(object):
 
         ui = UI(screen, self._albums_by_artist, self._playlists, self.save_and_play_playlist, self.toggle_pause, self.save_playlist)
 
-        t = threading.Thread(target=websocket_worker, args=(self._host, ui.change_playing))
-        t.start()
+        ws_close = get_websocket_worker(self._host, ui.change_playing)
 
         ui.run()
+        #ws_close() # This is too slow, so we're going to just let python kill the thread when we exit
 
 def main():
-    print 'Loading albums'
     args = get_parser().parse_args()
     mm = MyMain(args.host)
     mm.run()
