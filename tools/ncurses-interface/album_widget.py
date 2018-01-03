@@ -1,12 +1,13 @@
 import sys
 import curses
+import re
 
+char_re = re.compile('[^0-9a-zA-Z]+')
 
 class AlbumsWidget(object):
-    def __init__(self, parent, albums_by_artist, add_track_func):
+    def __init__(self, parent):
         self._parent = parent
-        self._albums_by_artist = albums_by_artist
-        self._playing = None
+
         self._expanded = set()
         self._selected = 0
         self._first_displayed = 0
@@ -14,8 +15,7 @@ class AlbumsWidget(object):
         self._filter = ''
         self._height = 10
 
-        self._lines = list(self._get_lines_helper())
-        self._add_track = add_track_func
+        self._lines = None
 
 
     def _is_artist_expanded(self, artist_index):
@@ -26,16 +26,20 @@ class AlbumsWidget(object):
             return false
         return (artist_index, album_index) in self._expanded
 
+    def _albums_by_artist(self):
+        return self._parent._mc._albums_by_artist
+
     def _get_lines_helper(self):
         artist = 0
         album = 0
         track = None
         line = None
-        for i, album_group in enumerate(self._albums_by_artist):
+        text_filter = self.strip_chars(self._filter.lower())
+        for i, album_group in enumerate(self._albums_by_artist()):
             show = self._is_artist_expanded(i)
             prefix = '-' if show else '+'
             key = (i,)
-            if self._filter.lower() not in album_group[0]['artist'].lower():
+            if text_filter not in self.strip_chars(album_group[0]['artist'].lower()):
                 continue
             yield key, '%s %s' % (prefix, album_group[0]['artist'])
             if not show:
@@ -60,22 +64,26 @@ class AlbumsWidget(object):
         self._lines = list(self._get_lines_helper())
 
     def _add_item(self, key):
+        playlist_name = self._parent._playlist_widget._selected_playlist
         if len(key) == 1:
-            albums = self._albums_by_artist[key[0]]
+            albums = self._albums_by_artist()[key[0]]
             for album in albums:
                 for track in album['tracks']:
-                    self._add_track(track)
+                    self._parent._mc.add_track(track, playlist_name)
 
         if len(key) == 2:
-            album = self._albums_by_artist[key[0]][key[1]]
+            album = self._albums_by_artist()[key[0]][key[1]]
             for track in album['tracks']:
-                self._add_track(track)
+                self._parent._mc.add_track(track, playlist_name)
 
         if len(key) == 3:
-            track = self._albums_by_artist[key[0]][key[1]]['tracks'][key[2]]
-            self._add_track(track)
+            track = self._albums_by_artist()[key[0]][key[1]]['tracks'][key[2]]
+            self._parent._mc.add_track(track, playlist_name)
 
     def draw(self, screen, xx, yy, width, height, nprint):
+        if self._lines is None:
+            self._lines = list(self._get_lines_helper())
+
         self._height = height
         total_max_items_visible = height - 1
 
@@ -96,6 +104,8 @@ class AlbumsWidget(object):
                 nprint(0, y, s, attr)
             #sys.stdout.write(terminal.normal)
 
+    def strip_chars(self, text):
+        return char_re.sub('', text)
 
     def filter(self, text):
         self._filter = text

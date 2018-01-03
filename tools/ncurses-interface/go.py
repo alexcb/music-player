@@ -10,11 +10,11 @@ import websocket
 from collections import defaultdict
 
 from key_mapping import get_ch, MOUSE_EVENT, KEY_EVENT
+from spinner import get_random_spinner
 
 import locale
 import curses
 import curses.ascii
-
 
 
 def get_parser():
@@ -29,22 +29,20 @@ def get_library(host):
 
 def get_websocket_worker(host, cb):
     def on_message(ws, message):
+        track = None
+        playing = None
         try:
             status = json.loads(message)
-            track_id = None
-
             playing = 'Playing' if status['playing'] else 'Paused'
-            text = '%s: %s - %s - %s - %s' % (playing, status['artist'], status['album'], status['track'], status['title'])
-            track_id = status.get('id')
-
+            track = status
         except Exception as e:
-            text = 'unknown state: %s; %s' % (str(message), str(e))
+            pass
+            #text = 'unknown state: %s; %s' % (str(message), str(e))
+        cb(playing, track)
 
-        cb(text, track_id)
-    
     def on_close(ws):
-        print "### closed ###"
-    
+        pass
+
     #websocket.enableTrace(True)
     ws = websocket.WebSocketApp('ws://%s/websocket' % host, on_message = on_message, on_close = on_close)
     wst = threading.Thread(target=ws.run_forever)
@@ -97,14 +95,12 @@ from playlist_widget import PlaylistWidget
 from search_widget import SearchWidget
 
 class UI(object):
-    def __init__(self, screen, albums_by_artist, playlists, save_and_play_playlist, toggle_pause, save_playlist):
+    def __init__(self, screen, model_ctrl):
         self._screen = screen
-        self._playing = ''
+        self._mc = model_ctrl
 
-        self._toggle_pause = toggle_pause
-
-        self._album_widget = AlbumsWidget(self, albums_by_artist, self._add_track)
-        self._playlist_widget = PlaylistWidget(self, playlists, save_and_play_playlist, save_playlist)
+        self._album_widget = AlbumsWidget(self)
+        self._playlist_widget = PlaylistWidget(self)
         self._search_widget = SearchWidget(self)
 
         self._selected_widget = None
@@ -119,9 +115,6 @@ class UI(object):
         self._playlist_widget.new_playlist(text)
         self._search_widget.clear()
         self.set_focus(self._playlist_widget)
-
-    def _add_track(self, track):
-        self._playlist_widget.add_track(track)
 
     def _get_print_func(self, x, y):
         def wrapped(xx, yy, s, attr=None):
@@ -147,25 +140,44 @@ class UI(object):
         selected = 0
         spacing = 3
         ch = None
+
+        loading_spinner = get_random_spinner()
+
         while True:
             self._screen.clear()
             height, width = self._screen.getmaxyx()
             screenprint = self._get_print_func(0, 0)
-            screenprint(0, 0, self._playing)
 
-            col1 = 0
-            col1_width = width / 3
-            col2 = col1_width + 2
-            col2_width = width - col2
-            bottom_row = height - 1
-            main_height = height - 2
+            if not self._mc.ready():
+                screenprint(0, 0, 'loading %s' % loading_spinner.get_ch())
+                time.sleep(loading_spinner.get_speed())
+            else:
+                t = self._mc.get_current_track()
+                track = '%s - %s - %s' % (
+                    t['artist'],
+                    t['album'],
+                    t['title'],
+                    )
+                text = '[%(playing)s] %(track_text)s' % {
+                    'playing': 'Playing' if self._mc._playing else 'Paused',
+                    'track_text': track,
+                    }
+                screenprint(0, 0, text)
 
-            self._album_widget.draw(   self._screen, col1, 1, col1_width, main_height, self._get_print_func(col1, 1))
-            self._playlist_widget.draw(self._screen, col2, 1, col2_width, main_height, self._get_print_func(col2, 1))
+                col1 = 0
+                col1_width = width / 3
+                col2 = col1_width + 2
+                col2_width = width - col2
+                bottom_row = height - 1
+                main_height = height - 2
 
-            self._search_widget.draw(  self._screen,    0, bottom_row, width, 1, self._get_print_func(0, height - 1))
+                self._album_widget.draw(   self._screen, col1, 1, col1_width, main_height, self._get_print_func(col1, 1))
+                self._playlist_widget.draw(self._screen, col2, 1, col2_width, main_height, self._get_print_func(col2, 1))
 
-            #screen.addstr(0,0, "%s - %s" % (int(time.time()), ch))
+                self._search_widget.draw(  self._screen,    0, bottom_row, width, 1, self._get_print_func(0, height - 1))
+
+                #screen.addstr(0,0, "%s - %s" % (int(time.time()), ch))
+
             self._screen.refresh()
 
             ch = get_ch(self._screen)
@@ -183,54 +195,73 @@ class UI(object):
                     self._search_widget.set_mode('New Playlist', None, self._on_new_playlist, self._album_widget)
                     self.set_focus(self._search_widget)
                 elif key == ord('p') and self._selected_widget != self._search_widget:
-                    self._toggle_pause()
+                    self._mc.toggle_pause()
                 elif key == ord('q') and self._selected_widget != self._search_widget:
                     return
                 else:
                     self._selected_widget.handle_key(key)
 
-    def change_playing(self, x, track_id):
-        self._playing = x
-        self._playlist_widget.set_playing(track_id)
-        with open("tmp", "w") as fp:
-            fp.write(repr(x))
-            fp.write(repr(track_id))
 
-class MyMain(object):
+class ModelCtrl(object):
     def __init__(self, host):
         self._host = host
+        self._playing = None
         self._playlists = {}
+        self._albums_by_artist = []
+        self._active_playlist = 'default'
 
-    def _refresh_library(self):
+    def ready(self):
+        if self._playing is None:
+            return False
+        if not self._albums_by_artist:
+            return False
+        if not self._playlists:
+            return False
+        return True
+
+    def refresh_library(self):
         library = get_library(self._host)
         self._albums_by_artist = group_albums_by_artist(add_data_to_tracks(library['albums']))
 
         self._path_lookup = {}
         for album in library['albums']:
             for track in album['tracks']:
-                self._path_lookup[track['path']] = track
+                self._path_lookup[track['path']] = {
+                    'path':         track['path'],
+                    'artist':       album['artist'],
+                    'album':        album['album'],
+                    'year':         album['year'],
+                    'title':        track['title'],
+                    'length':       track['length'],
+                    'track_number': track['track_number'],
+                    }
 
-    def _refresh_playlists(self):
-        playlists = get_playlists(self._host)
+    def refresh_playlists(self):
+        self._playlists = {}
+        for k, v in get_playlists(self._host).iteritems():
+            tracks = []
+            for x in v['items']:
+                xx = self._path_lookup[x['path']].copy()
+                xx['id'] = x['id']
+                tracks.append(xx)
+            self._playlists[k] = tracks
 
-        converted_playlists = {}
-        for k,v in playlists.iteritems():
-            converted = []
-            for t in v['items']:
-                tt = self._path_lookup[t['path']]
-                t['album'] = tt['album']
-                t['artist'] = tt['artist']
-                t['title'] = tt['title']
-                t['track_number'] = tt['track_number']
-                t['year'] = tt['year']
-                t['length'] = tt['length']
-                converted.append(t)
-            converted_playlists[k] = converted
+    def change_playing(self, playing, track_id):
+        self._playing = playing
+        self._current_track = track_id
 
-        # ensure the same dict is kept, as its passed by ref
-        self._playlists.clear()
-        self._playlists['default'] = []
-        self._playlists.update(converted_playlists)
+    def get_track_meta(self, track_id):
+        path = None
+        for v in self._playlists.itervalues():
+            for t in v:
+                if t['id'] == track_id:
+                    path = t['path']
+        if path is None:
+            raise KeyError(track_id)
+        return self._path_lookup[path]
+
+    def get_current_track(self):
+        return self._current_track
 
     def save_and_play_playlist(self, playlist_name, tracks, index, when):
         self.save_playlist(playlist_name, tracks)
@@ -242,44 +273,48 @@ class MyMain(object):
 
     def save_playlist(self, playlist_name, tracks):
         uploadplaylist(self._host, playlist_name, tracks)
-        self._refresh_playlists()
+        self.refresh_playlists()
 
-    def run(self):
-        self._refresh_library()
-        self._refresh_playlists()
+    def add_track(self, track, playlist_name):
+        self._playlists[playlist_name].append(track)
 
+def run(host):
+    model_ctrl = ModelCtrl(host)
 
-        # curses setup
-        locale.setlocale(locale.LC_ALL,"")
-        screen = curses.initscr()
-        curses.noecho()
-        curses.cbreak()
-        curses.curs_set(0)
+    def refresh():
+        model_ctrl.refresh_library()
+        model_ctrl.refresh_playlists()
+    load_thread = threading.Thread(target=refresh)
+    load_thread.start()
 
-        screen.nodelay(1)
+    # curses setup
+    locale.setlocale(locale.LC_ALL,"")
+    screen = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    curses.curs_set(0)
 
-        #availmask, oldmask = curses.mousemask(1)
-        #assert availmask == 1, "mouse mode not available"
-        curses.start_color()
-        curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_RED, -1)
+    screen.nodelay(1)
 
+    #availmask, oldmask = curses.mousemask(1)
+    #assert availmask == 1, "mouse mode not available"
+    curses.start_color()
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_RED, -1)
 
-        ui = UI(screen, self._albums_by_artist, self._playlists, self.save_and_play_playlist, self.toggle_pause, self.save_playlist)
+    ui = UI(screen, model_ctrl)
+    model_ctrl.ui = ui
+    ws_close = get_websocket_worker(host, model_ctrl.change_playing)
 
-        ws_close = get_websocket_worker(self._host, ui.change_playing)
+    ui.run()
 
-        ui.run()
-        #ws_close() # This is too slow, so we're going to just let python kill the thread when we exit
+    #ws_close() # This is too slow, so we're going to just let python kill the thread when we exit
 
-def main():
-    args = get_parser().parse_args()
-    mm = MyMain(args.host)
-    mm.run()
 
 if __name__ == '__main__':
     try:
-        main()
+        args = get_parser().parse_args()
+        run(args.host)
     finally:
         try:
             curses.endwin()

@@ -5,26 +5,20 @@ from unicode_utils import width as str_width
 
 
 class PlaylistWidget(object):
-    def __init__(self, parent, playlists, save_and_play_playlist, save_playlist):
+    def __init__(self, parent):
         self._parent = parent
-        self._playlists = playlists
-        if 'default' not in playlists:
-            playlists['default'] = []
-        self._active_playlist = 'default'
+
+        self._selected_playlist = 'default'
         self._selected = 0
+
         self._first_displayed = 0
         self._has_cursor = False
-        self._save_and_play_playlist = save_and_play_playlist
-        self._save_playlist = save_playlist
         self._height = 10
-        self._playing_id = None
-
-    def set_playing(self, track_id):
-        self._playing_id = track_id
 
     def draw(self, screen, x, y, width, height, nprint):
         self._height = height
-        tracks = self._playlists[self._active_playlist]
+        playing_id = self._parent._mc.get_current_track().get('id')
+        tracks = self._parent._mc._playlists[self._selected_playlist]
         total_max_items_visible = height - 1
 
         tmp = max(self._selected - (total_max_items_visible-1), 0)
@@ -33,7 +27,7 @@ class PlaylistWidget(object):
         if self._selected < self._first_displayed:
             self._first_displayed = self._selected
 
-        nprint(0, 0, "Playlist: %s" % self._active_playlist)
+        nprint(0, 0, "Playlist: %s" % self._selected_playlist)
         for i, y in enumerate(xrange(1, height)):
             i += self._first_displayed
             if i >= len(tracks):
@@ -41,7 +35,7 @@ class PlaylistWidget(object):
             attr = 0
             if i == self._selected and self._has_cursor:
                 attr = curses.A_REVERSE
-            if tracks[i].get('id') == self._playing_id and self._playing_id:
+            if tracks[i].get('id') == playing_id and playing_id:
                 attr |= curses.color_pair(1)
             s = self._format_track(tracks[i], width)
             nprint(0, y, s, attr)
@@ -90,8 +84,8 @@ class PlaylistWidget(object):
         self.change_playlist_rel(-1)
 
     def change_playlist_rel(self, relative):
-        keys = sorted(self._playlists.keys())
-        i = keys.index(self._active_playlist)
+        keys = sorted(self._parent._mc._playlists.keys())
+        i = keys.index(self._selected_playlist)
         i += relative
         if i >= len(keys):
             i = 0
@@ -100,7 +94,7 @@ class PlaylistWidget(object):
         self._active_playlist = keys[i]
 
     def handle_key(self, key):
-        tracks = self._playlists[self._active_playlist]
+        tracks = self._parent._mc._playlists[self._selected_playlist]
 
         if key == 'up':
             self._selected = max(self._selected - 1, 0)
@@ -135,13 +129,13 @@ class PlaylistWidget(object):
                 self._selected += 1
         elif key == ord('\n'):
             tracks = [(x['path'], x.get('id')) for x in tracks]
-            self._save_and_play_playlist(self._active_playlist, tracks, self._selected, 'immediate')
+            self._parent._mc.save_and_play_playlist(self._selected_playlist, tracks, self._selected, 'immediate')
         elif key == ord('a'):
             tracks = [(x['path'], x.get('id')) for x in tracks]
-            self._save_and_play_playlist(self._active_playlist, tracks, self._selected, 'next')
+            self._parent._mc.save_and_play_playlist(self._selected_playlist, tracks, self._selected, 'next')
         elif key == ord('s'):
             tracks = [(x['path'], x.get('id')) for x in tracks]
-            self._save_playlist(self._active_playlist, tracks)
+            self._parent._mc.save_playlist(self._selected_playlist, tracks)
         elif key == ord('n'):
             asdfasdf
 
@@ -151,10 +145,10 @@ class PlaylistWidget(object):
     def lost_cursor(self):
         self._has_cursor = False
 
-    def add_track(self, track):
-        self._playlists[self._active_playlist].append(track)
+    #def add_track(self, track):
+    #    self._parent._mc._playlists[self._active_playlist].append(track)
 
-    def new_playlist(self, playlist):
-        if playlist not in self._playlists:
-            self._playlists[playlist] = []
-        self._active_playlist = playlist
+    #def new_playlist(self, playlist):
+    #    if playlist not in self._parent._mc._playlists:
+    #        self._parent._mc._playlists[playlist] = []
+    #    self._active_playlist = playlist
