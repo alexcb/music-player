@@ -18,8 +18,6 @@
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(ID3CacheItem, left, right, color_field, ID3CACHE_CMPARATOR)
 
-unsigned char decode_buf[102400];
-
 int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 {
 	int res;

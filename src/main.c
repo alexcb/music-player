@@ -122,6 +122,8 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
+	update_metadata_web_clients( false, NULL, (void*) &web_handler_data );
+
 	res = player_add_metadata_observer( &player, &update_metadata_web_clients, (void*) &web_handler_data );
 	if( res ) {
 		LOG_ERROR("failed to register observer");

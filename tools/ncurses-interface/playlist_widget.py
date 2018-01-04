@@ -17,7 +17,11 @@ class PlaylistWidget(object):
 
     def draw(self, screen, x, y, width, height, nprint):
         self._height = height
-        playing_id = self._parent._mc.get_current_track().get('id')
+        current_track = self._parent._mc.get_current_track()
+        if current_track:
+            playing_id = self._parent._mc.get_current_track().get('id')
+        else:
+            playing_id = None
         tracks = self._parent._mc._playlists[self._selected_playlist]
         total_max_items_visible = height - 1
 
@@ -27,7 +31,9 @@ class PlaylistWidget(object):
         if self._selected < self._first_displayed:
             self._first_displayed = self._selected
 
-        nprint(0, 0, "Playlist: %s" % self._selected_playlist)
+        playlist_num = sorted(self._parent._mc._playlists.keys()).index(self._selected_playlist) + 1
+        total_playlists = len(self._parent._mc._playlists.keys())
+        nprint(0, 0, "Playlist [%d/%d]: %s" % (playlist_num, total_playlists, self._selected_playlist))
         for i, y in enumerate(xrange(1, height)):
             i += self._first_displayed
             if i >= len(tracks):
@@ -91,7 +97,7 @@ class PlaylistWidget(object):
             i = 0
         if i < 0:
             i = len(keys) - 1
-        self._active_playlist = keys[i]
+        self._selected_playlist = keys[i]
 
     def handle_key(self, key):
         tracks = self._parent._mc._playlists[self._selected_playlist]
@@ -145,10 +151,3 @@ class PlaylistWidget(object):
     def lost_cursor(self):
         self._has_cursor = False
 
-    #def add_track(self, track):
-    #    self._parent._mc._playlists[self._active_playlist].append(track)
-
-    #def new_playlist(self, playlist):
-    #    if playlist not in self._parent._mc._playlists:
-    #        self._parent._mc._playlists[playlist] = []
-    #    self._active_playlist = playlist

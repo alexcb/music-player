@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 import websocket
+import os
 
 from collections import defaultdict
 
@@ -15,6 +16,13 @@ from spinner import get_random_spinner
 import locale
 import curses
 import curses.ascii
+
+the_log = open(os.path.expanduser('~/.music-ui.log'), 'w')
+def log(s):
+    if not isinstance(s, basestring):
+        s = repr(s)
+    the_log.write(s+'\n')
+    the_log.flush()
 
 
 def get_parser():
@@ -29,13 +37,17 @@ def get_library(host):
 
 def get_websocket_worker(host, cb):
     def on_message(ws, message):
+        log(message)
         track = None
         playing = None
         try:
             status = json.loads(message)
             playing = 'Playing' if status['playing'] else 'Paused'
-            track = status
+            del status['playing']
+            if status:
+                track = status
         except Exception as e:
+            log(e)
             pass
             #text = 'unknown state: %s; %s' % (str(message), str(e))
         cb(playing, track)
@@ -112,8 +124,9 @@ class UI(object):
         self._album_widget.filter(text)
 
     def _on_new_playlist(self, text):
-        self._playlist_widget.new_playlist(text)
+        self._mc.new_playlist(text)
         self._search_widget.clear()
+        self._playlist_widget._selected_playlist = text
         self.set_focus(self._playlist_widget)
 
     def _get_print_func(self, x, y):
@@ -153,15 +166,18 @@ class UI(object):
                 time.sleep(loading_spinner.get_speed())
             else:
                 t = self._mc.get_current_track()
-                track = '%s - %s - %s' % (
-                    t['artist'],
-                    t['album'],
-                    t['title'],
-                    )
-                text = '[%(playing)s] %(track_text)s' % {
-                    'playing': 'Playing' if self._mc._playing else 'Paused',
-                    'track_text': track,
-                    }
+                if t:
+                    track = '%s - %s - %s' % (
+                        t['artist'],
+                        t['album'],
+                        t['title'],
+                        )
+                    text = '[%(playing)s] %(track_text)s' % {
+                        'playing': 'Playing' if self._mc._playing else 'Paused',
+                        'track_text': track,
+                        }
+                else:
+                    text = 'nothing'
                 screenprint(0, 0, text)
 
                 col1 = 0
@@ -206,16 +222,19 @@ class ModelCtrl(object):
     def __init__(self, host):
         self._host = host
         self._playing = None
-        self._playlists = {}
-        self._albums_by_artist = []
+        self._playlists = None
+        self._albums_by_artist = None
         self._active_playlist = 'default'
 
     def ready(self):
         if self._playing is None:
+            log("not ready 1")
             return False
-        if not self._albums_by_artist:
+        if self._albums_by_artist is None:
+            log("not ready 2")
             return False
-        if not self._playlists:
+        if self._playlists is None:
+            log("not ready 3")
             return False
         return True
 
@@ -245,8 +264,14 @@ class ModelCtrl(object):
                 xx['id'] = x['id']
                 tracks.append(xx)
             self._playlists[k] = tracks
+        self.new_playlist('default')
+
+    def new_playlist(self, playlist):
+        if playlist not in self._playlists:
+            self._playlists[playlist] = []
 
     def change_playing(self, playing, track_id):
+        log("change_playing: %s %s" % (playing, track_id))
         self._playing = playing
         self._current_track = track_id
 
@@ -283,9 +308,12 @@ def run(host):
 
     def refresh():
         try:
+            log('starting refresh')
             model_ctrl.refresh_library()
             model_ctrl.refresh_playlists()
+            log('refresh done')
         except Exception as e:
+            log(e)
             def wrapped():
                 raise RuntimeError(str(e))
             model_ctrl.ready = wrapped
