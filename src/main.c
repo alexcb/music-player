@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 	}
 	
 	PlaylistManager playlist_manager;
-	playlist_manager_init( &playlist_manager, playlist_path );
+	playlist_manager_init( &playlist_manager, playlist_path, &album_list );
 	player.playlist_manager = &playlist_manager;
 
 	LOG_DEBUG("calling load");

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "albums.h"
 #include "playlist.h"
 #include "sds.h"
 
@@ -8,11 +9,12 @@
 typedef struct PlaylistManager
 {
 	Playlist *root;
+	AlbumList *album_list;
 	sds playlistPath;
 	pthread_mutex_t lock;
 } PlaylistManager;
 
-int playlist_manager_init( PlaylistManager *manager, const char *path );
+int playlist_manager_init( PlaylistManager *manager, const char *path, AlbumList *album_list );
 
 //void playlist_manager_lock( PlaylistManager *manager );
 //void playlist_manager_unlock( PlaylistManager *manager );

@@ -15,10 +15,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 
 
-int playlist_manager_init( PlaylistManager *manager, const char *path )
+int playlist_manager_init( PlaylistManager *manager, const char *path, AlbumList *album_list )
 {
 	//int res;
 
@@ -28,6 +29,7 @@ int playlist_manager_init( PlaylistManager *manager, const char *path )
 
 	manager->playlistPath = sdsnew( path );
 	manager->root = NULL;
+	manager->album_list = album_list;
 	return 0;
 }
 
@@ -59,28 +61,63 @@ void trim_suffix_newline(char *s)
 
 int playlist_manager_load( PlaylistManager *manager )
 {
-	//FILE *fp = fopen ( manager->playlistPath, "r" );
-	//if( !fp ) {
-	//	LOG_ERROR("path=s failed to open playlist for reading", manager->playlistPath);
-	//	return 1;
-	//}
+	int res;
+	Track *track;
+	Playlist *playlist = NULL;
+	PlaylistItem *root = NULL;
+	PlaylistItem *item = NULL;
+	PlaylistItem *last = NULL;
 
-	//Playlist *playlist = NULL;
-	//char *line = NULL;
-	//size_t len = 0;
-	//while( getline( &line, &len, fp ) != -1 ) {
-	//	trim_suffix_newline( line );
-	//	LOG_DEBUG("line=s got line", line);
-	//	if( !line[0] )
-	//		continue;
-	//	if( line[0] == ' ' && playlist ) {
-	//		playlist_add_file( playlist, &line[1] );
-	//	}
-	//	else if( line[0] != ' ' ) {
-	//		playlist_manager_new_playlist( manager, line, &playlist );
-	//	}
-	//}
-	//fclose( fp );
+	FILE *fp = fopen ( manager->playlistPath, "r" );
+	if( !fp ) {
+		LOG_ERROR("path=s failed to open playlist for reading", manager->playlistPath);
+		return 1;
+	}
+
+	char *line = NULL;
+	size_t len = 0;
+	while( getline( &line, &len, fp ) != -1 ) {
+		trim_suffix_newline( line );
+		LOG_DEBUG("line=s got line", line);
+		if( !line[0] )
+			continue;
+		if( line[0] == ' ' && playlist ) {
+			res = album_list_get_track( manager->album_list, &line[1], &track );
+			if( res != 0 ) {
+				LOG_ERROR("res=d path=s failed to lookup track", res, &line[1]);
+				continue;
+			}
+
+			item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
+			item->track = track;
+			item->id = 0;
+			item->ref_count = 1;
+
+			item->next = NULL;
+			item->parent = NULL;
+
+			if( root == NULL ) {
+				root = item;
+			} else {
+				last->next = item;
+			}
+			last = item;
+		}
+		else if( line[0] != ' ' ) {
+			if( root != NULL ) {
+				playlist_update( playlist, root );
+				root = NULL;
+			}
+			playlist_manager_new_playlist( manager, line, &playlist );
+		} else {
+			LOG_ERROR("line=s skipping line while loading", line);
+		}
+	}
+	if( root != NULL ) {
+		playlist_update( playlist, root );
+		root = NULL;
+	}
+	fclose( fp );
 	return 0;
 }
 
