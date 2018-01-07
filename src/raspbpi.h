@@ -1,1 +1,1 @@
-void init_rasp_pi();
+int init_rasp_pi();

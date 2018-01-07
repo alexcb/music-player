@@ -43,7 +43,9 @@ void ignore_singal_init() {
 int main(int argc, char *argv[])
 {
 #ifdef USE_RASP_PI
-	init_rasp_pi();
+	if( !init_rasp_pi() ) {
+		return 1;
+	}
 #endif
 
 	ignore_singal_init();
