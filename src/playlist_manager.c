@@ -121,16 +121,6 @@ int playlist_manager_load( PlaylistManager *manager )
 	return 0;
 }
 
-//void playlist_manager_lock( PlaylistManager *manager )
-//{
-//	pthread_mutex_lock( &manager->lock );
-//}
-//
-//void playlist_manager_unlock( PlaylistManager *manager )
-//{
-//	pthread_mutex_unlock( &manager->lock );
-//}
-
 int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name )
 {
 	Playlist *p = manager->root;
@@ -179,67 +169,6 @@ int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, P
 	}
 	manager->root = *p;
 	return 0;
-}
-
-int load_quick_album_recursive( PlaylistManager *manager, const char *path )
-{
-	//int res;
-	//char p[1024];
-	//struct dirent *ent;
-
-	//LOG_DEBUG("path=s loading album", path);
-	//DIR *d = opendir( path );
-	//if( d == NULL ) {
-	//	return 1;
-	//}
-
-	//while( (ent = readdir(d)) != NULL) {
-	//	sprintf(p, "%s/%s", path, ent->d_name);
-	//	if( ent->d_type == DT_REG && has_suffix(p, ".mp3") ) {
-	//		res = playlist_add_file( manager->playlists[0], p );
-	//		if( res ) {
-	//			closedir( d );
-	//			return res;
-	//		}
-	//	} else if( ent->d_type == DT_DIR && strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ) {
-	//		res = load_quick_album_recursive( manager, p );
-	//		if( res ) {
-	//			closedir( d );
-	//			return res;
-	//		}
-	//	}
-	//}
-	//closedir( d );
-	return 0;
-}
-
-int load_quick_album( PlaylistManager *manager, const char *path )
-{
-	//int res;
-	//res = pthread_mutex_lock( &manager->lock );
-	//if( res ) {
-	//	return res;
-	//}
-
-	//res = playlist_clear( manager->playlists[0] );
-	//if( res ) {
-	//	pthread_mutex_unlock( &manager->lock );
-	//	return res;
-	//}
-
-	//res = load_quick_album_recursive( manager, path );
-	//if( res ) {
-	//	pthread_mutex_unlock( &manager->lock );
-	//	return res;
-	//}
-
-	//LOG_DEBUG("sorting album");
-	//playlist_sort_by_path( manager->playlists[0] );
-	//playlist_rename( manager->playlists[0], basename(path) );
-	//manager->current = 0;
-	//manager->version++;
-	//pthread_mutex_unlock( &manager->lock );
-	return OK;
 }
 
 int playlist_manager_get_item_by_id( PlaylistManager *manager, int id, PlaylistItem **i )
