@@ -256,7 +256,9 @@ class ModelCtrl(object):
                     }
 
     def refresh_playlists(self):
-        self._playlists = {}
+        self._playlists = {
+            'default': [],
+            }
         for k, v in get_playlists(self._host).iteritems():
             tracks = []
             for x in v['items']:

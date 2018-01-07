@@ -42,12 +42,6 @@ void ignore_singal_init() {
 
 int main(int argc, char *argv[])
 {
-#ifdef USE_RASP_PI
-	if( init_rasp_pi() ) {
-		return 1;
-	}
-#endif
-
 	ignore_singal_init();
 
 	int res;
@@ -66,6 +60,13 @@ int main(int argc, char *argv[])
 	trim_suffix(music_path, "/");
 
 	init_player( &player );
+
+#ifdef USE_RASP_PI
+	if( init_rasp_pi( &player ) ) {
+		return 1;
+	}
+#endif
+
 
 	res = id3_cache_new( &cache, id3_cache_path, player.mh );
 	if( res ) {

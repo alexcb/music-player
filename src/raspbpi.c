@@ -40,7 +40,7 @@ void switchIntHandler()
 void* gpio_input_thread_run( void *p )
 {
 	int res;
-	//MyData *data = (MyData*) p;
+	Player *player = (Player*) p;
 	pthread_mutex_t mutex;
 	pthread_mutex_init( &mutex, NULL );
 	pthread_mutex_lock( &mutex );
@@ -54,6 +54,7 @@ void* gpio_input_thread_run( void *p )
 		LOG_DEBUG("cur=d last=d process GPIO input", cur_play_switch, last_play_switch);
 		if( last_play_switch != cur_play_switch ) {
 			LOG_DEBUG("TOGGLE PAUSE");
+			player->playing = !player->playing;
 			last_play_switch = cur_play_switch;
 		}
 
@@ -68,7 +69,7 @@ void* gpio_input_thread_run( void *p )
 	return NULL;
 }
 
-int init_rasp_pi() {
+int init_rasp_pi(Player *player) {
 	int res;
 	LOG_INFO("initializing raspberry pi settings");
 
@@ -77,7 +78,7 @@ int init_rasp_pi() {
 		return 1;
 	}
 
-	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, NULL );
+	res = pthread_create( &gpio_input_thread, NULL, &gpio_input_thread_run, (void*) player );
 	if( res ) {
 		LOG_ERROR("failed to create input thread");
 		return 1;
@@ -87,6 +88,10 @@ int init_rasp_pi() {
 	pinMode( PIN_SWITCH, INPUT );
 	pullUpDnControl( PIN_SWITCH, PUD_UP );
 	last_play_switch = cur_play_switch = digitalRead( PIN_SWITCH );
+
+	//wiringPiISR( PIN_ROTARY_1, INT_EDGE_BOTH, rotaryIntHandler);
+	//wiringPiISR( PIN_ROTARY_2, INT_EDGE_BOTH, rotaryIntHandler);
+	wiringPiISR( PIN_SWITCH, INT_EDGE_BOTH, switchIntHandler);
 
 	return 0;
 }
