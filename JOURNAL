@@ -94,7 +94,7 @@ TODO:
 Running on the pi:
 
 cd ~/mpg123hack/
-git fetch && git checkout origin/non-pi-version && make clean && make
+git fetch && git checkout origin/master && make clean && make
 WEB_ROOT=/home/alex/mpg123hack/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists /home/alex/id3_cache
 
 Running locally with all music:

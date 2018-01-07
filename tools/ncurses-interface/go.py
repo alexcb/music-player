@@ -89,7 +89,11 @@ def group_albums_by_artist(albums):
     collection = defaultdict(list)
     for x in albums:
         collection[x['artist']].append(x)
-    return [x[1] for x in sorted(collection.items(), key=lambda x: strip_prefix(x[0].lower(), "the").strip())]
+
+    l = []
+    for k, v in sorted(collection.items(), key=lambda x: strip_prefix(x[0].lower(), "the").strip()):
+        l.append(sorted(v, key=lambda x: (x['year'], x['album'])))
+    return l
 
 def add_data_to_tracks(albums):
     for album in albums:
