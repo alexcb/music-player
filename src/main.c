@@ -20,6 +20,10 @@
 #include "web.h"
 #include "streams.h"
 
+#ifdef USE_RASP_PI
+#include "raspbpi.h"
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -38,6 +42,10 @@ void ignore_singal_init() {
 
 int main(int argc, char *argv[])
 {
+#ifdef USE_RASP_PI
+	init_rasp_pi();
+#endif
+
 	ignore_singal_init();
 
 	int res;

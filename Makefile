@@ -1,5 +1,5 @@
 CC=gcc
-CCFLAGS=-g -std=gnu11 -I./src -Wall -Werror
+CCFLAGS=-g -std=gnu11 -I./src -Wall -Werror `./use-pi.sh`
 LDFLAGS=-lao -lmpg123 -lmicrohttpd -lpthread -lm -ljson-c -lssl -lcrypto
 
 TARGET=my123
