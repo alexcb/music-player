@@ -19,11 +19,12 @@ SGLIB_DEFINE_RBTREE_FUNCTIONS(Album, left, right, color_field, ALBUM_CMPARATOR)
 SGLIB_DEFINE_RBTREE_FUNCTIONS(Track, left, right, color_field, TRACK_PATH_COMPARATOR)
 
 
-int album_list_init( AlbumList *album_list, ID3Cache *cache )
+int album_list_init( AlbumList *album_list, ID3Cache *cache, const char *library_path )
 {
 	album_list->id3_cache = cache;
 	album_list->root = NULL;
 	album_list->root_track = NULL;
+	album_list->library_path = sdsnew(library_path);
 	return 0;
 }
 
@@ -36,10 +37,12 @@ int setup_album( AlbumList *album_list, Album *album )
 	album->album = "unknown";
 	album->year = 0;
 
-	LOG_INFO("path=s reading album", album->path);
-	DIR *d = opendir( album->path );
+	sds full_path = sdscatfmt(NULL, "%s/%s", album_list->library_path, album->path);
+
+	LOG_INFO("path=s reading album", full_path);
+	DIR *d = opendir( full_path );
 	if( d == NULL ) {
-		LOG_ERROR("path=s err=s opendir failed", album->path, strerror(errno));
+		LOG_ERROR("path=s err=s opendir failed", full_path, strerror(errno));
 		return FILESYSTEM_ERROR;
 	}
 
@@ -54,7 +57,7 @@ int setup_album( AlbumList *album_list, Album *album )
 		s = sdscatfmt( s, "%s/%s", album->path, dent->d_name );
 
 		ID3CacheItem *id3_item;
-		res = id3_cache_get( album_list->id3_cache, s, &id3_item );
+		res = id3_cache_get( album_list->id3_cache, album_list->library_path, s, &id3_item );
 		if( res ) {
 			LOG_ERROR("path=s err=s failed getting id3 tags", s, d);
 			goto error;
@@ -72,6 +75,7 @@ int setup_album( AlbumList *album_list, Album *album )
 		album->artist = id3_item->artist;
 		album->album = id3_item->album;
 		album->year = id3_item->year;
+		LOG_INFO("here=s fooooo", track->path);
 
 		SGLIB_SORTED_LIST_ADD(Track, album->tracks, track, TRACK_PATH_COMPARATOR, next_ptr);
 		sglib_Track_add( &(album_list->root_track), track );
@@ -84,13 +88,13 @@ error:
 	return res;
 }
 
-int album_list_load( AlbumList *album_list, const char *path )
+int album_list_load( AlbumList *album_list )
 {
 	struct dirent *artist_dirent, *album_dirent;
 
-	DIR *artist_dir = opendir(path);
+	DIR *artist_dir = opendir(album_list->library_path);
 	if( artist_dir == NULL ) {
-		LOG_ERROR("path=s err=s opendir failed", path, strerror(errno));
+		LOG_ERROR("path=s err=s opendir failed", album_list->library_path, strerror(errno));
 		return FILESYSTEM_ERROR;
 	}
 
@@ -102,7 +106,7 @@ int album_list_load( AlbumList *album_list, const char *path )
 		}
 
 		sdsclear( s );
-		s = sdscatfmt( s, "%s/%s", path, artist_dirent->d_name );
+		s = sdscatfmt( s, "%s/%s", album_list->library_path, artist_dirent->d_name );
 		
 		LOG_DEBUG("path=s opening dir", s);
 		DIR *album_dir = opendir(s);
@@ -119,7 +123,6 @@ int album_list_load( AlbumList *album_list, const char *path )
 
 			// path to album
 			sdsclear( s );
-			s = sdscatfmt( s, "%s/%s/%s", path, artist_dirent->d_name, album_dirent->d_name);
 
 			// save album
 			Album *album = (Album*) malloc(sizeof(Album));
@@ -129,7 +132,7 @@ int album_list_load( AlbumList *album_list, const char *path )
 				return 1;
 			}
 			memset( album, 0, sizeof(Album) );
-			album->path = sdsdup( s );
+			album->path = sdscatfmt( NULL, "%s/%s", artist_dirent->d_name, album_dirent->d_name );
 			setup_album( album_list, album );
 			sglib_Album_add( &(album_list->root), album );
 		}

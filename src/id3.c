@@ -18,11 +18,12 @@
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(ID3CacheItem, left, right, color_field, ID3CACHE_CMPARATOR)
 
-int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
+int id3_get( ID3Cache *cache, const char *library_path, const char *path, ID3CacheItem *item )
 {
+	sds full_path = sdscatfmt( NULL, "%s/%s", library_path, path);
 	int res;
-	LOG_DEBUG( "path=s reading id3 tags", path );
-	res = mpg123_open( cache->mh, path );
+	LOG_DEBUG( "path=s reading id3 tags", full_path );
+	res = mpg123_open( cache->mh, full_path );
 	if( res != MPG123_OK ) {
 		LOG_ERROR("err=d open error", res);
 		res = 1;
@@ -36,7 +37,7 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	long num_frames = mpg123_framelength(cache->mh);
 	float length_estimate = num_frames * tpf;
 
-	LOG_DEBUG("path=s length=f track length", path, length_estimate);
+	LOG_DEBUG("path=s length=f track length", full_path, length_estimate);
 
 	item->path = sdsnew( path );
 	item->track = 0; //TODO stored in comment[30] of id3
@@ -108,6 +109,7 @@ int id3_get( ID3Cache *cache, const char *path, ID3CacheItem *item )
 	}
 
 error:
+	sdsfree( full_path );
 	mpg123_close( cache->mh );
 	return res;
 }
@@ -206,24 +208,26 @@ int id3_cache_load( ID3Cache *cache )
 	return 0;
 }
 
-int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh )
+int id3_cache_new( ID3Cache **cache, const char *cache_path, mpg123_handle *mh )
 {
 	*cache = (ID3Cache*) malloc(sizeof(ID3Cache));
 	(*cache)->root = NULL;
 	(*cache)->mh = mh;
-	(*cache)->path = path;
+	(*cache)->path = cache_path;
 	(*cache)->dirty = false;
 
 	id3_cache_load( *cache );
 	return 0;
 }
 
-int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
+int id3_cache_get( ID3Cache *cache, const char *library_path, const char *path, ID3CacheItem **item )
 {
 	struct stat st;
 
-	if (stat(path, &st)) {
-		LOG_ERROR("path=s failed to stat file (caching will be disabled)", path);
+	sds full_path = sdscatfmt( NULL, "%s/%s", library_path, path );
+
+	if( stat(full_path, &st) ) {
+		LOG_ERROR("path=s failed to stat file (caching will be disabled)", full_path);
 		st.st_mtim.tv_sec = 0;
 	}
 
@@ -236,9 +240,9 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 		*item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
 		memset( *item, 0, sizeof(ID3CacheItem) );
 		(*item)->mod_time = st.st_mtim.tv_sec;
-		res = id3_get( cache, path, *item );
+		res = id3_get( cache, library_path, path, *item );
 		if( res ) {
-			LOG_INFO( "path=s failed to read mp3 id3", path );
+			LOG_INFO( "path=s failed to read mp3 id3", full_path );
 			free( *item );
 			return 1;
 		}
@@ -250,9 +254,9 @@ int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item )
 			"path=s cachemtime=d mtime=d mod time doesnt match cached version, re-reading",
 			cache->path, (*item)->mod_time, st.st_mtim.tv_sec
 			);
-		res = id3_get( cache, path, *item );
+		res = id3_get( cache, library_path, path, *item );
 		if( res ) {
-			LOG_INFO( "path=s failed to read mp3 id3", path );
+			LOG_INFO( "path=s failed to read mp3 id3", full_path );
 			free( *item );
 			return 1;
 		}

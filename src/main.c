@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 
 	trim_suffix(music_path, "/");
 
-	init_player( &player );
+	init_player( &player, music_path );
 
 #ifdef USE_RASP_PI
 	if( init_rasp_pi( &player ) ) {
@@ -83,12 +83,12 @@ int main(int argc, char *argv[])
 	}
 
 	AlbumList album_list;
-	res = album_list_init( &album_list, cache );
+	res = album_list_init( &album_list, cache, music_path );
 	if( res ) {
 		LOG_CRITICAL("err=d failed to init album list", res);
 		return 1;
 	}
-	res = album_list_load( &album_list, music_path );
+	res = album_list_load( &album_list );
 	if( res ) {
 		LOG_CRITICAL("err=d failed to load albums", res);
 		return 1;

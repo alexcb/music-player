@@ -583,6 +583,10 @@ sds sdscatprintf(sds s, const char *fmt, ...) {
  * %% - Verbatim "%" character.
  */
 sds sdscatfmt(sds s, char const *fmt, ...) {
+    if( s == NULL )
+    {
+        s = sdsempty();
+    }
     size_t initlen = sdslen(s);
     const char *f = fmt;
     int i;

@@ -41,6 +41,6 @@ typedef struct ID3Cache
 	bool dirty;
 } ID3Cache;
 
-int id3_cache_new( ID3Cache **cache, const char *path, mpg123_handle *mh );
-int id3_cache_get( ID3Cache *cache, const char *path, ID3CacheItem **item );
+int id3_cache_new( ID3Cache **cache, const char *cache_path, mpg123_handle *mh );
+int id3_cache_get( ID3Cache *cache, const char *library_path, const char *path, ID3CacheItem **item );
 int id3_cache_save( ID3Cache *cache );

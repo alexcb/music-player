@@ -26,7 +26,7 @@
 void player_audio_thread_run( void *data );
 void player_reader_thread_run( void *data );
 
-int init_player( Player *player )
+int init_player( Player *player, const char *library_path )
 {
 	int res;
 
@@ -62,6 +62,8 @@ int init_player( Player *player )
 
 	player->playlist_item_to_buffer = NULL;
 	player->playlist_item_to_buffer_override = NULL;
+
+	player->library_path = library_path;
 
 	res = pthread_cond_init( &(player->load_cond), NULL );
 	assert( res == 0 );
@@ -244,8 +246,10 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 		}
 	}
 
-	LOG_DEBUG("path=s opening file in reader", path);
-	res = open_fd( path, &fd, &is_stream, &icy_interval, &icy_name );
+	sds full_path = sdscatfmt( NULL, "%s/%s", player->library_path, path);
+
+	LOG_DEBUG("path=s opening file in reader", full_path);
+	res = open_fd( full_path, &fd, &is_stream, &icy_interval, &icy_name );
 	if( res ) {
 		LOG_ERROR( "unable to open" );
 		goto done;
@@ -391,6 +395,7 @@ done:
 	if( fd ) {
 		close( fd );
 	}
+	sdsfree( full_path );
 }
 
 // caller must first lock the player before calling this

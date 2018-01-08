@@ -54,6 +54,8 @@ typedef struct Player
 	PlaylistItem *playlist_item_to_buffer;
 	PlaylistItem *playlist_item_to_buffer_override;
 
+	const char *library_path;
+
 	// when true play, when false, pause / stop
 	volatile bool playing;
 
@@ -69,7 +71,7 @@ typedef struct Player
 } Player;
 
 
-int init_player( Player *player );
+int init_player( Player *player, const char *library_path );
 int start_player( Player *player );
 
 void player_lock( Player *player );

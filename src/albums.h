@@ -54,10 +54,11 @@ typedef struct AlbumList
 	Album *root;
 	Track *root_track;
 	ID3Cache *id3_cache;
+	sds library_path;
 } AlbumList;
 
-int album_list_init( AlbumList *album_list, ID3Cache *cache );
-int album_list_load( AlbumList *album_list, const char *path );
+int album_list_init( AlbumList *album_list, ID3Cache *cache, const char *library_path );
+int album_list_load( AlbumList *album_list );
 int album_list_get_track( AlbumList *album_list, const char *path, Track **track );
 
 //
