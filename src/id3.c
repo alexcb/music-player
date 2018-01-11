@@ -190,8 +190,7 @@ int id3_cache_load( ID3Cache *cache )
 			break;
 		}
 
-		printf("got %s\n", item->path);
-		LOG_INFO( "path=s loading cached entry", item->path );
+		//LOG_INFO( "path=s loading cached entry", item->path );
 		res = read_long(   fp, &item->mod_time ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str(    fp, &item->album    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str(    fp, &item->artist   ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
