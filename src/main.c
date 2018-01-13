@@ -120,6 +120,12 @@ int main(int argc, char *argv[])
 			player_change_track( &player, default_playlist->root, TRACK_CHANGE_IMMEDIATE );
 			player.playing = true;
 		}
+	} else {
+		res = playlist_manager_new_playlist( &playlist_manager, "default", &default_playlist );
+		if( res != 0 ) {
+			LOG_CRITICAL("failed to create default playlist");
+			return 1;
+		}
 	}
 
 	LOG_DEBUG("starting");

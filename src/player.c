@@ -444,7 +444,7 @@ void player_reader_thread_run( void *data )
 	PlaylistItem *item = NULL;
 
 	for(;;) {
-		LOG_DEBUG("locking - player_reader_thread_run");
+		//LOG_DEBUG("locking - player_reader_thread_run");
 		pthread_mutex_lock( &player->the_lock );
 
 		if( player->playlist_item_to_buffer_override != NULL ) {
@@ -462,7 +462,7 @@ void player_reader_thread_run( void *data )
 			item = NULL;
 		}
 
-		LOG_DEBUG("unlocking - player_reader_thread_run");
+		//LOG_DEBUG("unlocking - player_reader_thread_run");
 		pthread_mutex_unlock( &player->the_lock );
 
 		if( item == NULL ) {
@@ -610,7 +610,8 @@ void player_audio_thread_run( void *data )
 				if( !player->next_track ) {
 					bool should_play = true;
 					if( !player->playing ) {
-						if( !strstr(player->current_track->track->path, "http://") ) {
+						if( strstr(player->current_track->track->path, "http://") == NULL ) {
+							// regular file, busy-wait until we can play again
 							usleep(100);
 							continue;
 						}
