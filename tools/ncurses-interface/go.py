@@ -7,6 +7,8 @@ import threading
 import time
 import websocket
 import os
+from functools import wraps
+
 
 from collections import defaultdict
 
@@ -24,16 +26,19 @@ def log(s):
     the_log.write(s+'\n')
     the_log.flush()
 
+def log_duration(fn):
+    def _decorator(*args, **kwargs):
+        started = time.time()
+        response = fn(*args, **kwargs)
+        duration = time.time() - started
+        log('%s took %s seconds' % (fn.__name__, duration))
+        return response
+    return wraps(fn)(_decorator)
 
 def get_parser():
     parser = argparse.ArgumentParser(description='control me the hits')
     parser.add_argument('--host', default='localhost')
     return parser
-
-def get_library(host):
-    r = requests.get('http://%s/library' % host)
-    r.raise_for_status()
-    return r.json()
 
 def get_websocket_worker(host, cb):
     def on_message(ws, message):
@@ -62,6 +67,13 @@ def get_websocket_worker(host, cb):
     wst.start()
     return ws.close
 
+@log_duration
+def get_library(host):
+    r = requests.get('http://%s/library' % host)
+    r.raise_for_status()
+    return r.json()
+
+@log_duration
 def uploadplaylist(host, playlist_name, tracks):
     #raise ValueError(repr(tracks))
     r = requests.post('http://%s/playlists' % host, data=json.dumps({
@@ -70,11 +82,13 @@ def uploadplaylist(host, playlist_name, tracks):
         }))
     r.raise_for_status()
 
+@log_duration
 def get_playlists(host):
     r = requests.get('http://%s/playlists' % host)
     r.raise_for_status()
     return r.json()['playlists']
 
+@log_duration
 def playplaylist(host, playlist_name, track_num, when):
     url = 'http://%s/play?playlist=%s&track=%s&when=%s' % (host, playlist_name, track_num, when)
     r = requests.post(url)

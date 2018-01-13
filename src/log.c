@@ -5,9 +5,39 @@
 #include <assert.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 
 
 #define LOG_BUF_SIZE 1024
+
+
+
+int log_level = LOG_LEVEL_INFO;
+
+void set_log_level( int level ) {
+	log_level = level;
+}
+
+int set_log_level_string( const char *s ) {
+	if( strcmp( s, "CRITICAL" ) == 0 ) {
+		log_level = LOG_LEVEL_CRITICAL;
+	}
+	else if( strcmp( s, "ERROR" ) == 0 ) {
+		log_level = LOG_LEVEL_ERROR;
+	}
+	else if( strcmp( s, "WARN" ) == 0 ) {
+		log_level = LOG_LEVEL_WARN;
+	}
+	else if( strcmp( s, "INFO" ) == 0 ) {
+		log_level = LOG_LEVEL_INFO;
+	}
+	else if( strcmp( s, "DEBUG" ) == 0 ) {
+		log_level = LOG_LEVEL_DEBUG;
+	} else {
+		return 1;
+	}
+	return 0;
+}
 
 bool needs_quotes( const char *s, int n )
 {
@@ -281,8 +311,18 @@ void _slog(char *buf, size_t buf_size, const char *fmt, ...)
 	va_end( arguments );
 }
 
-void _log(const char *fmt, ...)
+void _log(int level, const char *fmt, ...)
 {
+	if( level > log_level ) {
+		return;
+	}
+
+	// TODO convert this to something easier to read
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	fprintf( stderr, "%lld.%.9ld ", (long long)ts.tv_sec, ts.tv_nsec );
+
+
 	char buf[LOG_BUF_SIZE];
 
 	va_list arguments;
