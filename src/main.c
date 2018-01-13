@@ -113,6 +113,15 @@ int main(int argc, char *argv[])
 	}
 	LOG_DEBUG("load done");
 
+	Playlist *default_playlist;
+	res = playlist_manager_get_playlist( &playlist_manager, "default", &default_playlist );
+	if( res == 0 ) {
+		if( default_playlist->root ) {
+			player_change_track( &player, default_playlist->root, TRACK_CHANGE_IMMEDIATE );
+			player.playing = true;
+		}
+	}
+
 	LOG_DEBUG("starting");
 
 	res = start_player( &player );

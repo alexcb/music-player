@@ -95,16 +95,16 @@ Running on the pi:
 
 cd ~/mpg123hack/
 git fetch && git checkout origin/master && make clean && make
-WEB_ROOT=/home/alex/mpg123hack/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists /home/alex/id3_cache
+LOG_LEVEL=DEBUG WEB_ROOT=/home/alex/mpg123hack/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists /home/alex/id3_cache
 
 Running locally with all music:
 
 make clean && make
-WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists alex-beet-cache
+LOG_LEVEL=DEBUG WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists alex-beet-cache
 
 or running with local music
 
-WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists local-music-cache
+LOG_LEVEL=DEBUG WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists local-music-cache
 
 
 Then change the playlist with:
