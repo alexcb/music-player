@@ -42,6 +42,9 @@ void ignore_singal_init() {
 
 int main(int argc, char *argv[])
 {
+	const char* log_level = getenv("LOG_LEVEL");
+	set_log_level_string( log_level ? log_level : "INFO" );
+
 	ignore_singal_init();
 
 	int res;
