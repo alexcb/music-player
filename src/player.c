@@ -216,10 +216,10 @@ void rewind2( Player *player )
 bool player_should_abort_load( Player *player )
 {
 	bool b = false;
-	LOG_DEBUG("locking - player_should_abort_load");
+	//LOG_DEBUG("locking - player_should_abort_load");
 	pthread_mutex_lock( &player->the_lock );
 	b = player->load_abort_requested;
-	LOG_DEBUG("unlocking - player_should_abort_load");
+	//LOG_DEBUG("unlocking - player_should_abort_load");
 	pthread_mutex_unlock( &player->the_lock );
 	return b;
 }
