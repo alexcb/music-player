@@ -232,6 +232,7 @@ class ModelCtrl(object):
         self._playlists = None
         self._albums_by_artist = None
         self._active_playlist = 'default'
+        self._current_track = None
 
     def ready(self):
         if self._playing is None:
@@ -272,7 +273,7 @@ class ModelCtrl(object):
                 xx = self._path_lookup[x['path']].copy()
                 xx['id'] = x['id']
                 tracks.append(xx)
-            playlists[k] = Playlist(tracks, self._current_track.get('id'))
+            playlists[k] = Playlist(tracks, self.get_current_track_id())
         self._playlists = playlists
 
     def new_playlist(self, playlist):
@@ -298,6 +299,11 @@ class ModelCtrl(object):
 
     def get_current_track(self):
         return self._current_track
+
+    def get_current_track_id(self):
+        if self._current_track is None:
+            return None
+        return self._current_track.get('id')
 
     def save_and_play_playlist(self, playlist_name, tracks, index, when):
         log("call to save_and_play_playlist")

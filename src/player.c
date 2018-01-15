@@ -548,7 +548,7 @@ void player_audio_thread_run( void *data )
 			continue;
 		}
 
-		LOG_DEBUG( "p=p path=s popped play queue item", pqi->buf_start, player->current_track->track->path );
+		LOG_DEBUG( "p=p path=s popped play queue item", pqi->buf_start, pqi->playlist_item->track->path );
 		player->current_track = pqi->playlist_item;
 		pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
 		play_queue_pop( &player->play_queue );
