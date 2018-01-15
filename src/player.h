@@ -46,7 +46,6 @@ typedef struct Player
 	MetadataObserver *metadata_observers;
 	void **metadata_observers_data;
 
-	bool stop_next;
 	pthread_cond_t load_cond;
 
 	PlaylistItem *current_track;

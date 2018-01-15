@@ -25,4 +25,5 @@ int play_queue_init( PlayQueue *pq );
 int play_queue_add( PlayQueue *pq, PlayQueueItem **item );
 int play_queue_head( PlayQueue *pq, PlayQueueItem **item );
 int play_queue_pop( PlayQueue *pq );
+int play_queue_size( PlayQueue *pq );
 void play_queue_clear( PlayQueue *pq );

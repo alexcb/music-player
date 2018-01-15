@@ -1,24 +1,36 @@
 #include "circular_buffer.h"
+#include "log.h"
 
 #include <stdlib.h>
 #include <assert.h>
 
-int init_circular_buffer( CircularBuffer *cb, size_t buffer_size )
+int init_circular_buffer( CircularBuffer *buffer, size_t buffer_size )
 {
-	cb->read = 0;
-	cb->write = 0;
-	cb->size = buffer_size;
-	cb->len = 0;
-	cb->lock_reads = 0;
-	cb->read_reserved = 0;
+	buffer->read = 0;
+	buffer->write = 0;
+	buffer->size = buffer_size;
+	buffer->len = 0;
+	buffer->lock_reads = 0;
+	buffer->read_reserved = 0;
 
-	pthread_mutex_init( &cb->lock, NULL );
+	pthread_mutex_init( &buffer->lock, NULL );
 
-	cb->p = (char*) malloc( buffer_size );
-	if( cb->p == NULL ) {
+	buffer->p = (char*) malloc( buffer_size );
+	if( buffer->p == NULL ) {
 		return 1;
 	}
 	return 0;
+}
+
+void buffer_clear( CircularBuffer *buffer )
+{
+	pthread_mutex_lock( &buffer->lock );
+
+	buffer->read = 0;
+	buffer->write = 0;
+	buffer->len = 0;
+
+	pthread_mutex_unlock( &buffer->lock );
 }
 
 int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, char **p, size_t *reserved_size )
@@ -116,6 +128,28 @@ void buffer_mark_read( CircularBuffer *buffer, size_t n )
 {
 	pthread_mutex_lock( &buffer->lock );
 	buffer->read += n;
+	pthread_mutex_unlock( &buffer->lock );
+}
+
+void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
+{
+	pthread_mutex_lock( &buffer->lock );
+	size_t n = p - buffer->p;
+	if( n > buffer->read ) {
+		buffer->read = n;
+	} else if( n < buffer->read ) {
+		// loop around
+		buffer->read = n;
+		buffer->len = 0;
+	}
+	//if n == buffer->read
+	//  we assume nothing has happened rather than removing the whole buffer
+
+	//LOG_DEBUG("p=p n=p buffer_mark_read_upto", p, n);
+	//if( n == 0 && buffer->read != n ) {
+	//	buffer->len = 0;
+	//}
+	//buffer->read = n;
 	pthread_mutex_unlock( &buffer->lock );
 }
 

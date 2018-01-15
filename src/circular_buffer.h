@@ -9,19 +9,21 @@ typedef struct CircularBuffer
 	int read;
 	int write;
 	int size;
-	int len;
+	int len; // when len is set, this means there's valid data from current read up until this value
 	int read_reserved;
 	int lock_reads;
 } CircularBuffer;
 
 
 int init_circular_buffer( CircularBuffer *buffer, size_t buffer_size );
+void buffer_clear( CircularBuffer *buffer );
 
 int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, size_t *reserved_size );
 int get_buffer_read( CircularBuffer *buffer, char **p, size_t *reserved_size );
 
 void buffer_mark_written( CircularBuffer *buffer, size_t n );
 void buffer_mark_read( CircularBuffer *buffer, size_t n );
+void buffer_mark_read_upto( CircularBuffer *buffer, char *p );
 
 void buffer_rewind_lock( CircularBuffer *buffer );
 int buffer_rewind_unsafe( CircularBuffer *buffer, char *p );

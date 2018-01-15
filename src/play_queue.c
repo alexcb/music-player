@@ -35,6 +35,17 @@ int play_queue_head( PlayQueue *pq, PlayQueueItem **item )
 	return 0;
 }
 
+int play_queue_size( PlayQueue *pq )
+{
+	if( pq->rear == -1 && pq->front == -1 )
+		return 0;
+	if( pq->rear == pq->front )
+		return 1;
+	if( pq->rear > pq->front ) 
+		return pq->rear - pq->front + 1;
+	return PLAY_QUEUE_CAP - pq->front + pq->rear;
+}
+
 void play_queue_clear( PlayQueue *pq )
 {
 	PlayQueueItem *pqi;

@@ -2,21 +2,25 @@ CC=gcc
 CCFLAGS=-g -std=gnu11 -I./src -Wall -Werror `./use-pi-def.sh`
 LDFLAGS=-lao -lmpg123 -lmicrohttpd -lpthread -lm -ljson-c -lssl -lcrypto `./use-pi-lib.sh`
 
-TARGET=my123
-
 SRC=$(wildcard src/**/*.c src/*.c)
 OBJ=$(SRC:%.c=%.o)
 
+TESTSRC=$(wildcard tests/**/*.c tests/*.c)
+TESTOBJ=$(TESTSRC:%.c=%.o)
+
 OBJWITHOUTMAIN := $(filter-out src/main.o,$(OBJ))
 
-build: $(TARGET)
+build: my123 test
 
-$(TARGET): $(OBJ)
-	$(CC) $(CCFLAGS) -o $(TARGET) $^ $(LDFLAGS)
+my123: $(OBJ)
+	$(CC) $(CCFLAGS) -o my123 $^ $(LDFLAGS)
+
+test: $(OBJWITHOUTMAIN) $(TESTOBJ)
+	$(CC) $(CCFLAGS) -o test $^ $(LDFLAGS)
 
 # To obtain object files
 %.o: %.c
 	$(CC) -c $(CCFLAGS) $< -o $@
 
 clean:
-	rm -f $(TARGET) test $(OBJ) $(TESTOBJ)
+	rm -f my123 test $(OBJ) $(TESTOBJ)
