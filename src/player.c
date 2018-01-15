@@ -627,7 +627,9 @@ void player_audio_thread_run( void *data )
 				num_read += chunk_size;
 			}
 
+			LOG_DEBUG("marking buffer chunk");
 			buffer_mark_read( &player->circular_buffer, num_read );
+			LOG_DEBUG("done marking buffer chunk");
 		}
 	}
 }
