@@ -7,33 +7,20 @@ import threading
 import time
 import websocket
 import os
-from functools import wraps
+import traceback
+from log import log, log_duration
 
 
 from collections import defaultdict
 
 from key_mapping import get_ch, MOUSE_EVENT, KEY_EVENT
 from spinner import get_random_spinner
+from playlist import Playlist
 
 import locale
 import curses
 import curses.ascii
 
-the_log = open(os.path.expanduser('~/.music-ui.log'), 'w')
-def log(s):
-    if not isinstance(s, basestring):
-        s = repr(s)
-    the_log.write(s+'\n')
-    the_log.flush()
-
-def log_duration(fn):
-    def _decorator(*args, **kwargs):
-        started = time.time()
-        response = fn(*args, **kwargs)
-        duration = time.time() - started
-        log('%s took %s seconds' % (fn.__name__, duration))
-        return response
-    return wraps(fn)(_decorator)
 
 def get_parser():
     parser = argparse.ArgumentParser(description='control me the hits')
@@ -42,12 +29,14 @@ def get_parser():
 
 def get_websocket_worker(host, cb):
     def on_message(ws, message):
-        log(message)
+        log('got websocket message: %s' % (message,))
         track = None
         playing = None
         try:
             status = json.loads(message)
-            playing = 'Playing' if status['playing'] else 'Paused'
+            if status.get('type') == 'welcome':
+                return
+            playing = status['playing']
             del status['playing']
             if status:
                 track = status
@@ -274,8 +263,8 @@ class ModelCtrl(object):
                     }
 
     def refresh_playlists(self):
-        self._playlists = {
-            'default': [],
+        playlists = {
+            'default': Playlist(),
             }
         for k, v in get_playlists(self._host).iteritems():
             tracks = []
@@ -283,22 +272,24 @@ class ModelCtrl(object):
                 xx = self._path_lookup[x['path']].copy()
                 xx['id'] = x['id']
                 tracks.append(xx)
-            self._playlists[k] = tracks
-        self.new_playlist('default')
+            playlists[k] = Playlist(tracks, self._current_track.get('id'))
+        self._playlists = playlists
 
     def new_playlist(self, playlist):
         if playlist not in self._playlists:
-            self._playlists[playlist] = []
+            self._playlists[playlist] = Playlist()
 
-    def change_playing(self, playing, track_id):
-        log("change_playing: %s %s" % (playing, track_id))
+    def change_playing(self, playing, track_data):
+        log("change_playing: %s %s" % (playing, track_data))
         self._playing = playing
-        self._current_track = track_id
+        self._current_track = track_data
+        for p in self._playlists.itervalues():
+            p.set_playing(track_data.get('id'))
 
     def get_track_meta(self, track_id):
         path = None
         for v in self._playlists.itervalues():
-            for t in v:
+            for t in v._tracks:
                 if t['id'] == track_id:
                     path = t['path']
         if path is None:
@@ -309,8 +300,11 @@ class ModelCtrl(object):
         return self._current_track
 
     def save_and_play_playlist(self, playlist_name, tracks, index, when):
+        log("call to save_and_play_playlist")
         self.save_playlist(playlist_name, tracks)
+        log("calling playplaylist")
         playplaylist(self._host, playlist_name, index, when)
+        log("calling playplaylist done")
 
     def toggle_pause(self):
         r = requests.post('http://%s/pause' % self._host)
@@ -333,7 +327,7 @@ def run(host):
             model_ctrl.refresh_playlists()
             log('refresh done')
         except Exception as e:
-            log(e)
+            log(traceback.format_exc())
             def wrapped():
                 raise RuntimeError(str(e))
             model_ctrl.ready = wrapped

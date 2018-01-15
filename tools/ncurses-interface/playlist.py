@@ -1,16 +1,53 @@
 import itertools
 
+from log import log, log_duration
+
 class Playlist(object):
-    def __init__(self, tracks, playing_id=None):
+    def __init__(self, tracks=None, playing_id=None):
+        if tracks is None:
+            tracks = []
         self._tracks = tracks
-        self._playing_id = playing_id
+
+        self._playing_track_pos = None
+        self._playing_album_pos = None
         self._build_album_view()
+        if playing_id is not None:
+            self.set_playing(playing_id)
+
+    def append(self, track):
+        self._tracks.append(track)
+        self._build_album_view()
+
+    def extend(self, tracks):
+        self._tracks.extend(tracks)
+        self._build_album_view()
+
+    def set_playing(self, playing_id):
+        try:
+            self._playing_track_pos = (i for i, x in enumerate(self._tracks) if x.get('id') == playing_id).next()
+        except StopIteration:
+            self._playing_track_pos = None
+
+        if self._playing_track_pos is not None:
+            try:
+                self._playing_album_pos = (i for i, x in enumerate(self._albums) if x['start'] <= self._playing_track_pos < x['end']).next()
+            except StopIteration:
+                self._playing_album_pos = None
+        else:
+            self._playing_album_pos = None
+
+        log('playing_id: %s track: %s album: %s' % (playing_id, self._playing_track_pos, self._playing_album_pos))
+
+    def get_playing_track_index(self):
+        return self._playing_track_pos
+
+    def get_playing_album_index(self):
+        return self._playing_album_pos
 
     def _build_album_view(self):
         self._albums = []
 
         album = None
-        playing = False
         length = 0
         start = 0
 
@@ -18,16 +55,14 @@ class Playlist(object):
             if album and track['album'] != album:
                 self._albums.append({
                     'artist': artist,
-                    'id': self._tracks[start]['id'],
+                    'id': self._tracks[start].get('id'),
                     'album': album,
                     'length': length,
                     'length': length,
                     'year': year,
-                    'playing': playing,
                     'start': start,
                     'end': i,
                     })
-                playing = False
                 length = 0
                 start = i
             length += track['length']
@@ -35,46 +70,43 @@ class Playlist(object):
             album = track['album']
             year = track['year']
 
-        self._albums.append({
-            'artist': artist,
-            'id': self._tracks[start]['id'],
-            'album': album,
-            'length': length,
-            'length': length,
-            'year': year,
-            'playing': playing,
-            'start': start,
-            'end': len(self._tracks),
-            })
+        if album:
+            self._albums.append({
+                'artist': artist,
+                'id': self._tracks[start].get('id'),
+                'album': album,
+                'length': length,
+                'length': length,
+                'year': year,
+                'start': start,
+                'end': len(self._tracks),
+                })
 
-    def move_track(self, track_id, direction):
-        pos = None
-        for i, track in enumerate(self._tracks):
-            if track['id'] == track_id:
-                pos = i
-                break
-        if pos is None:
-            raise KeyError(track_id)
+    def move_track(self, pos, direction):
+        #pos = None
+        #for i, track in enumerate(self._tracks):
+        #    if track['id'] == track_id:
+        #        pos = i
+        #        break
+        #if pos is None:
+        #    raise KeyError(track_id)
+
+        if pos < 0 or pos >= len(self._tracks):
+            return
+        x = self._tracks.pop(pos)
 
         new_pos = pos + direction
         if new_pos < 0:
             new_pos = 0
         if new_pos >= len(self._tracks):
-            new_pos = len(self._tracks) - 1
+            new_pos = len(self._tracks)
 
-        self._tracks.insert(new_pos, self._tracks.pop(pos))
+        self._tracks.insert(new_pos, x)
         self._build_album_view()
 
-    def move_album(self, id, direction):
-        pos = None
-        album_i = None
-        for i, album in enumerate(self._albums):
-            if album['id'] == id:
-                pos = (album['start'], album['end'])
-                album_i = i
-                break
-        if pos is None:
-            raise KeyError(id)
+    def move_album(self, album_i, direction):
+        album = self._albums[album_i]
+        pos = (album['start'], album['end'])
 
         to_move = self._tracks[pos[0]:pos[1]]
 
