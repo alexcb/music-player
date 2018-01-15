@@ -260,6 +260,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 		LOG_ERROR( "unable to open" );
 		goto done;
 	}
+	LOG_DEBUG("path=s opened file in reader", full_path);
 
 	mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0);
 
