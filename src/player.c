@@ -523,38 +523,38 @@ void player_audio_thread_run( void *data )
 	for(;;) {
 		//LOG_DEBUG("locking - player_audio_thread_run");
 		pthread_mutex_lock( &player->the_lock );
+
+		if( player->current_track ) {
+			playlist_item_ref_down(player->current_track);
+			player->current_track = NULL;
+		}
+
 		if( player->stop_next ) {
-			usleep(100);
-			//LOG_DEBUG("unlocking - player_audio_thread_run 2");
 			pthread_mutex_unlock( &player->the_lock );
+			usleep(50000); // 50ms
 			continue; // don't move on to next song, a playlist change is currently happening
 		}
 		res = play_queue_head( &player->play_queue, &pqi );
-		if( !res ) {
-			if( player->current_track ) {
-				playlist_item_ref_down(player->current_track);
-			}
-			player->current_track = pqi->playlist_item;
-			LOG_DEBUG( "p=p path=s popped play queue item", pqi->buf_start, player->current_track->track->path );
-			pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
-			play_queue_pop( &player->play_queue );
-		}
-		//LOG_DEBUG("unlocking - player_audio_thread_run 2");
-		pthread_mutex_unlock( &player->the_lock );
 		if( res ) {
-			// notify nothing is playing
+
+			pthread_mutex_unlock( &player->the_lock );
+
 			if( !notified_no_songs ) {
-				LOG_DEBUG( "nothing in the play queue" );
-				if( player->current_track ) {
-					playlist_item_ref_down(player->current_track);
-				}
-				player->current_track = NULL;
 				call_observers( player );
 				notified_no_songs = true;
 			}
-			usleep(1000);
+			usleep(50000); //50ms
 			continue;
 		}
+
+		LOG_DEBUG( "p=p path=s popped play queue item", pqi->buf_start, player->current_track->track->path );
+		player->current_track = pqi->playlist_item;
+		pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
+		play_queue_pop( &player->play_queue );
+		
+		//LOG_DEBUG("unlocking - player_audio_thread_run 2");
+		pthread_mutex_unlock( &player->the_lock );
+
 		notified_no_songs = false;
 		last_play_state = !player->playing;
 
