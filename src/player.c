@@ -273,7 +273,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 		res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 		if( res ) {
 			if( player_should_abort_load( player )) { goto done; }
-			usleep(100);
+			usleep(50000); // 50ms
 			continue;
 		}
 		break;
