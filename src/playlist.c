@@ -189,7 +189,7 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 	PlaylistItem *n = NULL;
 
 	p = old_root;
-	LOG_DEBUG("before");
+	LOG_DEBUG("playlist_update start");
 	while( p ) {
 		//LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
 		p = p->next;
@@ -236,13 +236,14 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 		p = x;
 	}
 
-	p = playlist->root;
-	LOG_DEBUG("after");
-	while( p ) {
-		//LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
-		p = p->next;
-	}
+	//p = playlist->root;
+	//LOG_DEBUG("after");
+	//while( p ) {
+	//	//LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
+	//	p = p->next;
+	//}
 	
+	LOG_DEBUG("playlist_update done");
 	return 0;
 }
 
