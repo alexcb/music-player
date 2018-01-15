@@ -562,7 +562,7 @@ void player_audio_thread_run( void *data )
 			num_read = 0;
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
-				usleep(1000);
+				usleep(50000); // 50ms
 				continue;
 			}
 
