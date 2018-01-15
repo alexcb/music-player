@@ -521,11 +521,11 @@ void player_audio_thread_run( void *data )
 	bool last_play_state;
 	
 	for(;;) {
-		LOG_DEBUG("locking - player_audio_thread_run");
+		//LOG_DEBUG("locking - player_audio_thread_run");
 		pthread_mutex_lock( &player->the_lock );
 		if( player->stop_next ) {
 			usleep(100);
-			LOG_DEBUG("unlocking - player_audio_thread_run 2");
+			//LOG_DEBUG("unlocking - player_audio_thread_run 2");
 			pthread_mutex_unlock( &player->the_lock );
 			continue; // don't move on to next song, a playlist change is currently happening
 		}
@@ -539,7 +539,7 @@ void player_audio_thread_run( void *data )
 			pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
 			play_queue_pop( &player->play_queue );
 		}
-		LOG_DEBUG("unlocking - player_audio_thread_run 2");
+		//LOG_DEBUG("unlocking - player_audio_thread_run 2");
 		pthread_mutex_unlock( &player->the_lock );
 		if( res ) {
 			// notify nothing is playing
