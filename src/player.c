@@ -43,6 +43,8 @@ int init_player( Player *player, const char *library_path )
 
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
+	mpg123_format_none( player->mh );
+	mpg123_format( player->mh, 44100, MPG123_STEREO, MPG123_ENC_SIGNED_16 );
 
 	player->decode_buffer_size = mpg123_outblock( player->mh );
 	player->decode_buffer = malloc(player->decode_buffer_size);
