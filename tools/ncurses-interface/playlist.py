@@ -44,6 +44,15 @@ class Playlist(object):
     def get_playing_album_index(self):
         return self._playing_album_pos
 
+    def get_corresponding_album_index(self, track_index):
+        try:
+            return (i for i, x in enumerate(self._albums) if x['start'] <= track_index < x['end']).next()
+        except StopIteration:
+            return None
+
+    def get_corresponding_track_index(self, album_index):
+        return self._albums[album_index]['start']
+
     def _build_album_view(self):
         self._albums = []
 
@@ -127,6 +136,18 @@ class Playlist(object):
         without = self._tracks[:pos[0]] + self._tracks[pos[1]:]
 
         self._tracks = without[:new_pos] + to_move + without[new_pos:]
+        self._build_album_view()
+
+    def remove_track(self, pos):
+        self._tracks.pop(pos)
+        self._build_album_view()
+
+    def remove_album(self, pos):
+        album = self._albums[pos]
+        pos = (album['start'], album['end'])
+
+        self._tracks = self._tracks[:pos[0]] + self._tracks[pos[1]:]
+        self._build_album_view()
 
 
 

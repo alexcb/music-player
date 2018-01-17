@@ -217,6 +217,12 @@ class UI(object):
                 elif key == ord('n') and self._selected_widget != self._search_widget:
                     self._search_widget.set_mode('New Playlist', None, self._on_new_playlist, self._album_widget)
                     self.set_focus(self._search_widget)
+                elif key == ord('g') and self._selected_widget != self._search_widget:
+                    self._playlist_widget.toggle_mode()
+                elif key == 'ctrl-left':
+                    self._playlist_widget.prev_playlist()
+                elif key == 'ctrl-right':
+                    self._playlist_widget.next_playlist()
                 elif key == ord('p') and self._selected_widget != self._search_widget:
                     self._mc.toggle_pause()
                 elif key == ord('q') and self._selected_widget != self._search_widget:

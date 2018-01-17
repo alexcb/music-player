@@ -110,9 +110,12 @@ class AlbumsWidget(object):
     def filter(self, text):
         self._filter = text
         self._lines = list(self._get_lines_helper())
+        self._selected = 0
 
 
     def handle_key(self, key):
+        if self._lines is None:
+            return
         if self._selected < len(self._lines):
             selected_item = self._lines[self._selected][0]
         else:

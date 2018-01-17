@@ -180,6 +180,14 @@ class PlaylistWidget(object):
     def switch_albums(self, i, j):
         pass
 
+    def _remove_selected(self):
+        playlist = self._parent._mc._playlists[self._selected_playlist]
+
+        if self._mode == track_mode:
+            playlist.remove_track(self._selected)
+        if self._mode == album_mode:
+            playlist.remove_album(self._selected)
+
     def handle_key(self, key):
         tracks = self._parent._mc._playlists[self._selected_playlist]._tracks
         albums = self._parent._mc._playlists[self._selected_playlist]._albums
@@ -205,10 +213,7 @@ class PlaylistWidget(object):
         elif key == 'left':
             self._parent.set_focus(self._parent._album_widget)
         elif key == ord(' '):
-            if self._selected < len(tracks):
-                del tracks[self._selected]
-                if self._selected >= len(tracks):
-                    self._selected = max(len(tracks) - 1, 0)
+            self._remove_selected()
         elif key == 'ctrl-up':
             self._move_selected(-1)
         elif key == 'ctrl-down':
@@ -227,12 +232,20 @@ class PlaylistWidget(object):
             tracks = [(x['path'], x.get('id')) for x in tracks]
             self._parent._mc.save_playlist(self._selected_playlist, tracks)
         elif key == ord('g'):
-            if self._mode == track_mode:
-                self._mode = album_mode
-            else:
-                self._mode = track_mode
+            self.toggle_mode()
         elif key == ord('n'):
             asdfasdf
+
+    def toggle_mode(self):
+        playlist = self._parent._mc._playlists[self._selected_playlist]
+        if self._mode == track_mode:
+            self._mode = album_mode
+            self._selected = playlist.get_corresponding_album_index(self._selected) or 0
+            self._first_displayed = self._selected
+        else:
+            self._mode = track_mode
+            self._selected = playlist.get_corresponding_track_index(self._selected) or 0
+            self._first_displayed = self._selected
 
     def got_cursor(self):
         self._has_cursor = True
