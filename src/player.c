@@ -578,13 +578,19 @@ void player_audio_thread_run( void *data )
 		notified_no_songs = false;
 		last_play_state = !player->playing;
 
+		bool out_of_buffer_logged = false;
 		for(;;) {
 			num_read = 0;
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
+				if( out_of_buffer_logged == false ) {
+					LOG_DEBUG( "out of buffer" );
+					out_of_buffer_logged = true;
+				}
 				usleep(50000); // 50ms
 				continue;
 			}
+			out_of_buffer_logged = false;
 
 			payload_id = *(unsigned char*) p;
 			p++;

@@ -1,5 +1,6 @@
 #include "circular_buffer.h"
 #include "log.h"
+#include "timing.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -119,20 +120,36 @@ int get_buffer_read( CircularBuffer *buffer, char **p, size_t *reserved_size )
 
 void buffer_mark_written( CircularBuffer *buffer, size_t n )
 {
+	long start = get_current_time_ms();
+
 	pthread_mutex_lock( &buffer->lock );
 	buffer->write += n;
 	pthread_mutex_unlock( &buffer->lock );
+
+	long duration = get_current_time_ms() - start;
+	if( duration > 100 ) {
+		LOG_WARN("buffer_mark_written took longer than 100ms");
+	}
 }
 
 void buffer_mark_read( CircularBuffer *buffer, size_t n )
 {
+	long start = get_current_time_ms();
+
 	pthread_mutex_lock( &buffer->lock );
 	buffer->read += n;
 	pthread_mutex_unlock( &buffer->lock );
+
+	long duration = get_current_time_ms() - start;
+	if( duration > 100 ) {
+		LOG_WARN("buffer_mark_read took longer than 100ms");
+	}
 }
 
 void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 {
+	long start = get_current_time_ms();
+
 	pthread_mutex_lock( &buffer->lock );
 	size_t n = p - buffer->p;
 	if( n > buffer->read ) {
@@ -151,13 +168,25 @@ void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 	//}
 	//buffer->read = n;
 	pthread_mutex_unlock( &buffer->lock );
+
+	long duration = get_current_time_ms() - start;
+	if( duration > 100 ) {
+		LOG_WARN("buffer_mark_read_upto took longer than 100ms");
+	}
 }
 
 void buffer_rewind_lock( CircularBuffer *buffer )
 {
+	long start = get_current_time_ms();
+
 	pthread_mutex_lock( &buffer->lock );
 	buffer->lock_reads = 1;
 	pthread_mutex_unlock( &buffer->lock );
+
+	long duration = get_current_time_ms() - start;
+	if( duration > 100 ) {
+		LOG_WARN("buffer_rewind_lock took longer than 100ms");
+	}
 }
 
 int buffer_rewind_unsafe( CircularBuffer *buffer, char *p )
@@ -170,6 +199,7 @@ int buffer_rewind_unsafe( CircularBuffer *buffer, char *p )
 	}
 	buffer->write = w;
 	buffer->len = 0;
+
 	return 0;
 
 //	int res = 0;
