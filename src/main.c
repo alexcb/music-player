@@ -19,6 +19,7 @@
 #include "my_data.h"
 #include "web.h"
 #include "streams.h"
+#include "timing.h"
 
 #ifdef USE_RASP_PI
 #include "raspbpi.h"
@@ -57,6 +58,8 @@ int main(int argc, char *argv[])
 	set_log_level_string( log_level ? log_level : "INFO" );
 
 	ignore_singal_init();
+
+	srand( get_current_time_ms() );
 
 	int res;
 	Player player;
