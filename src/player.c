@@ -159,6 +159,7 @@ int player_change_next_album( Player *player, int when )
 			p = player->current_track->parent->root;
 		}
 
+		LOG_DEBUG("path=d skipping to new track", p->track->path);
 		res = player_change_track( player, p, when );
 	}
 
