@@ -72,7 +72,10 @@ void* gpio_input_thread_run( void *p )
 					num_quick_play_toggles++;
 					if( num_quick_play_toggles == 3 ) {
 						LOG_INFO("3 play toggles detected, skipping to next artist");
-						player_change_next_album( player, TRACK_CHANGE_IMMEDIATE );
+						res = player_change_next_album( player, TRACK_CHANGE_IMMEDIATE );
+						if( res != 0 ) {
+							LOG_ERROR("err=d failed to change to next album", res);
+						}
 						num_quick_play_toggles = 0;
 					}
 				} else {
