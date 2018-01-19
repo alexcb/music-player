@@ -674,7 +674,7 @@ void player_audio_thread_run( void *data )
 				if( !player->playing ) {
 					if( strstr(player->current_track->track->path, "http://") == NULL ) {
 						// regular file, busy-wait until we can play again
-						usleep(100);
+						usleep(10000);
 						continue;
 					}
 				} else {

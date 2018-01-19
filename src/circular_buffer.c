@@ -36,9 +36,7 @@ void buffer_clear( CircularBuffer *buffer )
 	pthread_mutex_unlock( &buffer->lock );
 
 	long duration = get_current_time_ms() - start;
-	if( duration > 100 ) {
-		LOG_WARN("buffer_clear took longer than 100ms");
-	}
+	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
 }
 
 int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, char **p, size_t *reserved_size )
@@ -90,9 +88,7 @@ int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, 
 	pthread_mutex_unlock( &buffer->lock );
 
 	long duration = get_current_time_ms() - start;
-	if( duration > 100 ) {
-		LOG_WARN("get_buffer_write took longer than 100ms");
-	}
+	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
 
 	return res;
 }
@@ -133,9 +129,7 @@ int get_buffer_read( CircularBuffer *buffer, char **p, size_t *reserved_size )
 	pthread_mutex_unlock( &buffer->lock );
 
 	long duration = get_current_time_ms() - start;
-	if( duration > 100 ) {
-		LOG_WARN("get_buffer_read took longer than 100ms");
-	}
+	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
 
 	return res;
 }
@@ -150,9 +144,7 @@ void buffer_mark_written( CircularBuffer *buffer, size_t n )
 	pthread_mutex_unlock( &buffer->lock );
 
 	long duration = get_current_time_ms() - start;
-	if( duration > 100 ) {
-		LOG_WARN("buffer_mark_written took longer than 100ms");
-	}
+	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
 }
 
 void buffer_mark_read( CircularBuffer *buffer, size_t n )
@@ -164,9 +156,7 @@ void buffer_mark_read( CircularBuffer *buffer, size_t n )
 	pthread_mutex_unlock( &buffer->lock );
 
 	long duration = get_current_time_ms() - start;
-	if( duration > 100 ) {
-		LOG_WARN("buffer_mark_read took longer than 100ms");
-	}
+	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
 }
 
 void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
@@ -193,9 +183,7 @@ void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 	pthread_mutex_unlock( &buffer->lock );
 
 	long duration = get_current_time_ms() - start;
-	if( duration > 100 ) {
-		LOG_WARN("buffer_mark_read_upto took longer than 100ms");
-	}
+	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
 }
 
 void buffer_rewind_lock( CircularBuffer *buffer )
@@ -207,9 +195,7 @@ void buffer_rewind_lock( CircularBuffer *buffer )
 	pthread_mutex_unlock( &buffer->lock );
 
 	long duration = get_current_time_ms() - start;
-	if( duration > 100 ) {
-		LOG_WARN("buffer_rewind_lock took longer than 100ms");
-	}
+	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
 }
 
 int buffer_rewind_unsafe( CircularBuffer *buffer, char *p )
