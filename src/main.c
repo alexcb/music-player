@@ -39,6 +39,17 @@ void ignore_singal_init() {
 }
 
 
+PlaylistItem* get_random_track(PlaylistItem *p) {
+	int num_tracks = 0;
+	for( PlaylistItem *q = p; q != NULL; q = q->next ) {
+		num_tracks++;
+	}
+	int r = rand() % num_tracks;
+	for( ; r > 0; r-- ) {
+		p = p->next;
+	}
+	return p;
+}
 
 int main(int argc, char *argv[])
 {
@@ -116,8 +127,9 @@ int main(int argc, char *argv[])
 	Playlist *default_playlist;
 	res = playlist_manager_get_playlist( &playlist_manager, "default", &default_playlist );
 	if( res == 0 ) {
-		if( default_playlist->root ) {
-			player_change_track( &player, default_playlist->root, TRACK_CHANGE_IMMEDIATE );
+		PlaylistItem *p = get_random_track( default_playlist->root );
+		if( p ) {
+			player_change_track( &player, p, TRACK_CHANGE_IMMEDIATE );
 			player.playing = true;
 		}
 	} else {
