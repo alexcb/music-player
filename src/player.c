@@ -125,6 +125,22 @@ void stop_loader( Player *player )
 	LOG_DEBUG("track loader is stopped");
 }
 
+int player_change_track_unsafe( Player *player, PlaylistItem *playlist_item, int when )
+{
+	LOG_DEBUG("player_change_track -- set next_track=true");
+	player->next_track = true;
+
+	if( when == TRACK_CHANGE_IMMEDIATE ) {
+		stop_loader( player );
+	}
+
+	LOG_DEBUG("player_change_track -- rewinding");
+	player_rewind_buffer_unsafe( player );
+	player->playlist_item_to_buffer_override = playlist_item;
+
+	return 0;
+}
+
 int player_change_next_album( Player *player, int when )
 {
 	int res = 1;
@@ -143,7 +159,7 @@ int player_change_next_album( Player *player, int when )
 			p = player->current_track->parent->root;
 		}
 
-		res = player_change_track( player, p, when )
+		res = player_change_track( player, p, when );
 	}
 
 	pthread_mutex_unlock( &player->the_lock );
@@ -166,22 +182,6 @@ int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 	pthread_mutex_unlock( &player->the_lock );
 
 	return res;
-}
-
-int player_change_track_unsafe( Player *player, PlaylistItem *playlist_item, int when )
-{
-	LOG_DEBUG("player_change_track -- set next_track=true");
-	player->next_track = true;
-
-	if( when == TRACK_CHANGE_IMMEDIATE ) {
-		stop_loader( player );
-	}
-
-	LOG_DEBUG("player_change_track -- rewinding");
-	player_rewind_buffer_unsafe( player );
-	player->playlist_item_to_buffer_override = playlist_item;
-
-	return 0;
 }
 
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item )
