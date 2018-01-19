@@ -80,6 +80,8 @@ void player_rewind_buffer_unsafe( Player *player );
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );
 
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when );
+int player_change_next_album( Player *player, int when );
+
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item );
 
 void player_set_playing( Player *player, bool playing );
