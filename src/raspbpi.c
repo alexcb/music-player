@@ -68,7 +68,7 @@ void* gpio_input_thread_run( void *p )
 				long diff = current_time - last_time_playing;
 				LOG_INFO("diff=d numtog=d here", diff, num_quick_play_toggles);
 
-				if( diff < 1000 ) {
+				if( diff < 3000 ) {
 					num_quick_play_toggles++;
 					if( num_quick_play_toggles == 3 ) {
 						LOG_INFO("3 play toggles detected, skipping to next artist");
