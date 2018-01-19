@@ -25,6 +25,8 @@ int init_circular_buffer( CircularBuffer *buffer, size_t buffer_size )
 
 void buffer_clear( CircularBuffer *buffer )
 {
+	long start = get_current_time_ms();
+
 	pthread_mutex_lock( &buffer->lock );
 
 	buffer->read = 0;
@@ -32,6 +34,11 @@ void buffer_clear( CircularBuffer *buffer )
 	buffer->len = 0;
 
 	pthread_mutex_unlock( &buffer->lock );
+
+	long duration = get_current_time_ms() - start;
+	if( duration > 100 ) {
+		LOG_WARN("buffer_clear took longer than 100ms");
+	}
 }
 
 int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, char **p, size_t *reserved_size )
@@ -74,11 +81,19 @@ int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, cha
 
 int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, size_t *reserved_size )
 {
+	long start = get_current_time_ms();
+
 	int res;
 	res = pthread_mutex_lock( &buffer->lock );
 	assert( !res );
 	res = get_buffer_write_unsafe( buffer, min_buffer_size, p, reserved_size );
 	pthread_mutex_unlock( &buffer->lock );
+
+	long duration = get_current_time_ms() - start;
+	if( duration > 100 ) {
+		LOG_WARN("get_buffer_write took longer than 100ms");
+	}
+
 	return res;
 }
 
@@ -110,10 +125,18 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_s
 
 int get_buffer_read( CircularBuffer *buffer, char **p, size_t *reserved_size )
 {
+	long start = get_current_time_ms();
+
 	int res;
 	pthread_mutex_lock( &buffer->lock );
 	res = get_buffer_read_unsafe( buffer, p, reserved_size );
 	pthread_mutex_unlock( &buffer->lock );
+
+	long duration = get_current_time_ms() - start;
+	if( duration > 100 ) {
+		LOG_WARN("get_buffer_read took longer than 100ms");
+	}
+
 	return res;
 }
 
