@@ -66,6 +66,8 @@ void* gpio_input_thread_run( void *p )
 				// was just switched on
 				current_time = get_current_time_ms();
 				long diff = current_time - last_time_playing;
+				LOG_INFO("diff=d numtog=d here", diff, num_quick_play_toggles);
+
 				if( diff < 1000 ) {
 					num_quick_play_toggles++;
 					if( num_quick_play_toggles == 3 ) {
