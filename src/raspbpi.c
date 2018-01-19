@@ -77,6 +77,7 @@ void* gpio_input_thread_run( void *p )
 				} else {
 					num_quick_play_toggles = 0;
 				}
+				last_time_playing = current_time;
 			}
 
 		}
