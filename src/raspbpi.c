@@ -2,6 +2,7 @@
 
 #include "raspbpi.h"
 
+#include "timing.h"
 #include "log.h"
 
 #include <pthread.h>
@@ -31,6 +32,9 @@ pthread_cond_t gpio_input_changed_cond;
 int last_play_switch;
 int cur_play_switch;
 
+int num_quick_play_toggles = 0;
+long last_time_playing = 0;
+
 void switchIntHandler()
 {
 	cur_play_switch = digitalRead( PIN_SWITCH );
@@ -39,6 +43,7 @@ void switchIntHandler()
 
 void* gpio_input_thread_run( void *p )
 {
+	long current_time;
 	int res;
 	Player *player = (Player*) p;
 	pthread_mutex_t mutex;
@@ -56,6 +61,22 @@ void* gpio_input_thread_run( void *p )
 			LOG_DEBUG("TOGGLE PAUSE");
 			player->playing = !player->playing;
 			last_play_switch = cur_play_switch;
+
+			if( player->playing ) {
+				// was just switched on
+				current_time = get_current_time_ms();
+				long diff = current_time - last_time_playing;
+				if( diff < 1000 ) {
+					num_quick_play_toggles++;
+					if( num_quick_play_toggles == 3 ) {
+						LOG_INFO("3 play toggles detected, skipping to next artist");
+						num_quick_play_toggles = 0;
+					}
+				} else {
+					num_quick_play_toggles = 0;
+				}
+			}
+
 		}
 
 		//data->player->playing = play_switch;
