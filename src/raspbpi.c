@@ -32,7 +32,7 @@ pthread_cond_t gpio_input_changed_cond;
 int last_play_switch;
 int cur_play_switch;
 
-long last_time_playing = 0;
+long last_toggle_time = 0;
 
 void switchIntHandler()
 {
@@ -61,11 +61,10 @@ void* gpio_input_thread_run( void *p )
 			player->playing = !player->playing;
 			last_play_switch = cur_play_switch;
 
+			current_time = get_current_time_ms();
 			if( player->playing ) {
 				// was just switched on
-				current_time = get_current_time_ms();
 				long diff = current_time - last_time_playing;
-
 				if( diff < 2000 ) {
 					LOG_INFO("2 play toggles detected, skipping to next artist");
 					res = player_change_next_album( player, TRACK_CHANGE_IMMEDIATE );
@@ -73,8 +72,8 @@ void* gpio_input_thread_run( void *p )
 						LOG_ERROR("err=d failed to change to next album", res);
 					}
 				}
-				last_time_playing = current_time;
 			}
+			last_toggle_time = current_time;
 
 		}
 
