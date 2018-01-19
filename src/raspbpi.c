@@ -64,9 +64,9 @@ void* gpio_input_thread_run( void *p )
 			current_time = get_current_time_ms();
 			if( player->playing ) {
 				// was just switched on
-				long diff = current_time - last_time_playing;
+				long diff = current_time - last_toggle_time;
 				if( diff < 2000 ) {
-					LOG_INFO("fast play toggles detected, skipping to next artist");
+					LOG_INFO("diff=d fast play toggles detected, skipping to next artist", diff);
 					res = player_change_next_album( player, TRACK_CHANGE_IMMEDIATE );
 					if( res != 0 ) {
 						LOG_ERROR("err=d failed to change to next album", res);
