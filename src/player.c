@@ -160,7 +160,7 @@ int player_change_next_album( Player *player, int when )
 		}
 
 		LOG_DEBUG("path=d skipping to new track", p->track->path);
-		res = player_change_track( player, p, when );
+		res = player_change_track_unsafe( player, p, when );
 	}
 
 	pthread_mutex_unlock( &player->the_lock );
