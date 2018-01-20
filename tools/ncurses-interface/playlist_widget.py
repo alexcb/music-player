@@ -206,7 +206,7 @@ class PlaylistWidget(object):
             self._selected = clamp_range(self._selected + 1, 0, num_items)
         elif key == 'ctrl-left':
             self.prev_playlist()
-        elif key == 'ctrl-right':
+        elif key == 'ctrl-right' or key == ord('j'):
             self.next_playlist()
         elif key == 'page-down':
             self._selected = clamp_range(self._selected + self._height/2, 0, num_items)

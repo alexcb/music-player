@@ -381,7 +381,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 		// TODO ensure there is enough room for audio + potential ICY data; FIXME for now just multiply by 2
 		res = get_buffer_write( &player->circular_buffer, player->max_payload_size * 2, &p, &buffer_free );
 		if( res ) {
-			usleep(100);
+			usleep(50000);
 			continue;
 		}
 
@@ -542,7 +542,7 @@ void player_reader_thread_run( void *data )
 
 		LOG_DEBUG("unlocking - player_reader_thread_run 2");
 		pthread_mutex_unlock( &player->the_lock );
-		usleep(100); // need to sleep before re-attempting to aquire the lock, otherwise we can get stuck while changing the song
+		usleep(50000); // need to sleep before re-attempting to aquire the lock, otherwise we can get stuck while changing the song
 	}
 }
 
@@ -568,7 +568,6 @@ void player_audio_thread_run( void *data )
 	bool last_play_state;
 	
 	for(;;) {
-		sleep(1); // this is causing a bug!
 		//LOG_DEBUG("locking - player_audio_thread_run");
 		pthread_mutex_lock( &player->the_lock );
 
