@@ -14,13 +14,39 @@ int init_circular_buffer( CircularBuffer *buffer, size_t buffer_size )
 	buffer->lock_reads = 0;
 	buffer->read_reserved = 0;
 
+	buffer->wake_up_get_buffer_read = false;
+	buffer->wake_up_get_buffer_write = false;
+
 	pthread_mutex_init( &buffer->lock, NULL );
+
+	pthread_cond_init( &buffer->space_free, NULL );
+	pthread_cond_init( &buffer->data_avail, NULL );
 
 	buffer->p = (char*) malloc( buffer_size );
 	if( buffer->p == NULL ) {
 		return 1;
 	}
 	return 0;
+}
+
+void wake_up_get_buffer_write( CircularBuffer *buffer )
+{
+	LOG_DEBUG("setting wake_up_get_buffer_write true");
+	pthread_mutex_lock( &buffer->lock );
+	buffer->wake_up_get_buffer_write = true;
+	pthread_mutex_unlock( &buffer->lock );
+	pthread_cond_signal( &buffer->space_free );
+	LOG_DEBUG("done setting wake_up_get_buffer_write true");
+}
+
+void wake_up_get_buffer_read( CircularBuffer *buffer )
+{
+	LOG_DEBUG("setting wake_up_get_buffer_read true");
+	pthread_mutex_lock( &buffer->lock );
+	buffer->wake_up_get_buffer_read = true;
+	pthread_mutex_unlock( &buffer->lock );
+	pthread_cond_signal( &buffer->data_avail );
+	LOG_DEBUG("done setting wake_up_get_buffer_read true");
 }
 
 void buffer_clear( CircularBuffer *buffer )
@@ -34,6 +60,7 @@ void buffer_clear( CircularBuffer *buffer )
 	buffer->len = 0;
 
 	pthread_mutex_unlock( &buffer->lock );
+	pthread_cond_signal( &buffer->space_free );
 
 	long duration = get_current_time_ms() - start;
 	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
@@ -79,17 +106,21 @@ int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, cha
 
 int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, size_t *reserved_size )
 {
-	long start = get_current_time_ms();
-
 	int res;
 	res = pthread_mutex_lock( &buffer->lock );
 	assert( !res );
-	res = get_buffer_write_unsafe( buffer, min_buffer_size, p, reserved_size );
+	for(;;) {
+		res = get_buffer_write_unsafe( buffer, min_buffer_size, p, reserved_size );
+		if( res == 0 ) {
+			break;
+		}
+		if( buffer->wake_up_get_buffer_write ) {
+			buffer->wake_up_get_buffer_write = false;
+			break;
+		}
+		pthread_cond_wait( &buffer->space_free, &buffer->lock );
+	}
 	pthread_mutex_unlock( &buffer->lock );
-
-	long duration = get_current_time_ms() - start;
-	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
-
 	return res;
 }
 
@@ -121,15 +152,22 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_s
 
 int get_buffer_read( CircularBuffer *buffer, char **p, size_t *reserved_size )
 {
-	long start = get_current_time_ms();
-
 	int res;
-	pthread_mutex_lock( &buffer->lock );
-	res = get_buffer_read_unsafe( buffer, p, reserved_size );
+	res = pthread_mutex_lock( &buffer->lock );
+	assert( !res );
+	for(;;) {
+		res = get_buffer_read_unsafe( buffer, p, reserved_size );
+		if( res == 0 ) {
+			break;
+		}
+		if( buffer->wake_up_get_buffer_read ) {
+			buffer->wake_up_get_buffer_read = false;
+			break;
+		}
+		pthread_cond_wait( &buffer->data_avail, &buffer->lock );
+	}
+	
 	pthread_mutex_unlock( &buffer->lock );
-
-	long duration = get_current_time_ms() - start;
-	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
 
 	return res;
 }
@@ -142,6 +180,7 @@ void buffer_mark_written( CircularBuffer *buffer, size_t n )
 	pthread_mutex_lock( &buffer->lock );
 	buffer->write += n;
 	pthread_mutex_unlock( &buffer->lock );
+	pthread_cond_signal( &buffer->data_avail );
 
 	long duration = get_current_time_ms() - start;
 	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
@@ -154,6 +193,7 @@ void buffer_mark_read( CircularBuffer *buffer, size_t n )
 	pthread_mutex_lock( &buffer->lock );
 	buffer->read += n;
 	pthread_mutex_unlock( &buffer->lock );
+	pthread_cond_signal( &buffer->space_free );
 
 	long duration = get_current_time_ms() - start;
 	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
@@ -181,18 +221,7 @@ void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 	//}
 	//buffer->read = n;
 	pthread_mutex_unlock( &buffer->lock );
-
-	long duration = get_current_time_ms() - start;
-	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
-}
-
-void buffer_rewind_lock( CircularBuffer *buffer )
-{
-	long start = get_current_time_ms();
-
-	pthread_mutex_lock( &buffer->lock );
-	buffer->lock_reads = 1;
-	pthread_mutex_unlock( &buffer->lock );
+	pthread_cond_signal( &buffer->space_free );
 
 	long duration = get_current_time_ms() - start;
 	if( duration > 5 ) { LOG_WARN("duration=d slow call", duration); }
@@ -210,36 +239,6 @@ int buffer_rewind_unsafe( CircularBuffer *buffer, char *p )
 	buffer->len = 0;
 
 	return 0;
-
-//	int res = 0;
-//	int write = p - buffer->p;
-//	if( buffer->read <= write && write < buffer->read_reserved ) {
-//		//printf("here %d %d %d\n", buffer->read, write, buffer->read_reserved);
-//		res = 1;
-//		goto error;
-//	}
-//
-//	// if Writer <= Reader < Len; read from Reader to Len
-//	if( buffer->write <= buffer->read ) {
-//		if( write <= buffer->write ) {
-//			buffer->write = write;
-//		} else {
-//			if( write <= buffer->read ) {
-//				res = 2;
-//				goto error;
-//			}
-//			buffer->write = write;
-//			buffer->len = 0;
-//		}
-//	} else {
-//		buffer->write = write;
-//	}
-//
-//error:
-//	pthread_mutex_lock( &buffer->lock );
-//	buffer->lock_reads = 0;
-//	pthread_mutex_unlock( &buffer->lock );
-//	return res;
 }
 
 int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1, size_t *size1, char **p2, size_t *size2 )
@@ -290,38 +289,6 @@ void buffer_mark_read_unsafe( CircularBuffer *buffer, size_t n )
 	}
 	buffer->read += n;
 }
-
-//int get_buffer_non_reserved_reads( CircularBuffer *buffer, char **p1, size_t *size1, char **p2, size_t *size2 )
-//{
-//	if( buffer->read == buffer->len ) {
-//		*p1 = buffer->p;
-//		*size1 = buffer->write;
-//		*p2 = NULL;
-//		*size2 = 0;
-//		return 0;
-//	}
-//
-//	// if Writer <= Reader < Len; read from Reader to Len
-//	if( buffer->write <= buffer->read && buffer->read < buffer->len ) {
-//		*p1 = buffer->p + buffer->read;
-//		*size1 = buffer->len - buffer->read;
-//		*p2 = buffer->p;
-//		*size2 = buffer->write;
-//		return 0;
-//	}
-//
-//	// Reader < Writer < Len
-//	if( buffer->read < buffer->write ) {
-//		*p1 = buffer->p;
-//		*size1 = buffer->write;
-//		*p2 = NULL;
-//		*size2 = 0;
-//		return 0;
-//	}
-//
-//	// should never happen
-//	return 1;
-//}
 
 int buffer_lock( CircularBuffer *buffer )
 {

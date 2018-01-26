@@ -104,7 +104,7 @@ LOG_LEVEL=DEBUG WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ su
 
 or running with local music
 
-LOG_LEVEL=DEBUG WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists local-music-cache
+LOG_LEVEL=DEBUG WEB_ROOT=/home/alex/gh/alexcb/raspberrypimusic/resources/web/ sudo -E ./my123 ~/music streams playlists-local local-music-cache
 
 
 Then change the playlist with:
@@ -121,4 +121,9 @@ cd mpg123-1.25.6
 ./configure
 make
 sudo make install
+
+
+Finding recently modified albums:
+
+find /media/nugget_share/music/alex-beet/ -mtime -5 -ls | grep -v mp3$
 

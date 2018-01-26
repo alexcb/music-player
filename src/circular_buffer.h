@@ -1,10 +1,17 @@
 #pragma once
 
 #include <pthread.h>
+#include <stdbool.h>
 
 typedef struct CircularBuffer
 {
 	pthread_mutex_t lock;
+	pthread_cond_t space_free;
+	pthread_cond_t data_avail;
+
+	bool wake_up_get_buffer_read;
+	bool wake_up_get_buffer_write;
+
 	char *p;
 	int read;
 	int write;
@@ -14,6 +21,8 @@ typedef struct CircularBuffer
 	int lock_reads;
 } CircularBuffer;
 
+void wake_up_get_buffer_write( CircularBuffer *buffer );
+void wake_up_get_buffer_read( CircularBuffer *buffer );
 
 int init_circular_buffer( CircularBuffer *buffer, size_t buffer_size );
 void buffer_clear( CircularBuffer *buffer );
@@ -25,7 +34,6 @@ void buffer_mark_written( CircularBuffer *buffer, size_t n );
 void buffer_mark_read( CircularBuffer *buffer, size_t n );
 void buffer_mark_read_upto( CircularBuffer *buffer, char *p );
 
-void buffer_rewind_lock( CircularBuffer *buffer );
 int buffer_rewind_unsafe( CircularBuffer *buffer, char *p );
 
 //int get_buffer_non_reserved_reads( CircularBuffer *buffer, char **p1, size_t *size1, char **p2, size_t *size2 );

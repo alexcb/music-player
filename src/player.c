@@ -69,6 +69,9 @@ int init_player( Player *player, const char *library_path )
 	res = pthread_cond_init( &(player->load_cond), NULL );
 	assert( res == 0 );
 
+	res = pthread_cond_init( &(player->done_track_cond), NULL );
+	assert( res == 0 );
+
 	res = init_circular_buffer( &player->circular_buffer, 10*1024*1024 );
 	if( res ) {
 		goto error;
@@ -119,6 +122,7 @@ void stop_loader( Player *player )
 	while( player->load_in_progress ) {
 		LOG_DEBUG("waiting for track loader to respond to abort request");
 		player->load_abort_requested = true;
+		wake_up_get_buffer_write( &player->circular_buffer );
 		res = pthread_cond_wait( &player->load_cond, &player->the_lock );
 		assert( res == 0 );
 	}
@@ -299,7 +303,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 	// dont start loading a stream if paused
 	if( strstr(path, "http://") ) {
 		while( !player->playing ) {
-			usleep(100);
+			usleep(10000);
 			if( player_should_abort_load( player )) { goto done; }
 		}
 	}
@@ -330,13 +334,11 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 		res = get_buffer_write( &player->circular_buffer, player->max_payload_size, &p, &buffer_free );
 		if( res ) {
 			pthread_mutex_unlock( &player->the_lock );
-			LOG_DEBUG("write buffer is full");
-
+			LOG_DEBUG("get_buffer_write returned early");
 			if( player_should_abort_load( player )) { goto done; }
-			usleep(50000);
-			continue;
 		}
 
+		//TODO play queue needs conditional waits
 		res = play_queue_add( &player->play_queue, &pqi );
 		if( res ) {
 			pthread_mutex_unlock( &player->the_lock );
@@ -381,6 +383,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 		// TODO ensure there is enough room for audio + potential ICY data; FIXME for now just multiply by 2
 		res = get_buffer_write( &player->circular_buffer, player->max_payload_size * 2, &p, &buffer_free );
 		if( res ) {
+			LOG_DEBUG("get_buffer_write returned early");
 			usleep(50000);
 			continue;
 		}
@@ -568,18 +571,10 @@ void player_audio_thread_run( void *data )
 	bool last_play_state;
 	
 	for(;;) {
-		//LOG_DEBUG("locking - player_audio_thread_run");
+		LOG_DEBUG("locking - player_audio_thread_run");
 		pthread_mutex_lock( &player->the_lock );
 
 		if( player->next_track ) {
-			res = play_queue_head( &player->play_queue, &pqi );
-			if( res == 0 ) {
-				LOG_DEBUG("p=p next=s marking upto buffer", pqi->buf_start, pqi->playlist_item->track->path);
-				buffer_mark_read_upto( &player->circular_buffer, pqi->buf_start );
-			} else {
-				LOG_DEBUG("clearing buffer");
-				buffer_clear( &player->circular_buffer );
-			}
 			player->next_track = false;
 		}
 
@@ -588,15 +583,27 @@ void player_audio_thread_run( void *data )
 			player->current_track = NULL;
 		}
 
+
+
 		res = play_queue_head( &player->play_queue, &pqi );
-		if( res ) {
+		if( res == 0 ) {
+			LOG_DEBUG("p=p next=s marking upto buffer", pqi->buf_start, pqi->playlist_item->track->path);
+			buffer_mark_read_upto( &player->circular_buffer, pqi->buf_start );
+		} else {
+			// Play queue is empty -- nothing to play
+			LOG_DEBUG("clearing buffer");
+			buffer_clear( &player->circular_buffer );
+			LOG_DEBUG("clearing buffer done");
+
+			LOG_DEBUG("unlocking - player_audio_thread_run");
 			pthread_mutex_unlock( &player->the_lock );
 
 			if( !notified_no_songs ) {
 				call_observers( player );
 				notified_no_songs = true;
 			}
-			usleep(50000); //50ms
+
+			usleep(100000); //100ms
 			continue;
 		}
 
@@ -607,6 +614,7 @@ void player_audio_thread_run( void *data )
 
 		//LOG_DEBUG("unlocking - player_audio_thread_run 2");
 		pthread_mutex_unlock( &player->the_lock );
+		pthread_cond_signal( &player->done_track_cond );
 
 		notified_no_songs = false;
 		last_play_state = !player->playing;
@@ -692,6 +700,7 @@ void player_audio_thread_run( void *data )
 			}
 			buffer_mark_read( &player->circular_buffer, num_read );
 		}
+		pthread_cond_signal( &player->done_track_cond );
 	}
 }
 

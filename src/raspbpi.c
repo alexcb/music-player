@@ -92,6 +92,8 @@ int init_rasp_pi(Player *player) {
 	int res;
 	LOG_INFO("initializing raspberry pi settings");
 
+	pthread_cond_init( &gpio_input_changed_cond, NULL );
+
 	if( wiringPiSetup() == -1 ) {
 		LOG_ERROR("failed to setup wiringPi");
 		return 1;
