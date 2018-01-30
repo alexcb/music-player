@@ -166,7 +166,9 @@ int get_buffer_read( CircularBuffer *buffer, char **p, size_t *reserved_size )
 			buffer->wake_up_get_buffer_read = false;
 			break;
 		}
+		LOG_DEBUG("read buffer empty; sleeping");
 		pthread_cond_wait( &buffer->data_avail, &buffer->lock );
+		LOG_DEBUG("read buffer empty; wakeup");
 	}
 	
 	pthread_mutex_unlock( &buffer->lock );
