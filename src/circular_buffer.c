@@ -118,7 +118,9 @@ int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, 
 			buffer->wake_up_get_buffer_write = false;
 			break;
 		}
+		LOG_DEBUG("write buffer full; sleeping");
 		pthread_cond_wait( &buffer->space_free, &buffer->lock );
+		LOG_DEBUG("write buffer wake up");
 	}
 	pthread_mutex_unlock( &buffer->lock );
 	return res;
