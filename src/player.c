@@ -669,7 +669,7 @@ void player_audio_thread_run( void *data )
 			chunk_size = 1024;
 			while( decoded_size > 0 && !player->next_track ) {
 				if( last_play_state != player->playing ) {
-					LOG_DEBUG("calling obs here");
+					LOG_DEBUG("playing=d detected playing change", player->playing);
 					call_observers( player );
 					last_play_state = player->playing;
 				}
