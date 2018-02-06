@@ -621,6 +621,7 @@ void player_audio_thread_run( void *data )
 
 		bool out_of_buffer_logged = false;
 		for(;;) {
+			LOG_DEBUG("before get_buffer_read");
 			num_read = 0;
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
@@ -632,6 +633,7 @@ void player_audio_thread_run( void *data )
 				continue;
 			}
 			out_of_buffer_logged = false;
+			LOG_DEBUG("after get_buffer_read");
 
 			payload_id = *(unsigned char*) p;
 			p++;
@@ -685,6 +687,7 @@ void player_audio_thread_run( void *data )
 						continue;
 					}
 				} else {
+					LOG_DEBUG("ao_play");
 					ao_play( player->dev, p, chunk_size );
 					// uncomment for proof that p gets copied by ao_play: memset( p, 0, chunk_size );
 				}
@@ -698,7 +701,9 @@ void player_audio_thread_run( void *data )
 				LOG_DEBUG("breaking due to next_track");
 				break;
 			}
+			LOG_DEBUG("before buffer_mark_read");
 			buffer_mark_read( &player->circular_buffer, num_read );
+			LOG_DEBUG("after buffer_mark_read");
 		}
 		pthread_cond_signal( &player->done_track_cond );
 	}
