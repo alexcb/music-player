@@ -688,7 +688,8 @@ void player_audio_thread_run( void *data )
 					}
 				} else {
 					LOG_DEBUG("ao_play");
-					ao_play( player->dev, p, chunk_size );
+					res = ao_play( player->dev, p, chunk_size );
+					LOG_DEBUG("res=d ao_play done", res);
 					// uncomment for proof that p gets copied by ao_play: memset( p, 0, chunk_size );
 				}
 
