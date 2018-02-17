@@ -1,6 +1,6 @@
 CC=gcc
-CCFLAGS=-g -std=gnu11 -I./src -Wall -Werror `./use-pi-def.sh`
-LDFLAGS=-lao -lmpg123 -lmicrohttpd -lpthread -lm -ljson-c -lssl -lcrypto `./use-pi-lib.sh`
+CCFLAGS=-g -std=gnu11 -I./src `./use-pi-def.sh`
+LDFLAGS=-lasound -lmpg123 -lmicrohttpd -lpthread -lm -ljson-c -lssl -lcrypto `./use-pi-lib.sh`
 
 SRC=$(wildcard src/**/*.c src/*.c)
 OBJ=$(SRC:%.c=%.o)

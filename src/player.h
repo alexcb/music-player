@@ -1,6 +1,7 @@
 #pragma once
 
-#include <ao/ao.h>
+#include <alsa/asoundlib.h>
+//#include <ao/ao.h>
 #include <mpg123.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -22,8 +23,8 @@ typedef void (*MetadataObserver)(bool playing, const PlaylistItem *playlist_item
 typedef struct Player
 {
 	int driver;
-	ao_device *dev;
-	ao_sample_format format;
+	snd_pcm_t *handle;
+	//ao_sample_format format;
 	int channels, encoding;
 	long rate;
 

@@ -1,4 +1,3 @@
-#include <ao/ao.h>
 #include <mpg123.h>
 #include <string.h>
 #include <assert.h>

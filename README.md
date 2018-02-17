@@ -15,6 +15,7 @@ dependencies:
  libssl-dev
  libmicrohttpd git version 4adf1c6d1744e1ac4cb0c88817a3726c3038b919
  libwiringPi (see http://wiringpi.com/download-and-install/)
+ libasound2-dev
 
 libao-dev libmpg123-dev libjson-c-dev libmicrohttpd-dev
 
@@ -58,3 +59,22 @@ POST /playlists/load
 
 # To play a playlist
 curl -s -XPOST 'raspberrypi.local/playlists?name=foo&track=0'
+
+libao
+reads from /etc/libao.conf
+
+configured to use alsa
+
+# list all drivers
+sudo aplay -l
+
+ 
+alex@raspberrypi:~ $ sudo amixer
+Simple mixer control 'PCM',0
+  Capabilities: pvolume pvolume-joined pswitch pswitch-joined
+  Playback channels: Mono
+  Limits: Playback -10239 - 400
+  Mono: Playback 400 [100%] [4.00dB] [on]
+
+# next time it locks up, see if aplay still works:
+sudo aplay Left-Right\ Channel\ Audio\ Test.mp3
