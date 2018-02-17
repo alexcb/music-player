@@ -935,20 +935,19 @@ void player_audio_thread_run( void *data )
 						if (res == -EAGAIN) {
 							LOG_DEBUG("got EAGAIN");
 							continue;
-						}
-						if (res < 0) {
+						} else if (res < 0) {
 							if (xrun_recovery(player->handle, res) < 0) {
 								LOG_DEBUG("err=s write error", snd_strerror(res));
 								exit(EXIT_FAILURE);
 							}
 							LOG_WARN("underrun");
 							break;  /* skip chunk -- there was a recoverable error */
-						}
-						if( res == 0 ) {
+						} else if( res == 0 ) {
 							usleep( 1000 );
+						} else {
+							ptr += res * channels;
+							frames -= res;
 						}
-						ptr += res * channels;
-						frames -= res;
 					}
 
 					//k
