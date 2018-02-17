@@ -930,7 +930,7 @@ void player_audio_thread_run( void *data )
 
 					signed short *ptr = (signed short*) p;
 					int frames = chunk_size / (2 * 2); //channels*16bits
-					while( frames > 0 ) {
+					while( frames > 0 && !player->next_track ) {
 						res = snd_pcm_writei(player->handle, ptr, frames);
 						if (res == -EAGAIN) {
 							LOG_DEBUG("got EAGAIN");
@@ -950,7 +950,7 @@ void player_audio_thread_run( void *data )
 
 					//k
 					//res = ao_play( player->dev, p, chunk_size );
-					LOG_DEBUG("res=d ao_play done", res);
+					//LOG_DEBUG("res=d ao_play done", res);
 					// uncomment for proof that p gets copied by ao_play: memset( p, 0, chunk_size );
 				}
 
