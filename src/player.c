@@ -944,6 +944,9 @@ void player_audio_thread_run( void *data )
 							LOG_WARN("underrun");
 							break;  /* skip chunk -- there was a recoverable error */
 						}
+						if( res == 0 ) {
+							usleep( 1000 );
+						}
 						ptr += res * channels;
 						frames -= res;
 					}
