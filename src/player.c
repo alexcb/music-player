@@ -926,30 +926,27 @@ void player_audio_thread_run( void *data )
 						continue;
 					}
 				} else {
-					LOG_DEBUG("ao_play");
-					
+					//LOG_DEBUG("ao_play");
 
 					signed short *ptr = (signed short*) p;
 					int frames = chunk_size / (2 * 2); //channels*16bits
 					while( frames > 0 ) {
-						LOG_DEBUG("SENDING write");
 						res = snd_pcm_writei(player->handle, ptr, frames);
-						LOG_DEBUG("res=d write finished", res);
 						if (res == -EAGAIN) {
 							LOG_DEBUG("got EAGAIN");
 							continue;
 						}
 						if (res < 0) {
 							if (xrun_recovery(player->handle, res) < 0) {
-								printf("Write error: %s\n", snd_strerror(res));
+								LOG_DEBUG("err=s write error", snd_strerror(res));
 								exit(EXIT_FAILURE);
 							}
+							LOG_WARN("underrun");
 							break;  /* skip chunk -- there was a recoverable error */
 						}
 						ptr += res * channels;
 						frames -= res;
 					}
-
 
 					//k
 					//res = ao_play( player->dev, p, chunk_size );
