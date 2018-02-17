@@ -177,7 +177,7 @@ static int xrun_recovery(snd_pcm_t *handle, int err)
 //        return 0;
 //}
 
-void foo()
+snd_pcm_t* foo()
 {
 	const char *device = "plughw:0,0";
 	unsigned int pcm, tmp, dir;
@@ -245,38 +245,38 @@ void foo()
 
 	snd_pcm_hw_params_get_period_time(params, &tmp, NULL);
 
-	printf("playing\n");
-	int fd = open("2chan44100-16.wav", O_RDONLY);
-	assert(fd>0);
-	while(1) {
+	//printf("playing\n");
+	//int fd = open("2chan44100-16.wav", O_RDONLY);
+	//assert(fd>0);
+	//while(1) {
 
-		if (pcm = read(fd, buff, buff_size) == 0) {
-			printf("Early end of file.\n");
-			return 0;
-		}
+	//	if (pcm = read(fd, buff, buff_size) == 0) {
+	//		printf("Early end of file.\n");
+	//		return 0;
+	//	}
 
-		if (pcm = snd_pcm_writei(pcm_handle, buff, frames) == -EPIPE) {
-			printf("XRUN.\n");
-			snd_pcm_prepare(pcm_handle);
-		} else if (pcm < 0) {
-			printf("ERROR. Can't write to PCM device. %s\n", snd_strerror(pcm));
-		}
+	//	if (pcm = snd_pcm_writei(pcm_handle, buff, frames) == -EPIPE) {
+	//		printf("XRUN.\n");
+	//		snd_pcm_prepare(pcm_handle);
+	//	} else if (pcm < 0) {
+	//		printf("ERROR. Can't write to PCM device. %s\n", snd_strerror(pcm));
+	//	}
 
-	}
-	snd_pcm_drain(pcm_handle);
-	snd_pcm_close(pcm_handle);
-	free(buff);
+	//}
+	//snd_pcm_drain(pcm_handle);
+	//snd_pcm_close(pcm_handle);
+	//free(buff);
+	return pcm_handle;
 }
 
 int init_player( Player *player, const char *library_path )
 {
 	int res;
 
-	foo();
+	player->handle = foo();
 
 
-
-
+	int rate = 44100;
 
 
 
@@ -930,14 +930,16 @@ void player_audio_thread_run( void *data )
 					
 
 					signed short *ptr = (signed short*) p;
-					int cptr = chunk_size;
-					while( cptr > 0 ) {
-						res = snd_pcm_writei(player->handle, ptr, cptr);
-						if (res == -EAGAIN)
+					int frames = chunk_size / (2 * 2); //channels*16bits
+					while( frames > 0 ) {
+						LOG_DEBUG("SENDING write");
+						res = snd_pcm_writei(player->handle, ptr, frames);
+						LOG_DEBUG("res=d write finished", res);
+						if (res == -EAGAIN) {
+							LOG_DEBUG("got EAGAIN");
 							continue;
-						if (err < 0) {
-							printf("bad\n");
-							exit(EXIT_FAILURE);
+						}
+						if (res < 0) {
 							if (xrun_recovery(player->handle, res) < 0) {
 								printf("Write error: %s\n", snd_strerror(res));
 								exit(EXIT_FAILURE);
@@ -945,7 +947,7 @@ void player_audio_thread_run( void *data )
 							break;  /* skip chunk -- there was a recoverable error */
 						}
 						ptr += res * channels;
-						cptr -= res;
+						frames -= res;
 					}
 
 

@@ -9,6 +9,9 @@ or
 
 ./a.out http://stream
 
+alex@raspberrypi:~/mpg123hack $ LOG_LEVEL=DEBUG WEB_ROOT=/home/alex/mpg123hack/resources/web/ sudo -E ./my123 /media/nugget_share/music/alex-beet/ streams playlists /home/alex/id3_cache
+
+
 dependencies:
  libao-dev
  libmpg123-dev
