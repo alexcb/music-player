@@ -25,30 +25,23 @@ void player_reader_thread_run( void *data );
 static unsigned int channels = 1;                       /* count of channels */
 static unsigned int rate = 44100;                       /* stream rate */
 
-//static snd_pcm_format_t format = SND_PCM_FORMAT_S16;    /* sample format */
-//static unsigned int rate = 44100;                       /* stream rate */
-//static unsigned int channels = 1;                       /* count of channels */
-//static unsigned int buffer_time = 50000000;               /* ring buffer length in us */
-//static unsigned int period_time = 10000000;               /* period time in us */
-//static int resample = 1;                                /* enable alsa-lib resampling */
-////static int period_event = 0;                            /* produce poll event after each period */
-//static snd_pcm_sframes_t buffer_size;
-//static snd_pcm_sframes_t period_size;
-
 static int xrun_recovery(snd_pcm_t *handle, int err)
 {
 	if (err == -EPIPE) {    /* under-run */
 		err = snd_pcm_prepare(handle);
-		if (err < 0)
-			printf("Can't recovery from underrun, prepare failed: %s\n", snd_strerror(err));
+		if (err < 0) {
+			LOG_ERROR("err=s Can't recovery from underrun, prepare failed", snd_strerror(err));
+		}
 		return 0;
 	} else if (err == -ESTRPIPE) {
-		while ((err = snd_pcm_resume(handle)) == -EAGAIN)
+		while ((err = snd_pcm_resume(handle)) == -EAGAIN) {
 			sleep(1);       /* wait until the suspend flag is released */
+		}
 		if (err < 0) {
 			err = snd_pcm_prepare(handle);
-			if (err < 0)
-				printf("Can't recovery from suspend, prepare failed: %s\n", snd_strerror(err));
+			if (err < 0) {
+				LOG_ERROR("err=s Can't recovery from suspend, prepare failed", snd_strerror(err));
+			}
 		}
 		return 0;
 	}
@@ -177,25 +170,23 @@ static int xrun_recovery(snd_pcm_t *handle, int err)
 //        return 0;
 //}
 
-snd_pcm_t* foo()
+snd_pcm_t* open_sound_dev()
 {
 	const char *device = "plughw:0,0";
-	unsigned int pcm, tmp, dir;
+	unsigned int pcm, period, bps;
 	int rate, channels;
 	snd_pcm_t *pcm_handle;
 	snd_pcm_hw_params_t *params;
 	snd_pcm_uframes_t frames;
-	char *buff;
 	int buff_size, loops;
 
 	rate = 44100;
 	channels = 2;
 
 	/* Open the PCM device in playback mode */
-	if (pcm = snd_pcm_open(&pcm_handle, device,
-				SND_PCM_STREAM_PLAYBACK, 0) < 0) 
-		printf("ERROR: Can't open \"%s\" PCM device. %s\n",
-				device, snd_strerror(pcm));
+	if (pcm = snd_pcm_open(&pcm_handle, device, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
+		LOG_ERROR( "err=s dev=s Can't open PCM device", snd_strerror(pcm), device );
+	}
 
 	/* Allocate parameters object and fill it with default values*/
 	snd_pcm_hw_params_alloca(&params);
@@ -203,82 +194,57 @@ snd_pcm_t* foo()
 	snd_pcm_hw_params_any(pcm_handle, params);
 
 	/* Set parameters */
-	if (pcm = snd_pcm_hw_params_set_access(pcm_handle, params,
-				SND_PCM_ACCESS_RW_INTERLEAVED) < 0) 
-		printf("ERROR: Can't set interleaved mode. %s\n", snd_strerror(pcm));
+	if (pcm = snd_pcm_hw_params_set_access(pcm_handle, params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {
+		LOG_ERROR("err=s Can't set interleaved mode", snd_strerror(pcm));
+	}
 
-	if (pcm = snd_pcm_hw_params_set_format(pcm_handle, params,
-				SND_PCM_FORMAT_S16_LE) < 0) 
-		printf("ERROR: Can't set format. %s\n", snd_strerror(pcm));
+	if (pcm = snd_pcm_hw_params_set_format(pcm_handle, params, SND_PCM_FORMAT_S16_LE) < 0) {
+		LOG_ERROR("err=s Can't set format", snd_strerror(pcm));
+	}
 
-	if (pcm = snd_pcm_hw_params_set_channels(pcm_handle, params, channels) < 0) 
-		printf("ERROR: Can't set channels number. %s\n", snd_strerror(pcm));
+	if (pcm = snd_pcm_hw_params_set_channels(pcm_handle, params, channels) < 0) {
+		LOG_ERROR("err=s Can't set channels number", snd_strerror(pcm));
+	}
 
-	if (pcm = snd_pcm_hw_params_set_rate_near(pcm_handle, params, &rate, 0) < 0) 
-		printf("ERROR: Can't set rate. %s\n", snd_strerror(pcm));
+	if (pcm = snd_pcm_hw_params_set_rate_near(pcm_handle, params, &rate, 0) < 0) {
+		LOG_ERROR("err=s Can't set rate", snd_strerror(pcm));
+	}
 
 	/* Write parameters */
-	if (pcm = snd_pcm_hw_params(pcm_handle, params) < 0)
-		printf("ERROR: Can't set harware parameters. %s\n", snd_strerror(pcm));
+	if (pcm = snd_pcm_hw_params(pcm_handle, params) < 0) {
+		LOG_ERROR("err=s Can't set harware parameters", snd_strerror(pcm));
+	}
+
+	snd_pcm_hw_params_get_channels(params, &channels);
+	snd_pcm_hw_params_get_rate(params, &bps, 0);
+	snd_pcm_hw_params_get_period_size(params, &frames, 0);
+	snd_pcm_hw_params_get_period_time(params, &period, NULL);
 
 	/* Resume information */
-	printf("PCM name: '%s'\n", snd_pcm_name(pcm_handle));
+	LOG_INFO("name=s state=s channels=d bps=d frames=d period=d pcm info",
+		snd_pcm_name(pcm_handle), snd_pcm_state_name(snd_pcm_state(pcm_handle)), channels, bps, frames, period);
 
-	printf("PCM state: %s\n", snd_pcm_state_name(snd_pcm_state(pcm_handle)));
-
-	snd_pcm_hw_params_get_channels(params, &tmp);
-	printf("channels: %i ", tmp);
-
-	if (tmp == 1)
-		printf("(mono)\n");
-	else if (tmp == 2)
-		printf("(stereo)\n");
-
-	snd_pcm_hw_params_get_rate(params, &tmp, 0);
-	printf("rate: %d bps\n", tmp);
-
-	/* Allocate buffer to hold single period */
-	snd_pcm_hw_params_get_period_size(params, &frames, 0);
-
-	buff_size = frames * channels * 2 /* 2 -> sample size */;
-	buff = (char *) malloc(buff_size);
-
-	snd_pcm_hw_params_get_period_time(params, &tmp, NULL);
-
-	//printf("playing\n");
-	//int fd = open("2chan44100-16.wav", O_RDONLY);
-	//assert(fd>0);
-	//while(1) {
-
-	//	if (pcm = read(fd, buff, buff_size) == 0) {
-	//		printf("Early end of file.\n");
-	//		return 0;
-	//	}
-
-	//	if (pcm = snd_pcm_writei(pcm_handle, buff, frames) == -EPIPE) {
-	//		printf("XRUN.\n");
-	//		snd_pcm_prepare(pcm_handle);
-	//	} else if (pcm < 0) {
-	//		printf("ERROR. Can't write to PCM device. %s\n", snd_strerror(pcm));
-	//	}
-
-	//}
-	//snd_pcm_drain(pcm_handle);
-	//snd_pcm_close(pcm_handle);
-	//free(buff);
 	return pcm_handle;
+}
+
+int init_alsa( Player *player )
+{
+	if( player->handle != NULL ) {
+		//snd_pcm_drain(pcm_handle);
+		snd_pcm_close( player->handle );
+	}
+	player->handle = open_sound_dev();
 }
 
 int init_player( Player *player, const char *library_path )
 {
 	int res;
 
-	player->handle = foo();
-
 
 	int rate = 44100;
 
-
+	player->handle = NULL;
+	init_alsa( player );
 
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
@@ -937,10 +903,18 @@ void player_audio_thread_run( void *data )
 							continue;
 						} else if (res < 0) {
 							if (xrun_recovery(player->handle, res) < 0) {
-								LOG_DEBUG("err=s write error", snd_strerror(res));
-								exit(EXIT_FAILURE);
+								LOG_ERROR("err=s write error", snd_strerror(res));
+								//exit(EXIT_FAILURE);
+								// TODO instead of exiting, try to re-init sound driver?
+								// I've seen this before:
+								//   - Input/output error
+
+								// re-init sound driver
+								sleep(1);
+								init_alsa( player );
+							} else {
+								LOG_WARN("underrun");
 							}
-							LOG_WARN("underrun");
 							break;  /* skip chunk -- there was a recoverable error */
 						} else if( res == 0 ) {
 							usleep( 1000 );
