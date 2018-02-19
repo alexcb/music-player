@@ -19,11 +19,10 @@
 #define ID_DATA_START 2
 #define ID_DATA_END 3
 
+#define RATE 44100
+
 void player_audio_thread_run( void *data );
 void player_reader_thread_run( void *data );
-
-static unsigned int channels = 1;                       /* count of channels */
-static unsigned int rate = 44100;                       /* stream rate */
 
 static int xrun_recovery(snd_pcm_t *handle, int err)
 {
@@ -48,144 +47,22 @@ static int xrun_recovery(snd_pcm_t *handle, int err)
 	return err;
 }
 
-
-//static int set_hwparams(snd_pcm_t *handle,
-//                        snd_pcm_hw_params_t *params,
-//                        snd_pcm_access_t access)
-//{
-//        unsigned int rrate;
-//        snd_pcm_uframes_t size;
-//        int err, dir;
-//        /* choose all parameters */
-//        err = snd_pcm_hw_params_any(handle, params);
-//        if (err < 0) {
-//                printf("Broken configuration for playback: no configurations available: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        /* set hardware resampling */
-//        err = snd_pcm_hw_params_set_rate_resample(handle, params, resample);
-//        if (err < 0) {
-//                printf("Resampling setup failed for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        /* set the interleaved read/write format */
-//        err = snd_pcm_hw_params_set_access(handle, params, access);
-//        if (err < 0) {
-//                printf("Access type not available for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        /* set the sample format */
-//        err = snd_pcm_hw_params_set_format(handle, params, format);
-//        if (err < 0) {
-//                printf("Sample format not available for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        /* set the count of channels */
-//        err = snd_pcm_hw_params_set_channels(handle, params, channels);
-//        if (err < 0) {
-//                printf("Channels count (%i) not available for playbacks: %s\n", channels, snd_strerror(err));
-//                return err;
-//        }
-//        /* set the stream rate */
-//        rrate = rate;
-//        err = snd_pcm_hw_params_set_rate_near(handle, params, &rrate, 0);
-//        if (err < 0) {
-//                printf("Rate %iHz not available for playback: %s\n", rate, snd_strerror(err));
-//                return err;
-//        }
-//        if (rrate != rate) {
-//                printf("Rate doesn't match (requested %iHz, get %iHz)\n", rate, err);
-//                return -EINVAL;
-//        }
-//        /* set the buffer time */
-//        err = snd_pcm_hw_params_set_buffer_time_near(handle, params, &buffer_time, &dir);
-//        if (err < 0) {
-//                printf("Unable to set buffer time %i for playback: %s\n", buffer_time, snd_strerror(err));
-//                return err;
-//        }
-//        err = snd_pcm_hw_params_get_buffer_size(params, &size);
-//        if (err < 0) {
-//                printf("Unable to get buffer size for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        buffer_size = size;
-//        /* set the period time */
-//        err = snd_pcm_hw_params_set_period_time_near(handle, params, &period_time, &dir);
-//        if (err < 0) {
-//                printf("Unable to set period time %i for playback: %s\n", period_time, snd_strerror(err));
-//                return err;
-//        }
-//        err = snd_pcm_hw_params_get_period_size(params, &size, &dir);
-//        if (err < 0) {
-//                printf("Unable to get period size for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        period_size = size;
-//        /* write the parameters to device */
-//        err = snd_pcm_hw_params(handle, params);
-//        if (err < 0) {
-//                printf("Unable to set hw params for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        return 0;
-//}
-//static int set_swparams(snd_pcm_t *handle, snd_pcm_sw_params_t *swparams)
-//{
-//	return 0;
-//        int err;
-//        /* get the current swparams */
-//        err = snd_pcm_sw_params_current(handle, swparams);
-//        if (err < 0) {
-//                printf("Unable to determine current swparams for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        /* start the transfer when the buffer is almost full: */
-//        /* (buffer_size / avail_min) * avail_min */
-//        err = snd_pcm_sw_params_set_start_threshold(handle, swparams, (buffer_size / period_size) * period_size);
-//        if (err < 0) {
-//                printf("Unable to set start threshold mode for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        /* allow the transfer when at least period_size samples can be processed */
-//        /* or disable this mechanism when period event is enabled (aka interrupt like style processing) */
-//        err = snd_pcm_sw_params_set_avail_min(handle, swparams, period_event ? buffer_size : period_size);
-//        if (err < 0) {
-//                printf("Unable to set avail min for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        /* enable period events when requested */
-//        if (period_event) {
-//                err = snd_pcm_sw_params_set_period_event(handle, swparams, 1);
-//                if (err < 0) {
-//                        printf("Unable to set period event: %s\n", snd_strerror(err));
-//                        return err;
-//                }
-//        }
-//        /* write the parameters to the playback device */
-//        err = snd_pcm_sw_params(handle, swparams);
-//        if (err < 0) {
-//                printf("Unable to set sw params for playback: %s\n", snd_strerror(err));
-//                return err;
-//        }
-//        return 0;
-//}
-
 snd_pcm_t* open_sound_dev()
 {
+	int res;
 	const char *device = "plughw:0,0";
-	unsigned int pcm, period, bps;
-	int rate, channels;
+	unsigned int period, bps;
 	snd_pcm_t *pcm_handle;
 	snd_pcm_hw_params_t *params;
 	snd_pcm_uframes_t frames;
-	int buff_size, loops;
 
-	rate = 44100;
-	channels = 2;
+	unsigned int rate = RATE;
+	unsigned int channels = 2;
 
 	/* Open the PCM device in playback mode */
-	if (pcm = snd_pcm_open(&pcm_handle, device, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
-		LOG_ERROR( "err=s dev=s Can't open PCM device", snd_strerror(pcm), device );
+	res = snd_pcm_open(&pcm_handle, device, SND_PCM_STREAM_PLAYBACK, 0);
+	if (res < 0) {
+		LOG_ERROR( "err=s dev=s Can't open PCM device", snd_strerror(res), device );
 	}
 
 	/* Allocate parameters object and fill it with default values*/
@@ -194,25 +71,39 @@ snd_pcm_t* open_sound_dev()
 	snd_pcm_hw_params_any(pcm_handle, params);
 
 	/* Set parameters */
-	if (pcm = snd_pcm_hw_params_set_access(pcm_handle, params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {
-		LOG_ERROR("err=s Can't set interleaved mode", snd_strerror(pcm));
+	res = snd_pcm_hw_params_set_access(pcm_handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+	if( res < 0 ) {
+		LOG_ERROR("err=s Can't set interleaved mode", snd_strerror(res));
+		exit(EXIT_FAILURE);
 	}
 
-	if (pcm = snd_pcm_hw_params_set_format(pcm_handle, params, SND_PCM_FORMAT_S16_LE) < 0) {
-		LOG_ERROR("err=s Can't set format", snd_strerror(pcm));
+	res = snd_pcm_hw_params_set_format(pcm_handle, params, SND_PCM_FORMAT_S16_LE);
+	if( res < 0 ) {
+		LOG_ERROR("err=s Can't set format", snd_strerror(res));
+		exit(EXIT_FAILURE);
 	}
 
-	if (pcm = snd_pcm_hw_params_set_channels(pcm_handle, params, channels) < 0) {
-		LOG_ERROR("err=s Can't set channels number", snd_strerror(pcm));
+	res = snd_pcm_hw_params_set_channels(pcm_handle, params, channels);
+	if( res < 0 ) {
+		LOG_ERROR("err=s Can't set channels number", snd_strerror(res));
+		exit(EXIT_FAILURE);
 	}
 
-	if (pcm = snd_pcm_hw_params_set_rate_near(pcm_handle, params, &rate, 0) < 0) {
-		LOG_ERROR("err=s Can't set rate", snd_strerror(pcm));
+	res = snd_pcm_hw_params_set_rate_near(pcm_handle, params, &rate, 0);
+	if( res < 0 ) {
+		LOG_ERROR("err=s Can't set rate", snd_strerror(res));
+		exit(EXIT_FAILURE);
+	}
+	if( rate != RATE ) {
+		LOG_ERROR("rate=d failed to set rate to exact value", rate);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Write parameters */
-	if (pcm = snd_pcm_hw_params(pcm_handle, params) < 0) {
-		LOG_ERROR("err=s Can't set harware parameters", snd_strerror(pcm));
+	res = snd_pcm_hw_params(pcm_handle, params);
+	if( res < 0 ) {
+		LOG_ERROR("err=s Can't set harware parameters", snd_strerror(res));
+		exit(EXIT_FAILURE);
 	}
 
 	snd_pcm_hw_params_get_channels(params, &channels);
@@ -221,13 +112,13 @@ snd_pcm_t* open_sound_dev()
 	snd_pcm_hw_params_get_period_time(params, &period, NULL);
 
 	/* Resume information */
-	LOG_INFO("name=s state=s channels=d bps=d frames=d period=d pcm info",
-		snd_pcm_name(pcm_handle), snd_pcm_state_name(snd_pcm_state(pcm_handle)), channels, bps, frames, period);
+	LOG_INFO("name=s state=s channels=d bps=d frames=d period=d rate=d pcm info",
+		snd_pcm_name(pcm_handle), snd_pcm_state_name(snd_pcm_state(pcm_handle)), channels, bps, frames, period, rate);
 
 	return pcm_handle;
 }
 
-int init_alsa( Player *player )
+void init_alsa( Player *player )
 {
 	if( player->handle != NULL ) {
 		//snd_pcm_drain(pcm_handle);
@@ -241,7 +132,6 @@ int init_player( Player *player, const char *library_path )
 	int res;
 
 
-	int rate = 44100;
 
 	player->handle = NULL;
 	init_alsa( player );
@@ -249,7 +139,7 @@ int init_player( Player *player, const char *library_path )
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
 	mpg123_format_none( player->mh );
-	mpg123_format( player->mh, rate, MPG123_STEREO, MPG123_ENC_SIGNED_16 );
+	mpg123_format( player->mh, RATE, MPG123_STEREO, MPG123_ENC_SIGNED_16 );
 
 	player->decode_buffer_size = mpg123_outblock( player->mh );
 	player->decode_buffer = malloc(player->decode_buffer_size);
@@ -919,7 +809,7 @@ void player_audio_thread_run( void *data )
 						} else if( res == 0 ) {
 							usleep( 1000 );
 						} else {
-							ptr += res * channels;
+							ptr += res;
 							frames -= res;
 						}
 					}
