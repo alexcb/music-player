@@ -823,7 +823,7 @@ void player_audio_thread_run( void *data )
 				p += chunk_size;
 				decoded_size -= chunk_size;
 				num_read += chunk_size;
-				LOG_DEBUG(".");
+				//LOG_DEBUG(".");
 			}
 
 			if( player->next_track ) {
