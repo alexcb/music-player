@@ -718,7 +718,7 @@ void player_audio_thread_run( void *data )
 
 		bool out_of_buffer_logged = false;
 		for(;;) {
-			LOG_DEBUG("before get_buffer_read");
+			//LOG_DEBUG("before get_buffer_read");
 			num_read = 0;
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
@@ -730,10 +730,12 @@ void player_audio_thread_run( void *data )
 				continue;
 			}
 			out_of_buffer_logged = false;
-			LOG_DEBUG("after get_buffer_read");
+			//LOG_DEBUG("after get_buffer_read");
 			if( buf_start != NULL ) {
-				LOG_DEBUG("got=p want=p bad pointer", p, buf_start );
-				assert( p == buf_start );
+				if( p != buf_start ) {
+					LOG_ERROR("got=p want=p bad pointer", p, buf_start );
+					assert(0);
+				}
 				buf_start = NULL;
 			}
 
