@@ -704,6 +704,8 @@ void player_audio_thread_run( void *data )
 
 		LOG_DEBUG( "p=p path=s popped play queue item", pqi->buf_start, pqi->playlist_item->track->path );
 		player->current_track = pqi->playlist_item;
+		void *buf_start = pqi->buf_start;
+		assert( buf_start != NULL );
 		pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
 		play_queue_pop( &player->play_queue );
 
@@ -729,6 +731,11 @@ void player_audio_thread_run( void *data )
 			}
 			out_of_buffer_logged = false;
 			LOG_DEBUG("after get_buffer_read");
+			if( buf_start != NULL ) {
+				LOG_DEBUG("got=p want=p bad pointer", p, buf_start );
+				assert( p == buf_start );
+				buf_start = NULL;
+			}
 
 			payload_id = *(unsigned char*) p;
 			p++;
