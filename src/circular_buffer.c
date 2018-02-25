@@ -210,11 +210,13 @@ void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 	pthread_mutex_lock( &buffer->lock );
 	size_t n = p - buffer->p;
 	if( n > buffer->read ) {
+		LOG_DEBUG("buffer_mark_read_upto no loop");
 		buffer->read = n;
 	} else if( n < buffer->read ) {
 		// loop around
 		buffer->read = n;
 		buffer->len = 0;
+		LOG_DEBUG("buffer_mark_read_upto loop");
 	}
 	//if n == buffer->read
 	//  we assume nothing has happened rather than removing the whole buffer
