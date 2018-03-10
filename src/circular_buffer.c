@@ -216,7 +216,7 @@ void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 		// loop around
 		buffer->read = n;
 		buffer->len = 0;
-		LOG_DEBUG("buffer_mark_read_upto loop");
+		LOG_DEBUG("buffer_mark_read_upto loop"); // this has happened once when we got corrupt data
 	}
 	//if n == buffer->read
 	//  we assume nothing has happened rather than removing the whole buffer

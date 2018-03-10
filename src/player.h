@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <pulse/simple.h>
 
 #include "circular_buffer.h"
 #include "play_queue.h"
@@ -23,7 +24,9 @@ typedef void (*MetadataObserver)(bool playing, const PlaylistItem *playlist_item
 typedef struct Player
 {
 	int driver;
-	snd_pcm_t *handle;
+	snd_pcm_t *alsa_handle;
+	pa_simple *pa_handle;
+
 	//ao_sample_format format;
 	int channels, encoding;
 	long rate;

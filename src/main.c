@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 
 	res = id3_cache_save( cache );
 	if( res ) {
-		LOG_ERROR("err=d failed to save id3 cache", res);
+		LOG_ERROR("err=d path=s failed to save id3 cache", res, cache->path);
 	}
 	
 	PlaylistManager playlist_manager;

@@ -15,6 +15,10 @@
 #include <err.h>
 #include <assert.h>
 
+// TODO build flag options?
+#include <pulse/simple.h>
+#include <pulse/error.h>
+
 #define AUDIO_DATA 1
 #define ID_DATA_START 2
 #define ID_DATA_END 3
@@ -120,11 +124,27 @@ snd_pcm_t* open_sound_dev()
 
 void init_alsa( Player *player )
 {
-	if( player->handle != NULL ) {
+	if( player->alsa_handle != NULL ) {
 		//snd_pcm_drain(pcm_handle);
-		snd_pcm_close( player->handle );
+		snd_pcm_close( player->alsa_handle );
 	}
-	player->handle = open_sound_dev();
+	player->alsa_handle = open_sound_dev();
+}
+
+void init_pa( Player *player )
+{
+    static const pa_sample_spec ss = {
+        .format = PA_SAMPLE_S16LE,
+        .rate = RATE,
+        .channels = 2
+    };
+
+	int error;
+	player->pa_handle = pa_simple_new(NULL, "alexplayer", PA_STREAM_PLAYBACK, NULL, "playback", &ss, NULL, NULL, &error);
+    if( player->pa_handle == NULL ) {
+        fprintf(stderr, __FILE__": pa_simple_new() failed: %s\n", pa_strerror(error));
+		assert( 0 );
+    }
 }
 
 int init_player( Player *player, const char *library_path )
@@ -133,8 +153,14 @@ int init_player( Player *player, const char *library_path )
 
 
 
-	player->handle = NULL;
+	player->pa_handle = NULL;
+	player->alsa_handle = NULL;
+
+#ifdef USE_RASP_PI
 	init_alsa( player );
+#else
+	init_pa( player );
+#endif
 
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
@@ -649,6 +675,7 @@ void player_unlock( Player *player ) { pthread_mutex_unlock( &player->the_lock )
 
 void player_audio_thread_run( void *data )
 {
+	int error;
 	int res;
 	Player *player = (Player*) data;
 
@@ -793,34 +820,42 @@ void player_audio_thread_run( void *data )
 				} else {
 					//LOG_DEBUG("ao_play");
 
-					signed short *ptr = (signed short*) p;
-					int frames = chunk_size / (2 * 2); //channels*16bits
-					while( frames > 0 && !player->next_track ) {
-						res = snd_pcm_writei(player->handle, ptr, frames);
-						if (res == -EAGAIN) {
-							LOG_DEBUG("got EAGAIN");
-							continue;
-						} else if (res < 0) {
-							if (xrun_recovery(player->handle, res) < 0) {
-								LOG_ERROR("err=s write error", snd_strerror(res));
-								//exit(EXIT_FAILURE);
-								// TODO instead of exiting, try to re-init sound driver?
-								// I've seen this before:
-								//   - Input/output error
+					if( player->alsa_handle ) {
+						signed short *ptr = (signed short*) p;
+						int frames = chunk_size / (2 * 2); //channels*16bits
+						while( frames > 0 && !player->next_track ) {
+							res = snd_pcm_writei(player->alsa_handle, ptr, frames);
+							if (res == -EAGAIN) {
+								LOG_DEBUG("got EAGAIN");
+								continue;
+							} else if (res < 0) {
+								if (xrun_recovery(player->alsa_handle, res) < 0) {
+									LOG_ERROR("err=s write error", snd_strerror(res));
+									//exit(EXIT_FAILURE);
+									// TODO instead of exiting, try to re-init sound driver?
+									// I've seen this before:
+									//   - Input/output error
 
-								// re-init sound driver
-								sleep(1);
-								init_alsa( player );
+									// re-init sound driver
+									sleep(1);
+									init_alsa( player );
+								} else {
+									LOG_WARN("underrun");
+								}
+								break;  /* skip chunk -- there was a recoverable error */
+							} else if( res == 0 ) {
+								usleep( 1000 );
 							} else {
-								LOG_WARN("underrun");
+								ptr += res;
+								frames -= res;
 							}
-							break;  /* skip chunk -- there was a recoverable error */
-						} else if( res == 0 ) {
-							usleep( 1000 );
-						} else {
-							ptr += res;
-							frames -= res;
 						}
+					} else if( player->pa_handle ) {
+						res = pa_simple_write( player->pa_handle, p, chunk_size, &error);
+						if( res < 0 ) {
+							LOG_ERROR("res=d err=d pa_simple_write failed", res, error);
+						}
+
 					}
 
 					//k
