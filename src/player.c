@@ -158,8 +158,10 @@ int init_player( Player *player, const char *library_path )
 
 #ifdef USE_RASP_PI
 	init_alsa( player );
+	LOG_INFO("using alsa");
 #else
 	init_pa( player );
+	LOG_INFO("using pulseaudio");
 #endif
 
 	mpg123_init();
@@ -696,16 +698,12 @@ void player_audio_thread_run( void *data )
 		LOG_DEBUG("locking - player_audio_thread_run");
 		pthread_mutex_lock( &player->the_lock );
 
-		if( player->next_track ) {
-			player->next_track = false;
-		}
+		player->next_track = false;
 
 		if( player->current_track ) {
 			playlist_item_ref_down(player->current_track);
 			player->current_track = NULL;
 		}
-
-
 
 		res = play_queue_head( &player->play_queue, &pqi );
 		if( res == 0 ) {
