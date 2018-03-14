@@ -28,7 +28,9 @@
 void player_audio_thread_run( void *data );
 void player_reader_thread_run( void *data );
 
-static int xrun_recovery(snd_pcm_t *handle, int err)
+int xrun_recovery(snd_pcm_t *handle, int err);
+
+int xrun_recovery(snd_pcm_t *handle, int err)
 {
 	if (err == -EPIPE) {    /* under-run */
 		err = snd_pcm_prepare(handle);
@@ -151,8 +153,6 @@ int init_player( Player *player, const char *library_path )
 {
 	int res;
 
-
-
 	player->pa_handle = NULL;
 	player->alsa_handle = NULL;
 
@@ -262,7 +262,7 @@ int player_change_track_unsafe( Player *player, PlaylistItem *playlist_item, int
 	}
 
 	LOG_DEBUG("player_change_track -- rewinding");
-	player_rewind_buffer_unsafe( player );
+	//player_rewind_buffer_unsafe( player );
 	player->playlist_item_to_buffer_override = playlist_item;
 
 	return 0;
@@ -336,61 +336,6 @@ void call_observers( Player *player ) {
 		player->metadata_observers[i]( player->playing, player->current_track, player->metadata_observers_data[i] );
 	}
 	LOG_DEBUG("done call observers");
-}
-
-void rewind2( Player *player )
-{
-	size_t decoded_size;
-	char *pp[2];
-	size_t size[2];
-
-	LOG_DEBUG("locking - rewind2");
-	pthread_mutex_lock( &player->circular_buffer.lock );
-
-	get_buffer_read_unsafe2( &player->circular_buffer, 0, &pp[0], &size[0], &pp[1], &size[1] );
-
-	size_t num_read;
-	int num_messages = 0;
-	char *found = NULL;
-	for( int j = 0; j < 2 && !found; j++ ) {
-		LOG_DEBUG( "j=d size=d here", j, size[j] );
-		while( size[j] > 0 ) {
-			char *q = pp[j];
-			unsigned char payload_id = *(unsigned char*) q;
-
-			if( ++num_messages == 2 ) {
-				found = q;
-				break;
-			}
-
-			q++;
-			num_read = 1;
-
-			switch( payload_id ) {
-				case ID_DATA_START:
-					break;
-				case ID_DATA_END:
-					break;
-				case AUDIO_DATA:
-					decoded_size = *((size_t*) q);
-					num_read += sizeof(size_t) + decoded_size;
-					break;
-				default:
-					assert( 0 ); //unsupported payload_id
-			}
-
-			size[j] -= num_read;
-			pp[j] += num_read;
-		}
-	}
-
-	if( found ) {
-		LOG_DEBUG("p=p rewinding buffer", found);
-		buffer_rewind_unsafe( &player->circular_buffer, found );
-	}
-
-	LOG_DEBUG("unlocking - rewind2");
-	pthread_mutex_unlock( &player->circular_buffer.lock );
 }
 
 bool player_should_abort_load( Player *player )
@@ -590,26 +535,26 @@ done:
 }
 
 // caller must first lock the player before calling this
-void player_rewind_buffer_unsafe( Player *player )
-{
-	int res;
-	PlayQueueItem *pqi = NULL;
-
-	LOG_DEBUG("handling player_rewind_buffer_unsafe");
-
-	res = play_queue_head( &player->play_queue, &pqi );
-	if( !res ) {
-		stop_loader( player );
-		LOG_DEBUG("p=p rewinding", pqi->buf_start);
-		buffer_lock( &player->circular_buffer );
-		buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
-		buffer_unlock( &player->circular_buffer );
-	} else {
-		LOG_DEBUG("nothing to rewind");
-	}
-	LOG_DEBUG("clearing play queue");
-	play_queue_clear( &player->play_queue );
-}
+//void player_rewind_buffer_unsafe( Player *player )
+//{
+//	int res;
+//	PlayQueueItem *pqi = NULL;
+//
+//	LOG_DEBUG("handling player_rewind_buffer_unsafe");
+//
+//	res = play_queue_head( &player->play_queue, &pqi );
+//	if( !res ) {
+//		stop_loader( player );
+//		LOG_DEBUG("p=p rewinding", pqi->buf_start);
+//		buffer_lock( &player->circular_buffer );
+//		buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
+//		buffer_unlock( &player->circular_buffer );
+//	} else {
+//		LOG_DEBUG("nothing to rewind");
+//	}
+//	LOG_DEBUG("clearing play queue");
+//	play_queue_clear( &player->play_queue );
+//}
 
 void player_reader_thread_run( void *data )
 {
@@ -639,7 +584,7 @@ void player_reader_thread_run( void *data )
 		pthread_mutex_unlock( &player->the_lock );
 
 		if( item == NULL ) {
-			usleep(1000);
+			usleep(10000);
 			continue;
 		}
 
@@ -677,12 +622,12 @@ void player_unlock( Player *player ) { pthread_mutex_unlock( &player->the_lock )
 
 void player_audio_thread_run( void *data )
 {
-	int error;
+	//int error;
 	int res;
 	Player *player = (Player*) data;
 
-	size_t chunk_size;
-	unsigned char payload_id;
+	//size_t chunk_size;
+	//unsigned char payload_id;
 
 	size_t num_read;
 
@@ -692,7 +637,6 @@ void player_audio_thread_run( void *data )
 	size_t buffer_avail;
 	char *p;
 	bool notified_no_songs = false;
-	bool last_play_state;
 	
 	for(;;) {
 		LOG_DEBUG("locking - player_audio_thread_run");
@@ -719,7 +663,7 @@ void player_audio_thread_run( void *data )
 			pthread_mutex_unlock( &player->the_lock );
 
 			if( !notified_no_songs ) {
-				call_observers( player );
+				//call_observers( player );
 				notified_no_songs = true;
 			}
 
@@ -734,147 +678,25 @@ void player_audio_thread_run( void *data )
 		pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
 		play_queue_pop( &player->play_queue );
 
-		//LOG_DEBUG("unlocking - player_audio_thread_run 2");
 		pthread_mutex_unlock( &player->the_lock );
 		pthread_cond_signal( &player->done_track_cond );
 
 		notified_no_songs = false;
-		last_play_state = !player->playing;
 
-		bool out_of_buffer_logged = false;
 		for(;;) {
-			//LOG_DEBUG("before get_buffer_read");
 			num_read = 0;
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
-				if( out_of_buffer_logged == false ) {
-					LOG_DEBUG( "out of buffer" );
-					out_of_buffer_logged = true;
-				}
-				usleep(50000); // 50ms
+				LOG_WARN( "out of buffer" );
+				usleep(200000); // 200ms
 				continue;
-			}
-			out_of_buffer_logged = false;
-			//LOG_DEBUG("after get_buffer_read");
-			if( buf_start != NULL ) {
-				if( p != buf_start ) {
-					LOG_ERROR("got=p want=p bad pointer", p, buf_start );
-					assert(0);
-				}
-				buf_start = NULL;
-			}
-
-			payload_id = *(unsigned char*) p;
-			p++;
-			num_read++;
-
-			if( payload_id == ID_DATA_END ) {
-				LOG_DEBUG( " ----- trigger end of song ----- " );
-				buffer_mark_read( &player->circular_buffer, num_read );
-				break;
-			}
-
-
-			if( payload_id == ID_DATA_START ) {
-				LOG_DEBUG( " ------------ reading ID_DATA_START ------------ " );
-				player->next_track = false;
-				//memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
-				//player->current_track.playlist_item->parent->current = player->current_track.playlist_item;
-				//LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
-				call_observers( player );
-				buffer_mark_read( &player->circular_buffer, num_read );
-				continue;
-			}
-
-			// otherwise it must be audio data
-			if( payload_id != AUDIO_DATA ) {
-				LOG_ERROR("p=p bad data", p);
-			}
-
-			assert( payload_id == AUDIO_DATA );
-
-			size_t decoded_size = *((size_t*) p);
-			p += sizeof(size_t);
-			num_read += sizeof(size_t);
-
-			chunk_size = 1024;
-			while( decoded_size > 0 && !player->next_track ) {
-				if( last_play_state != player->playing ) {
-					LOG_DEBUG("playing=d detected playing change", player->playing);
-					call_observers( player );
-					last_play_state = player->playing;
-				}
-
-				if( decoded_size < chunk_size ) {
-					chunk_size = decoded_size;
-				}
-
-				if( !player->playing ) {
-					if( strstr(player->current_track->track->path, "http://") == NULL ) {
-						// regular file, busy-wait until we can play again
-						usleep(10000);
-						continue;
-					}
-				} else {
-					//LOG_DEBUG("ao_play");
-
-					if( player->alsa_handle ) {
-						signed short *ptr = (signed short*) p;
-						int frames = chunk_size / (2 * 2); //channels*16bits
-						while( frames > 0 && !player->next_track ) {
-							res = snd_pcm_writei(player->alsa_handle, ptr, frames);
-							if (res == -EAGAIN) {
-								LOG_DEBUG("got EAGAIN");
-								continue;
-							} else if (res < 0) {
-								if (xrun_recovery(player->alsa_handle, res) < 0) {
-									LOG_ERROR("err=s write error", snd_strerror(res));
-									//exit(EXIT_FAILURE);
-									// TODO instead of exiting, try to re-init sound driver?
-									// I've seen this before:
-									//   - Input/output error
-
-									// re-init sound driver
-									sleep(1);
-									init_alsa( player );
-								} else {
-									LOG_WARN("underrun");
-								}
-								break;  /* skip chunk -- there was a recoverable error */
-							} else if( res == 0 ) {
-								usleep( 1000 );
-							} else {
-								ptr += res;
-								frames -= res;
-							}
-						}
-					} else if( player->pa_handle ) {
-						res = pa_simple_write( player->pa_handle, p, chunk_size, &error);
-						if( res < 0 ) {
-							LOG_ERROR("res=d err=d pa_simple_write failed", res, error);
-						}
-
-					}
-
-					//k
-					//res = ao_play( player->dev, p, chunk_size );
-					//LOG_DEBUG("res=d ao_play done", res);
-					// uncomment for proof that p gets copied by ao_play: memset( p, 0, chunk_size );
-				}
-
-				p += chunk_size;
-				decoded_size -= chunk_size;
-				num_read += chunk_size;
-				//LOG_DEBUG(".");
 			}
 
 			if( player->next_track ) {
 				LOG_DEBUG("breaking due to next_track");
 				break;
 			}
-			LOG_DEBUG("before buffer_mark_read");
 			buffer_mark_read( &player->circular_buffer, num_read );
-			LOG_DEBUG("after buffer_mark_read");
 		}
 		pthread_cond_signal( &player->done_track_cond );
 	}

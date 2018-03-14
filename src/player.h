@@ -77,10 +77,11 @@ typedef struct Player
 
 int init_player( Player *player, const char *library_path );
 int start_player( Player *player );
+int stop_player( Player *player );
 
 void player_lock( Player *player );
 void player_unlock( Player *player );
-void player_rewind_buffer_unsafe( Player *player );
+//void player_rewind_buffer_unsafe( Player *player );
 
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );
 

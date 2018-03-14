@@ -490,7 +490,7 @@ static int web_handler_playlists_load(
 
 	if( current_playlist == playlist ) {
 		// we changed the current playlist, it needs to be re-buffered
-		player_rewind_buffer_unsafe( data->my_data->player );
+		//player_rewind_buffer_unsafe( data->my_data->player );
 		if( data->my_data->player->current_track->parent == playlist && data->my_data->player->current_track->next ) {
 			data->my_data->player->playlist_item_to_buffer = data->my_data->player->current_track->next;
 		} else {
