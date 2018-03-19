@@ -19,10 +19,6 @@
 #include <pulse/simple.h>
 #include <pulse/error.h>
 
-#define AUDIO_DATA 1
-#define ID_DATA_START 2
-#define ID_DATA_END 3
-
 #define RATE 44100
 
 void player_audio_thread_run( void *data );
@@ -153,6 +149,7 @@ int init_player( Player *player, const char *library_path )
 {
 	int res;
 
+	player->exit = false;
 	player->pa_handle = NULL;
 	player->alsa_handle = NULL;
 
@@ -562,6 +559,9 @@ void player_reader_thread_run( void *data )
 	PlaylistItem *item = NULL;
 
 	for(;;) {
+		if( player->exit ) {
+			return;
+		}
 		//LOG_DEBUG("locking - player_reader_thread_run");
 		pthread_mutex_lock( &player->the_lock );
 
@@ -629,8 +629,6 @@ void player_audio_thread_run( void *data )
 	//size_t chunk_size;
 	//unsigned char payload_id;
 
-	size_t num_read;
-
 	PlayQueueItem *pqi = NULL;
 	//PlaylistItem *playlist_item = NULL;
 	
@@ -683,8 +681,12 @@ void player_audio_thread_run( void *data )
 
 		notified_no_songs = false;
 
+		unsigned char payload_id;
+		size_t num_read = 0;
 		for(;;) {
-			num_read = 0;
+			if( player->exit ) {
+				return;
+			}
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
 				LOG_WARN( "out of buffer" );
@@ -692,11 +694,57 @@ void player_audio_thread_run( void *data )
 				continue;
 			}
 
+			payload_id = *(unsigned char*) p;
+			p++;
+			num_read++;
+
+			if( payload_id == ID_DATA_END ) {
+				LOG_DEBUG( " ----- trigger end of song ----- " );
+				buffer_mark_read( &player->circular_buffer, num_read );
+				break;
+			}
+
+			if( payload_id == ID_DATA_START ) {
+				LOG_DEBUG( " ------------ reading ID_DATA_START ------------ " );
+				player->next_track = false;
+				//memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
+				//player->current_track.playlist_item->parent->current = player->current_track.playlist_item;
+				//LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
+				call_observers( player );
+				buffer_mark_read( &player->circular_buffer, num_read );
+				continue;
+			}
+
+			// otherwise it must be audio data
+			assert( payload_id == AUDIO_DATA );
+
+			size_t chunk_size;
+			memcpy( &chunk_size, p, sizeof(size_t) );
+			num_read += sizeof(size_t);
+			p += sizeof(size_t);
+			assert( chunk_size < buffer_avail );
+
+			while( !player->next_track && chunk_size > 0 ) {
+				size_t n = chunk_size;
+				if( n > 256 ) {
+					n = 256;
+				}
+				if( !player->playing ) {
+					usleep(1000);
+					continue;
+				}
+				player->audio_consumer( p, n );
+				num_read += n;
+				p += n;
+				chunk_size -= n;
+			}
+			buffer_mark_read( &player->circular_buffer, num_read );
+			num_read = 0;
+
 			if( player->next_track ) {
 				LOG_DEBUG("breaking due to next_track");
 				break;
 			}
-			buffer_mark_read( &player->circular_buffer, num_read );
 		}
 		pthread_cond_signal( &player->done_track_cond );
 	}

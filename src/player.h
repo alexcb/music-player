@@ -19,7 +19,14 @@
 #define TRACK_CHANGE_IMMEDIATE 1
 #define TRACK_CHANGE_NEXT 2
 
+#define AUDIO_DATA 1
+#define ID_DATA_START 2
+#define ID_DATA_END 3
+
+
 typedef void (*MetadataObserver)(bool playing, const PlaylistItem *playlist_item, void *data);
+
+typedef int (*AudioConsumer)(const char *p, size_t n);
 
 typedef struct Player
 {
@@ -62,6 +69,7 @@ typedef struct Player
 
 	// when true play, when false, pause / stop
 	volatile bool playing;
+	volatile bool exit;
 
 	// control over changing tracks
 	//pthread_mutex_t change_track_lock;
@@ -72,6 +80,8 @@ typedef struct Player
 
 	size_t decode_buffer_size;
 	char *decode_buffer;
+
+	AudioConsumer audio_consumer;
 } Player;
 
 
