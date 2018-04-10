@@ -6,7 +6,8 @@
 #include "log.h"
 
 unsigned int testManyFunction(void) {
-    TEST_ASSERT( !testPlayerLoop() );
+    //TEST_ASSERT( !testPlayerLoop() );
+    TEST_ASSERT( !testPlayerSkip() );
     return 0;
 }
 
