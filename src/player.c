@@ -291,6 +291,28 @@ int player_change_next_album( Player *player, int when )
 	return res;
 }
 
+int player_change_next_track( Player *player, int when )
+{
+	int res = 1;
+	PlaylistItem *p;
+
+	pthread_mutex_lock( &player->the_lock );
+
+	if( player->current_track != NULL ) {
+		p = player->current_track->next;
+		if( p == NULL ) {
+			p = player->current_track->parent->root;
+		}
+		assert( p );
+
+		LOG_DEBUG("path=d skipping to new track", p->track->path);
+		res = player_change_track_unsafe( player, p, when );
+	}
+
+	pthread_mutex_unlock( &player->the_lock );
+	return res;
+}
+
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 {
 	int res;
@@ -661,7 +683,7 @@ void player_audio_thread_run( void *data )
 			pthread_mutex_unlock( &player->the_lock );
 
 			if( !notified_no_songs ) {
-				//call_observers( player );
+				call_observers( player );
 				notified_no_songs = true;
 			}
 
@@ -678,6 +700,8 @@ void player_audio_thread_run( void *data )
 
 		pthread_mutex_unlock( &player->the_lock );
 		pthread_cond_signal( &player->done_track_cond );
+
+		call_observers( player );
 
 		notified_no_songs = false;
 
