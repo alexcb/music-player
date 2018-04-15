@@ -29,7 +29,7 @@ typedef struct Player Player;
 
 
 typedef void (*MetadataObserver)( bool playing, const PlaylistItem *playlist_item, void *data );
-typedef int (*AudioConsumer)( const char *p, size_t n );
+typedef int (*AudioConsumer)( Player *player, const char *p, size_t n );
 typedef void (*LoadItem)( Player *player, PlaylistItem *item );
 
 struct Player

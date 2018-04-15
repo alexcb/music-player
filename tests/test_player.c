@@ -13,7 +13,7 @@ size_t expected_buffer_size;
 size_t expected_buffer_read;
 size_t expected_buffer_len;
 
-int test_player_consumer(const char *p, size_t n)
+int test_player_consumer(Player *player, const char *p, size_t n)
 {
 	for( int i = 0; i < n; i++ ) {
 		char want = expected_buffer[expected_buffer_read++];
@@ -30,7 +30,7 @@ int test_player_consumer(const char *p, size_t n)
 volatile unsigned char last_track_seen;
 volatile int num_skips;
 
-int test_player_consumer_skip(const char *p, size_t n)
+int test_player_consumer_skip(Player *player, const char *p, size_t n)
 {
 	for( int i = 0; i < n; i++ ) {
 		unsigned char current_track = p[i];
