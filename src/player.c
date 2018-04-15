@@ -473,6 +473,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 	}
 
 	buffer_mark_written( &player->circular_buffer, 1 );
+	p = NULL;
 	
 	done = false;
 	while( !done ) {
@@ -533,7 +534,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 		}
 
 		if( decoded_size > 0 ) {
-			//LOG_DEBUG("writing AUDIO_DATA header");
+			LOG_DEBUG("decoded_size=d p=p writing AUDIO_DATA header", decoded_size, p);
 			*((unsigned char*)p) = AUDIO_DATA;
 			p++;
 			bytes_written += 1;
@@ -678,6 +679,9 @@ void* player_audio_thread_run( void *data )
 	PlayQueueItem *pqi = NULL;
 	//PlaylistItem *playlist_item = NULL;
 	
+	unsigned char payload_id;
+
+	size_t num_read;
 	size_t buffer_avail;
 	char *p;
 	bool notified_no_songs = false;
@@ -742,12 +746,11 @@ void* player_audio_thread_run( void *data )
 
 		notified_no_songs = false;
 
-		unsigned char payload_id;
-		size_t num_read = 0;
 		for(;;) {
 			if( player->exit ) {
 				return NULL;
 			}
+			num_read = 0;
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
 				LOG_WARN( "out of buffer" );
@@ -755,7 +758,11 @@ void* player_audio_thread_run( void *data )
 				continue;
 			}
 
+			assert( buffer_avail > 0 );
+
 			payload_id = *(unsigned char*) p;
+			LOG_DEBUG( "payload=d buff=p cirbuff=p woooo", payload_id, p, player->circular_buffer.p );
+
 			p++;
 			num_read++;
 
@@ -781,8 +788,9 @@ void* player_audio_thread_run( void *data )
 
 			size_t chunk_size;
 			memcpy( &chunk_size, p, sizeof(size_t) );
-			num_read += sizeof(size_t);
+			num_read += sizeof(size_t) + chunk_size;
 			p += sizeof(size_t);
+			LOG_DEBUG( "chunk_size=d playing audio", chunk_size );
 			assert( chunk_size < buffer_avail );
 
 			while( !player->next_track && chunk_size > 0 ) {
@@ -795,10 +803,10 @@ void* player_audio_thread_run( void *data )
 					continue;
 				}
 				player->audio_consumer( p, n );
-				num_read += n;
 				p += n;
 				chunk_size -= n;
 			}
+			LOG_DEBUG( "chunk_size=d num_read=d playing audio", chunk_size, num_read );
 			buffer_mark_read( &player->circular_buffer, num_read );
 			num_read = 0;
 
