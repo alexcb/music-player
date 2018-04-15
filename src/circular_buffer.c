@@ -5,6 +5,23 @@
 #include <stdlib.h>
 #include <assert.h>
 
+// TODO make it so the buffer can never be 100% full
+// need to always leave a one byte gap between the read and write positions
+// this way when we do a mark up to its clear that it's no changing anything
+
+void log_buffer( CircularBuffer *buffer, const char *s )
+{
+	LOG_DEBUG("caller=s read=d write=d size=d len=d lock_reads=d read_reserved=d data",
+		s,
+		buffer->read,
+		buffer->write,
+		buffer->size,
+		buffer->len,
+		buffer->lock_reads,
+		buffer->read_reserved
+		);
+}
+
 int init_circular_buffer( CircularBuffer *buffer, size_t buffer_size )
 {
 	buffer->read = 0;
@@ -29,6 +46,7 @@ int init_circular_buffer( CircularBuffer *buffer, size_t buffer_size )
 	return 0;
 }
 
+// wake_up_get_buffer_write causes the get_buffer_write call to wake up
 void wake_up_get_buffer_write( CircularBuffer *buffer )
 {
 	LOG_DEBUG("setting wake_up_get_buffer_write true");
@@ -39,6 +57,7 @@ void wake_up_get_buffer_write( CircularBuffer *buffer )
 	LOG_DEBUG("done setting wake_up_get_buffer_write true");
 }
 
+// wake_up_get_buffer_read causes the get_buffer_read call to wake up
 void wake_up_get_buffer_read( CircularBuffer *buffer )
 {
 	LOG_DEBUG("setting wake_up_get_buffer_read true");
@@ -55,6 +74,7 @@ void buffer_clear( CircularBuffer *buffer )
 
 	pthread_mutex_lock( &buffer->lock );
 
+	log_buffer( buffer, "buffer_clear" );
 	buffer->read = 0;
 	buffer->write = 0;
 	buffer->len = 0;
@@ -70,6 +90,7 @@ int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, cha
 {
 	size_t n;
 
+	log_buffer( buffer, "get_buffer_write_unsafe" );
 	if( min_buffer_size > buffer->size / 2 ) {
 		return 1;
 	}
@@ -78,29 +99,40 @@ int get_buffer_write_unsafe( CircularBuffer *buffer, size_t min_buffer_size, cha
 	if( buffer->len == 0 && buffer->read == buffer->write) {
 		buffer->read = buffer->write = 0;
 		*p = buffer->p;
-		*reserved_size = buffer->size;
+		*reserved_size = buffer->size - 1;
+		log_buffer( buffer, "get_buffer_write_unsafe1" );
+		assert( *p >= buffer->p && *p < (buffer->p + buffer->size) );
 		return 0;
 	}
 
 	if( buffer->write > buffer->read ) {
-		n = buffer->size - buffer->write;
+		n = buffer->size - buffer->write - 1;
 		if( n >= min_buffer_size ) {
 			*reserved_size = n;
 			*p = buffer->p + buffer->write;
+			log_buffer( buffer, "get_buffer_write_unsafe2" );
+			assert( *p >= buffer->p && *p < (buffer->p + buffer->size) );
 			return 0;
+		}
+
+		if( buffer->read < 2 ) {
+			return 1;
 		}
 
 		buffer->len = buffer->write;
 		buffer->write = 0;
 	}
 
-	n = buffer->read - buffer->write;
+	n = buffer->read - buffer->write - 1;
 	if( n >= min_buffer_size ) {
 		*reserved_size = n;
 		*p = buffer->p + buffer->write;
+		log_buffer( buffer, "get_buffer_write_unsafe3" );
+		assert( *p >= buffer->p && *p < (buffer->p + buffer->size) );
 		return 0;
 	}
 
+	log_buffer( buffer, "get_buffer_write_unsafe4" );
 	return 1;
 }
 
@@ -129,6 +161,7 @@ int get_buffer_write( CircularBuffer *buffer, size_t min_buffer_size, char **p, 
 
 int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_size )
 {
+	log_buffer( buffer, "get_buffer_read_unsafe" );
 	if( buffer->read == buffer->len ) {
 		buffer->read = 0;
 		buffer->len = 0;
@@ -138,6 +171,7 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_s
 	if( buffer->write <= buffer->read && buffer->read < buffer->len ) {
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->len - buffer->read;
+		log_buffer( buffer, "get_buffer_read_unsafe1" );
 		return 0;
 	}
 
@@ -145,9 +179,11 @@ int get_buffer_read_unsafe( CircularBuffer *buffer, char **p, size_t *reserved_s
 	if( buffer->read < buffer->write ) {
 		*p = buffer->p + buffer->read;
 		*reserved_size = buffer->write - buffer->read;
+		log_buffer( buffer, "get_buffer_read_unsafe2" );
 		return 0;
 	}
 
+	log_buffer( buffer, "get_buffer_read_unsafe3" );
 	// this should only happen when len is 0 (empty buffer)
 	return 1;
 }
@@ -182,7 +218,9 @@ void buffer_mark_written( CircularBuffer *buffer, size_t n )
 	long start = get_current_time_ms();
 
 	pthread_mutex_lock( &buffer->lock );
+	log_buffer( buffer, "buffer_mark_written_before" );
 	buffer->write += n;
+	log_buffer( buffer, "buffer_mark_written_after" );
 	pthread_mutex_unlock( &buffer->lock );
 	pthread_cond_signal( &buffer->data_avail );
 
@@ -195,7 +233,9 @@ void buffer_mark_read( CircularBuffer *buffer, size_t n )
 	long start = get_current_time_ms();
 
 	pthread_mutex_lock( &buffer->lock );
+	log_buffer( buffer, "buffer_mark_read_before" );
 	buffer->read += n;
+	log_buffer( buffer, "buffer_mark_read_after" );
 	pthread_mutex_unlock( &buffer->lock );
 	pthread_cond_signal( &buffer->space_free );
 
@@ -208,11 +248,20 @@ void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 	long start = get_current_time_ms();
 
 	pthread_mutex_lock( &buffer->lock );
+	log_buffer( buffer, "buffer_mark_read_upto_before" );
 	size_t n = p - buffer->p;
-	if( n > buffer->read ) {
+	LOG_DEBUG("p=p bufp=p n=d marking up to", p, buffer->p, n);
+	if( n >= buffer->read ) {
+		if( buffer->len ) {
+			assert( n < buffer->len );
+		} else {
+			assert( n <= buffer->write );
+		}
 		LOG_DEBUG("buffer_mark_read_upto no loop");
 		buffer->read = n;
 	} else if( n < buffer->read ) {
+		assert( buffer->len );
+		assert( n <= buffer->write );
 		// loop around
 		buffer->read = n;
 		buffer->len = 0;
@@ -226,6 +275,7 @@ void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 	//	buffer->len = 0;
 	//}
 	//buffer->read = n;
+	log_buffer( buffer, "buffer_mark_read_upto_after" );
 	pthread_mutex_unlock( &buffer->lock );
 	pthread_cond_signal( &buffer->space_free );
 
@@ -235,25 +285,31 @@ void buffer_mark_read_upto( CircularBuffer *buffer, char *p )
 
 int buffer_rewind_unsafe( CircularBuffer *buffer, char *p )
 {
+	log_buffer( buffer, "buffer_rewind_unsafe_before" );
+	//
 	// TODO add assertions to verify rewind is valid and not before reader location
 	int w = p - buffer->p;
 	if( w <= buffer->write ) {
 		buffer->write = w;
+		log_buffer( buffer, "buffer_rewind_unsafe_after1" );
 		return 0;
 	}
 	buffer->write = w;
 	buffer->len = 0;
 
+	log_buffer( buffer, "buffer_rewind_unsafe_after2" );
 	return 0;
 }
 
 int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1, size_t *size1, char **p2, size_t *size2 )
 {
+	log_buffer( buffer, "get_buffer_read_unsafe2_before" );
 	if( buffer->read == buffer->len ) {
 		*p1 = buffer->p;
 		*size1 = buffer->write;
 		*p2 = NULL;
 		*size2 = 0;
+		log_buffer( buffer, "get_buffer_read_unsafe2_after1" );
 		return 0;
 	}
 
@@ -263,6 +319,7 @@ int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1,
 		*size1 = buffer->len - buffer->read;
 		*p2 = buffer->p;
 		*size2 = buffer->write;
+		log_buffer( buffer, "get_buffer_read_unsafe2_after2" );
 		return 0;
 	}
 
@@ -272,6 +329,7 @@ int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1,
 		*size1 = buffer->write - buffer->read;
 		*p2 = NULL;
 		*size2 = 0;
+		log_buffer( buffer, "get_buffer_read_unsafe2_after3" );
 		return 0;
 	}
 
@@ -280,20 +338,24 @@ int get_buffer_read_unsafe2( CircularBuffer *buffer, size_t max_size, char **p1,
 	*size1 = 0;
 	*p2 = NULL;
 	*size2 = 0;
+	log_buffer( buffer, "get_buffer_read_unsafe2_after4" );
 	return 0;
 }
 
 void buffer_mark_read_unsafe( CircularBuffer *buffer, size_t n )
 {
+	log_buffer( buffer, "buffer_mark_read_unsafe_before" );
 	if( buffer->len > 0 ) {
 		size_t remaining = buffer->len - buffer->read;
 		if( n >= remaining ) {
 			buffer->len = 0;
 			buffer->read = n - remaining;
+			log_buffer( buffer, "buffer_mark_read_unsafe_after1" );
 			return;
 		}
 	}
 	buffer->read += n;
+	log_buffer( buffer, "buffer_mark_read_unsafe_after2" );
 }
 
 int buffer_lock( CircularBuffer *buffer )

@@ -21,8 +21,9 @@
 
 #define RATE 44100
 
-void player_audio_thread_run( void *data );
-void player_reader_thread_run( void *data );
+void* player_audio_thread_run( void *data );
+void* player_reader_thread_run( void *data );
+void player_load_into_buffer( Player *player, PlaylistItem *item );
 
 int xrun_recovery(snd_pcm_t *handle, int err);
 
@@ -149,6 +150,8 @@ int init_player( Player *player, const char *library_path )
 {
 	int res;
 
+	player->load_item = &player_load_into_buffer;
+
 	player->exit = false;
 	player->pa_handle = NULL;
 	player->alsa_handle = NULL;
@@ -175,6 +178,8 @@ int init_player( Player *player, const char *library_path )
 	pthread_mutex_init( &player->the_lock, NULL );
 
 	player->next_track = false;
+
+	// controls for the loader
 	player->load_in_progress = false;
 	player->load_abort_requested = false;
 
@@ -221,12 +226,12 @@ error:
 int start_player( Player *player )
 {
 	int res;
-	res = pthread_create( &player->audio_thread, NULL, (void *) &player_audio_thread_run, (void *) player);
+	res = pthread_create( &player->audio_thread, NULL, &player_audio_thread_run, (void *) player);
 	if( res ) {
 		goto error;
 	}
 
-	res = pthread_create( &player->reader_thread, NULL, (void *) &player_reader_thread_run, (void *) player);
+	res = pthread_create( &player->reader_thread, NULL, &player_reader_thread_run, (void *) player);
 	if( res ) {
 		goto error;
 	}
@@ -249,18 +254,30 @@ void stop_loader( Player *player )
 	LOG_DEBUG("track loader is stopped");
 }
 
+void start_loader( Player *player )
+{
+	pthread_mutex_lock( &player->the_lock );
+	player->load_abort_requested = false;
+	pthread_mutex_unlock( &player->the_lock );
+}
+
 int player_change_track_unsafe( Player *player, PlaylistItem *playlist_item, int when )
 {
-	LOG_DEBUG("player_change_track -- set next_track=true");
+	assert( when == TRACK_CHANGE_IMMEDIATE );
+
+	stop_loader( player );
+
+	//player_rewind_buffer_unsafe( player );
+
+	player->playlist_item_to_buffer_override = playlist_item;
+
+	// start the loader back up -- this has been moved to the player loop temporarily
+	// player->load_abort_requested = false;
+
+
 	player->next_track = true;
 
-	if( when == TRACK_CHANGE_IMMEDIATE ) {
-		stop_loader( player );
-	}
 
-	LOG_DEBUG("player_change_track -- rewinding");
-	//player_rewind_buffer_unsafe( player );
-	player->playlist_item_to_buffer_override = playlist_item;
 
 	return 0;
 }
@@ -554,38 +571,44 @@ done:
 }
 
 // caller must first lock the player before calling this
-//void player_rewind_buffer_unsafe( Player *player )
-//{
-//	int res;
-//	PlayQueueItem *pqi = NULL;
-//
-//	LOG_DEBUG("handling player_rewind_buffer_unsafe");
-//
-//	res = play_queue_head( &player->play_queue, &pqi );
-//	if( !res ) {
-//		stop_loader( player );
-//		LOG_DEBUG("p=p rewinding", pqi->buf_start);
-//		buffer_lock( &player->circular_buffer );
-//		buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
-//		buffer_unlock( &player->circular_buffer );
-//	} else {
-//		LOG_DEBUG("nothing to rewind");
-//	}
-//	LOG_DEBUG("clearing play queue");
-//	play_queue_clear( &player->play_queue );
-//}
+void player_rewind_buffer_unsafe( Player *player )
+{
+	int res;
+	PlayQueueItem *pqi = NULL;
 
-void player_reader_thread_run( void *data )
+	LOG_DEBUG("handling player_rewind_buffer_unsafe");
+
+	res = play_queue_head( &player->play_queue, &pqi );
+	if( !res ) {
+		LOG_DEBUG("p=p rewinding", pqi->buf_start);
+		buffer_lock( &player->circular_buffer );
+		buffer_rewind_unsafe( &player->circular_buffer, pqi->buf_start );
+		buffer_unlock( &player->circular_buffer );
+	} else {
+		LOG_DEBUG("nothing to rewind");
+	}
+	LOG_DEBUG("clearing play queue");
+	play_queue_clear( &player->play_queue );
+}
+
+void* player_reader_thread_run( void *data )
 {
 	Player *player = (Player*) data;
 	PlaylistItem *item = NULL;
 
 	for(;;) {
 		if( player->exit ) {
-			return;
+			return NULL;
 		}
 		//LOG_DEBUG("locking - player_reader_thread_run");
 		pthread_mutex_lock( &player->the_lock );
+
+		if( player->load_abort_requested ) {
+			// loader has been told to stop, busy-wait here
+			pthread_mutex_unlock( &player->the_lock );
+			usleep(100);
+			continue;
+		}
 
 		if( player->playlist_item_to_buffer_override != NULL ) {
 			player->playlist_item_to_buffer = player->playlist_item_to_buffer_override;
@@ -610,7 +633,7 @@ void player_reader_thread_run( void *data )
 			continue;
 		}
 
-		player_load_into_buffer( player, item );
+		player->load_item( player, item );
 
 		LOG_DEBUG("locking - player_reader_thread_run 2");
 		pthread_mutex_lock( &player->the_lock );
@@ -637,12 +660,13 @@ void player_reader_thread_run( void *data )
 		pthread_mutex_unlock( &player->the_lock );
 		usleep(50000); // need to sleep before re-attempting to aquire the lock, otherwise we can get stuck while changing the song
 	}
+	return NULL;
 }
 
 void player_lock( Player *player ) { pthread_mutex_lock( &player->the_lock ); }
 void player_unlock( Player *player ) { pthread_mutex_unlock( &player->the_lock ); }
 
-void player_audio_thread_run( void *data )
+void* player_audio_thread_run( void *data )
 {
 	//int error;
 	int res;
@@ -659,13 +683,26 @@ void player_audio_thread_run( void *data )
 	bool notified_no_songs = false;
 	
 	for(;;) {
-		LOG_DEBUG("locking - player_audio_thread_run");
 		pthread_mutex_lock( &player->the_lock );
 
-		player->next_track = false;
+		if( player->next_track ) {
+			player->next_track = false;
+
+			// TODO ideally this should happen elsewhere in a different thread (need to rewind instead of clear)
+			play_queue_clear( &player->play_queue );
+			buffer_clear( &player->circular_buffer );
+
+			// start the loader back up
+			player->load_abort_requested = false;
+
+			// unlock, sleep, then continue -- to give the loader time to run
+			pthread_mutex_unlock( &player->the_lock );
+			usleep(100000); //100ms
+			continue;
+		}
 
 		if( player->current_track ) {
-			playlist_item_ref_down(player->current_track);
+			//playlist_item_ref_down(player->current_track);
 			player->current_track = NULL;
 		}
 
@@ -709,7 +746,7 @@ void player_audio_thread_run( void *data )
 		size_t num_read = 0;
 		for(;;) {
 			if( player->exit ) {
-				return;
+				return NULL;
 			}
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
@@ -772,6 +809,7 @@ void player_audio_thread_run( void *data )
 		}
 		pthread_cond_signal( &player->done_track_cond );
 	}
+	return NULL;
 }
 
 void player_set_playing( Player *player, bool playing)

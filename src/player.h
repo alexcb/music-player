@@ -24,11 +24,15 @@
 #define ID_DATA_END 3
 
 
-typedef void (*MetadataObserver)(bool playing, const PlaylistItem *playlist_item, void *data);
+struct Player;
+typedef struct Player Player;
 
-typedef int (*AudioConsumer)(const char *p, size_t n);
 
-typedef struct Player
+typedef void (*MetadataObserver)( bool playing, const PlaylistItem *playlist_item, void *data );
+typedef int (*AudioConsumer)( const char *p, size_t n );
+typedef void (*LoadItem)( Player *player, PlaylistItem *item );
+
+struct Player
 {
 	int driver;
 	snd_pcm_t *alsa_handle;
@@ -39,8 +43,6 @@ typedef struct Player
 	long rate;
 
 	mpg123_handle *mh;
-
-	volatile bool next_track;
 
 	pthread_t audio_thread;
 	pthread_t reader_thread;
@@ -57,7 +59,6 @@ typedef struct Player
 	MetadataObserver *metadata_observers;
 	void **metadata_observers_data;
 
-	pthread_cond_t load_cond;
 	pthread_cond_t done_track_cond;
 
 	PlaylistItem *current_track;
@@ -70,11 +71,15 @@ typedef struct Player
 	// when true play, when false, pause / stop
 	volatile bool playing;
 	volatile bool exit;
+	volatile bool next_track;
+	// TODO, volatile alone is not enough to prevent against out-of-order execution;
+	// i need to also include: asm volatile("" ::: "memory"); or just use a lock.
 
 	// control over changing tracks
 	//pthread_mutex_t change_track_lock;
 	bool load_in_progress;
 	bool load_abort_requested;
+	pthread_cond_t load_cond;
 	
 	size_t max_payload_size;
 
@@ -82,12 +87,16 @@ typedef struct Player
 	char *decode_buffer;
 
 	AudioConsumer audio_consumer;
-} Player;
+	LoadItem load_item;
+};
 
 
 int init_player( Player *player, const char *library_path );
 int start_player( Player *player );
 int stop_player( Player *player );
+
+void stop_loader( Player *player );
+void start_loader( Player *player );
 
 void player_lock( Player *player );
 void player_unlock( Player *player );
