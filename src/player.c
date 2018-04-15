@@ -15,18 +15,14 @@
 #include <err.h>
 #include <assert.h>
 
-// TODO build flag options?
-#include <pulse/simple.h>
-#include <pulse/error.h>
-
 #define RATE 44100
 
 void* player_audio_thread_run( void *data );
 void* player_reader_thread_run( void *data );
 void player_load_into_buffer( Player *player, PlaylistItem *item );
 
+#ifdef USE_RASP_PI
 int consume_alsa( Player *player, const char *p, size_t n );
-int consume_pa( Player *player, const char *p, size_t n );
 
 int xrun_recovery(snd_pcm_t *handle, int err);
 
@@ -133,6 +129,44 @@ void init_alsa( Player *player )
 	player->alsa_handle = open_sound_dev();
 }
 
+int consume_alsa( Player *player, const char *p, size_t n )
+{
+	int res;
+	signed short *ptr = (signed short*) p;
+	int frames = n / (2 * 2); //channels*16bits
+	while( frames > 0 ) {
+		res = snd_pcm_writei(player->alsa_handle, ptr, frames);
+		if (res == -EAGAIN) {
+			LOG_DEBUG("got EAGAIN");
+			continue;
+		} else if (res < 0) {
+			if (xrun_recovery(player->alsa_handle, res) < 0) {
+				LOG_ERROR("err=s write error", snd_strerror(res));
+				//exit(EXIT_FAILURE);
+				// TODO instead of exiting, try to re-init sound driver?
+				// I've seen this before:
+				//   - Input/output error
+
+				// re-init sound driver
+				sleep(1);
+				init_alsa( player );
+			} else {
+				LOG_WARN("underrun");
+			}
+			break;  /* skip chunk -- there was a recoverable error */
+		} else if( res == 0 ) {
+			usleep( 1000 );
+		} else {
+			ptr += res;
+			frames -= res;
+		}
+	}
+	return 0;
+}
+
+#else
+int consume_pa( Player *player, const char *p, size_t n );
+
 void init_pa( Player *player )
 {
     static const pa_sample_spec ss = {
@@ -149,15 +183,24 @@ void init_pa( Player *player )
     }
 }
 
+int consume_pa( Player *player, const char *p, size_t n )
+{
+	int error;
+	int res;
+	res = pa_simple_write( player->pa_handle, p, n, &error);
+	if( res < 0 ) {
+		LOG_ERROR("res=d err=d pa_simple_write failed", res, error);
+	}
+	return 0;	
+}
+#endif
+
 int init_player( Player *player, const char *library_path )
 {
 	int res;
 
 	player->load_item = &player_load_into_buffer;
-
 	player->exit = false;
-	player->pa_handle = NULL;
-	player->alsa_handle = NULL;
 
 #ifdef USE_RASP_PI
 	init_alsa( player );
@@ -837,48 +880,4 @@ int stop_player( Player *player )
 	return 0;
 }
 
-int consume_alsa( Player *player, const char *p, size_t n )
-{
-	int res;
-	signed short *ptr = (signed short*) p;
-	int frames = n / (2 * 2); //channels*16bits
-	while( frames > 0 ) {
-		res = snd_pcm_writei(player->alsa_handle, ptr, frames);
-		if (res == -EAGAIN) {
-			LOG_DEBUG("got EAGAIN");
-			continue;
-		} else if (res < 0) {
-			if (xrun_recovery(player->alsa_handle, res) < 0) {
-				LOG_ERROR("err=s write error", snd_strerror(res));
-				//exit(EXIT_FAILURE);
-				// TODO instead of exiting, try to re-init sound driver?
-				// I've seen this before:
-				//   - Input/output error
 
-				// re-init sound driver
-				sleep(1);
-				init_alsa( player );
-			} else {
-				LOG_WARN("underrun");
-			}
-			break;  /* skip chunk -- there was a recoverable error */
-		} else if( res == 0 ) {
-			usleep( 1000 );
-		} else {
-			ptr += res;
-			frames -= res;
-		}
-	}
-	return 0;
-}
-
-int consume_pa( Player *player, const char *p, size_t n )
-{
-	int error;
-	int res;
-	res = pa_simple_write( player->pa_handle, p, n, &error);
-	if( res < 0 ) {
-		LOG_ERROR("res=d err=d pa_simple_write failed", res, error);
-	}
-	return 0;	
-}

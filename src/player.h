@@ -1,12 +1,18 @@
 #pragma once
 
-#include <alsa/asoundlib.h>
-//#include <ao/ao.h>
 #include <mpg123.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include <pulse/simple.h>
+
+#ifdef USE_RASP_PI
+	#include <alsa/asoundlib.h>
+#else
+	#include <pulse/simple.h>
+	#include <pulse/error.h>
+#endif
+
+
 
 #include "circular_buffer.h"
 #include "play_queue.h"
@@ -35,8 +41,12 @@ typedef void (*LoadItem)( Player *player, PlaylistItem *item );
 struct Player
 {
 	int driver;
+
+#ifdef USE_RASP_PI
 	snd_pcm_t *alsa_handle;
+#else
 	pa_simple *pa_handle;
+#endif
 
 	//ao_sample_format format;
 	int channels, encoding;

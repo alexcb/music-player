@@ -97,8 +97,13 @@ Player* setupTestPlayer()
 	int res;
 
 	Player *player = (Player*) malloc(sizeof(Player));
-	player->pa_handle = NULL,
+
+#ifdef USE_RASP_PI
 	player->alsa_handle = NULL,
+#else
+	player->pa_handle = NULL,
+#endif
+
 	player->next_track = NULL,
 
 	player->next_track = NULL,
