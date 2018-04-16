@@ -144,21 +144,9 @@ void start_loader( Player *player )
 int player_change_track_unsafe( Player *player, PlaylistItem *playlist_item, int when )
 {
 	assert( when == TRACK_CHANGE_IMMEDIATE );
-
 	stop_loader( player );
-
-	//player_rewind_buffer_unsafe( player );
-
 	player->playlist_item_to_buffer_override = playlist_item;
-
-	// start the loader back up -- this has been moved to the player loop temporarily
-	// player->load_abort_requested = false;
-
-
 	player->control |= PLAYER_CONTROL_SKIP;
-
-
-
 	return 0;
 }
 

@@ -58,11 +58,11 @@ void* gpio_input_thread_run( void *p )
 		LOG_DEBUG("cur=d last=d process GPIO input", cur_play_switch, last_play_switch);
 		if( last_play_switch != cur_play_switch ) {
 			LOG_DEBUG("TOGGLE PAUSE");
-			player->playing = !player->playing;
+			player_pause( player );
 			last_play_switch = cur_play_switch;
 
 			current_time = get_current_time_ms();
-			if( player->playing ) {
+			if( player_get_control(player) & PLAYER_CONTROL_PLAYING ) {
 				// was just switched on
 				long diff = current_time - last_toggle_time;
 				if( diff < 2000 ) {

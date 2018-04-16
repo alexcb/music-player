@@ -94,47 +94,8 @@ void status_changed( bool playing, const PlaylistItem *item, void *d )
 
 Player* setupTestPlayer()
 {
-	//int res;
-
 	Player *player = (Player*) malloc(sizeof(Player));
 	init_player( player, NULL );
-
-//#ifdef USE_RASP_PI
-//	player->alsa_handle = NULL,
-//#else
-//	player->pa_handle = NULL,
-//#endif
-//
-//	player->next_track = NULL,
-//
-//	player->next_track = NULL,
-//	player->load_in_progress = false,
-//	player->load_abort_requested = false,
-//
-//	player->playing = true,
-//	player->current_track = NULL,
-//
-//	player->metadata_observers_num = 0,
-//
-//	player->playlist_item_to_buffer = NULL,
-//	player->playlist_item_to_buffer_override = NULL,
-//	player->audio_consumer = test_player_consumer,
-//
-//	player->metadata_observers_num = 0;
-//	player->metadata_observers_cap = 2;
-//	player->metadata_observers = (MetadataObserver*) malloc(sizeof(MetadataObserver) * player->metadata_observers_cap);
-//	player->metadata_observers_data = (void*) malloc(sizeof(void*) * player->metadata_observers_cap);
-//	player->metadata_observers[0] = status_changed;
-//	player->metadata_observers_num++;
-//
-//	res = pthread_cond_init( &(player->load_cond), NULL );
-//	assert( res == 0 );
-//
-//	res = pthread_cond_init( &(player->done_track_cond), NULL );
-//	assert( res == 0 );
-//
-//	pthread_mutex_init( &player->the_lock, NULL );
-
 	return player;
 }
 
@@ -238,71 +199,6 @@ void test_feeder_item(Player *player, PlaylistItem *playlist_item)
 	return;
 }
 
-//static void* test_feeder(void *data_void)
-//{
-//	int res;
-//	PlaylistItem *item = NULL;
-//	test_feeder_data *data = (test_feeder_data*) data_void;
-//
-//	Player *player = data->player;
-//
-//	for(;;) {
-//		if( player->exit ) {
-//			return NULL;
-//		}
-//		//LOG_DEBUG("locking - player_reader_thread_run");
-//		pthread_mutex_lock( &player->the_lock );
-//
-//		if( player->load_abort_requested ) {
-//			// loader has been told to stop, busy-wait here
-//			pthread_mutex_unlock( &player->the_lock );
-//			usleep(100);
-//			continue;
-//		}
-//		LOG_DEBUG("I AM HERE");
-//
-//		if( player->playlist_item_to_buffer_override != NULL ) {
-//			player->playlist_item_to_buffer = player->playlist_item_to_buffer_override;
-//			player->playlist_item_to_buffer_override = NULL;
-//		}
-//
-//		if( player->playlist_item_to_buffer != NULL ) {
-//			item = player->playlist_item_to_buffer;
-//			player->load_in_progress = true;
-//		} else {
-//			item = NULL;
-//		}
-//
-//		//LOG_DEBUG("unlocking - player_reader_thread_run");
-//		pthread_mutex_unlock( &player->the_lock );
-//
-//		if( item == NULL ) {
-//			usleep(10000);
-//			continue;
-//		}
-//
-//		res = test_feeder_item( data, item, item->track->track );
-//		LOG_DEBUG("res=d finished loading track", res);
-//
-//		pthread_mutex_lock( &player->the_lock );
-//		player->load_in_progress = false;
-//		pthread_mutex_unlock( &player->the_lock );
-//		pthread_cond_signal( &player->load_cond );
-//
-//		if( player->playlist_item_to_buffer->next ) {
-//			player->playlist_item_to_buffer = player->playlist_item_to_buffer->next;
-//		} else if( player->playlist_item_to_buffer->parent == NULL ) {
-//			assert(0);
-//		} else {
-//			player->playlist_item_to_buffer = player->playlist_item_to_buffer->parent->root;
-//		}
-//
-//	}
-//
-//	LOG_DEBUG("done writing stubbed audio");
-//	return NULL;
-//}
-
 unsigned int testPlayerSkip()
 {
 	Player *player = setupTestPlayer();
@@ -345,9 +241,7 @@ unsigned int testPlayerSkip()
 		printf("skipping track done\n");
 		wait_until_track++;
 		printf("=last_track_seen=%x waiting_until=%x\n", last_track_seen, wait_until_track);
-		
 	}
-
 
 	printf("waiting for audio_consumer calls to complete\n");
 	long timeout = time(NULL) + 15;

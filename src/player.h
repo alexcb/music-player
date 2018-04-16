@@ -113,7 +113,6 @@ void start_loader( Player *player );
 
 void player_lock( Player *player );
 void player_unlock( Player *player );
-//void player_rewind_buffer_unsafe( Player *player );
 
 int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );
 
