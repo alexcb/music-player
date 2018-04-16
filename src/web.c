@@ -775,7 +775,7 @@ static int web_handler_pause(
 	int ret;
 	struct MHD_Response *response;
 
-	data->my_data->player->playing = !data->my_data->player->playing;
+	player_pause( data->my_data->player ); 
 
 	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
 	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);

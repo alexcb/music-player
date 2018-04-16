@@ -94,45 +94,46 @@ void status_changed( bool playing, const PlaylistItem *item, void *d )
 
 Player* setupTestPlayer()
 {
-	int res;
+	//int res;
 
 	Player *player = (Player*) malloc(sizeof(Player));
+	init_player( player, NULL );
 
-#ifdef USE_RASP_PI
-	player->alsa_handle = NULL,
-#else
-	player->pa_handle = NULL,
-#endif
-
-	player->next_track = NULL,
-
-	player->next_track = NULL,
-	player->load_in_progress = false,
-	player->load_abort_requested = false,
-
-	player->playing = true,
-	player->current_track = NULL,
-
-	player->metadata_observers_num = 0,
-
-	player->playlist_item_to_buffer = NULL,
-	player->playlist_item_to_buffer_override = NULL,
-	player->audio_consumer = test_player_consumer,
-
-	player->metadata_observers_num = 0;
-	player->metadata_observers_cap = 2;
-	player->metadata_observers = (MetadataObserver*) malloc(sizeof(MetadataObserver) * player->metadata_observers_cap);
-	player->metadata_observers_data = (void*) malloc(sizeof(void*) * player->metadata_observers_cap);
-	player->metadata_observers[0] = status_changed;
-	player->metadata_observers_num++;
-
-	res = pthread_cond_init( &(player->load_cond), NULL );
-	assert( res == 0 );
-
-	res = pthread_cond_init( &(player->done_track_cond), NULL );
-	assert( res == 0 );
-
-	pthread_mutex_init( &player->the_lock, NULL );
+//#ifdef USE_RASP_PI
+//	player->alsa_handle = NULL,
+//#else
+//	player->pa_handle = NULL,
+//#endif
+//
+//	player->next_track = NULL,
+//
+//	player->next_track = NULL,
+//	player->load_in_progress = false,
+//	player->load_abort_requested = false,
+//
+//	player->playing = true,
+//	player->current_track = NULL,
+//
+//	player->metadata_observers_num = 0,
+//
+//	player->playlist_item_to_buffer = NULL,
+//	player->playlist_item_to_buffer_override = NULL,
+//	player->audio_consumer = test_player_consumer,
+//
+//	player->metadata_observers_num = 0;
+//	player->metadata_observers_cap = 2;
+//	player->metadata_observers = (MetadataObserver*) malloc(sizeof(MetadataObserver) * player->metadata_observers_cap);
+//	player->metadata_observers_data = (void*) malloc(sizeof(void*) * player->metadata_observers_cap);
+//	player->metadata_observers[0] = status_changed;
+//	player->metadata_observers_num++;
+//
+//	res = pthread_cond_init( &(player->load_cond), NULL );
+//	assert( res == 0 );
+//
+//	res = pthread_cond_init( &(player->done_track_cond), NULL );
+//	assert( res == 0 );
+//
+//	pthread_mutex_init( &player->the_lock, NULL );
 
 	return player;
 }
@@ -172,87 +173,6 @@ Playlist* setupTestPlaylist()
 	return playlist;
 }
 
-unsigned int testPlayerLoop()
-{
-	Player *player = setupTestPlayer();
-	Playlist *playlist = setupTestPlaylist();
-
-	expected_buffer_size = 1024*1024*1024;
-	expected_buffer_read = 0;
-	expected_buffer_len = 0;
-	expected_buffer = malloc(expected_buffer_size);
-
-	assert( !init_circular_buffer( &player->circular_buffer, 5001 ) );
-	assert( !play_queue_init( &player->play_queue ) );
-
-	pthread_t audio_thread;
-	assert( !pthread_create( &audio_thread, NULL, (void *) &player_audio_thread_run, (void *) player) );
-
-	int seed = 1;
-
-	PlayQueueItem *pqi;
-	char *p;
-	size_t buffer_free;
-	int chunk_size = 500;
-	for( PlaylistItem *current_item = playlist->root; current_item; current_item = current_item->next ) {
-		usleep(10000);
-		pthread_mutex_lock( &player->the_lock );
-		LOG_DEBUG("adding pqi");
-
-		assert( !get_buffer_write( &player->circular_buffer, 1024, &p, &buffer_free ) );
-
-		assert( play_queue_add( &player->play_queue, &pqi ) == 0);
-		usleep(10000);
-		pqi->buf_start = p;
-		pqi->playlist_item = current_item;
-		LOG_DEBUG("p=p done adding pqi", p);
-		pthread_mutex_unlock( &player->the_lock );
-
-		for( int chunk_num = 0; chunk_num < 10; chunk_num++ ) {
-			LOG_DEBUG("chunk=d writing stubbed audio",  chunk_num);
-			if( chunk_num > 0 ) {
-				LOG_DEBUG("waiting");
-				assert( !get_buffer_write( &player->circular_buffer, 1024, &p, &buffer_free ) );
-				LOG_DEBUG("waiting done");
-			}
-			usleep(10000);
-			p[0] = AUDIO_DATA;
-
-			size_t payload_size = chunk_size-1-sizeof(size_t);
-			memcpy( p+1, &payload_size, sizeof(size_t) );
-
-			set_buffer( p+1+sizeof(size_t), seed, payload_size );
-			set_buffer( expected_buffer + expected_buffer_len, seed, payload_size );
-			expected_buffer_len += payload_size;
-			seed++;
-
-			buffer_mark_written( &player->circular_buffer, chunk_size );
-		}
-	}
-
-	printf("waiting for audio_consumer calls to complete\n");
-	long timeout = time(NULL) + 3;
-	while( expected_buffer_read < expected_buffer_len ) {
-		usleep(100);
-		if( time(NULL) > timeout ) {
-			printf("timeout\n");
-			assert( 0 );
-		}
-	}
-	assert( expected_buffer_read == expected_buffer_len );
-
-	printf("waiting for join\n");
-	player->exit = true;
-	wake_up_get_buffer_read( &player->circular_buffer );
-	assert( !pthread_join( audio_thread, NULL ) );
-
-
-	//assert( !start_player( player ) );
-	//assert( !stop_player( player ) );
-
-	return 0;
-}
-
 typedef struct test_feeder_data {
 	PlaylistItem *root;
 	Player *player;
@@ -260,6 +180,7 @@ typedef struct test_feeder_data {
 
 void test_feeder_item(Player *player, PlaylistItem *playlist_item)
 {
+	int control;
 	int res;
 	char *p;
 	size_t buffer_free;
@@ -274,7 +195,8 @@ void test_feeder_item(Player *player, PlaylistItem *playlist_item)
 		p = NULL;
 		res = get_buffer_write( &player->circular_buffer, 1024, &p, &buffer_free );
 		if( res == 0 ) break;
-		if( player->load_abort_requested || player->exit ) return;
+		control = player_get_control( player );
+		if( player->load_abort_requested || control & PLAYER_CONTROL_EXIT ) return;
 		usleep(10);
 	}
 
@@ -294,7 +216,8 @@ void test_feeder_item(Player *player, PlaylistItem *playlist_item)
 				p = NULL;
 				res = get_buffer_write( &player->circular_buffer, 1024, &p, &buffer_free );
 				if( res == 0 ) break;
-				if( player->load_abort_requested || player->exit ) return;
+				control = player_get_control( player );
+				if( player->load_abort_requested || control & PLAYER_CONTROL_EXIT ) return;
 				usleep(10);
 			}
 
@@ -398,16 +321,10 @@ unsigned int testPlayerSkip()
 	assert( !init_circular_buffer( &player->circular_buffer, 5001 ) );
 	assert( !play_queue_init( &player->play_queue ) );
 
-	pthread_t audio_thread;
-	assert( !pthread_create( &audio_thread, NULL, &player_audio_thread_run, (void *) player) );
+	assert( !pthread_create( &player->audio_thread, NULL, &player_audio_thread_run, (void *) player) );
 
-	pthread_t feeder_thread;
-	//test_feeder_data data = {
-	//	.root = playlist->root,
-	//	.player = player,
-	//};
 	player->playlist_item_to_buffer = playlist->root;
-	assert( !pthread_create( &feeder_thread, NULL, &player_reader_thread_run, (void*) player ) );
+	assert( !pthread_create( &player->reader_thread, NULL, &player_reader_thread_run, (void*) player ) );
 
 	unsigned char wait_until_track = 2;
 	printf("here\n");
@@ -429,12 +346,6 @@ unsigned int testPlayerSkip()
 		wait_until_track++;
 		printf("=last_track_seen=%x waiting_until=%x\n", last_track_seen, wait_until_track);
 		
-		//player->next_track = true;
-		//res = pthread_cond_wait( &player->done_track_cond, &player->the_lock );
-		//printf("done track cond finished\n");
-		//assert( res == 0 );
-		//pthread_mutex_unlock( &player->the_lock );
-		//printf("freeing lock\n");
 	}
 
 
@@ -448,15 +359,7 @@ unsigned int testPlayerSkip()
 		}
 	}
 
-	player->exit = true;
-
-	LOG_DEBUG("waiting for audio_thread");
-	wake_up_get_buffer_read( &player->circular_buffer );
-	assert( !pthread_join( audio_thread, NULL ) );
-
-	LOG_DEBUG("waiting for feeder_thread");
-	wake_up_get_buffer_write( &player->circular_buffer );
-	assert( !pthread_join( feeder_thread, NULL ) );
+	stop_player( player );
 
 	LOG_DEBUG("test complete");
 	return 0;

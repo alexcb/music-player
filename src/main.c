@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 		PlaylistItem *p = get_random_track( default_playlist->root );
 		if( p ) {
 			player_change_track( &player, p, TRACK_CHANGE_IMMEDIATE );
-			player.playing = true;
+			player_set_playing( &player, true );
 		}
 	} else {
 		res = playlist_manager_new_playlist( &playlist_manager, "default", &default_playlist );

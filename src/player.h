@@ -29,6 +29,9 @@
 #define ID_DATA_START 2
 #define ID_DATA_END 3
 
+#define PLAYER_CONTROL_PLAYING 1
+#define PLAYER_CONTROL_SKIP 2
+#define PLAYER_CONTROL_EXIT 4
 
 struct Player;
 typedef struct Player Player;
@@ -40,17 +43,11 @@ typedef void (*LoadItem)( Player *player, PlaylistItem *item );
 
 struct Player
 {
-	int driver;
-
 #ifdef USE_RASP_PI
 	snd_pcm_t *alsa_handle;
 #else
 	pa_simple *pa_handle;
 #endif
-
-	//ao_sample_format format;
-	int channels, encoding;
-	long rate;
 
 	mpg123_handle *mh;
 
@@ -79,11 +76,10 @@ struct Player
 	const char *library_path;
 
 	// when true play, when false, pause / stop
-	volatile bool playing;
-	volatile bool exit;
-	volatile bool next_track;
-	// TODO, volatile alone is not enough to prevent against out-of-order execution;
-	// i need to also include: asm volatile("" ::: "memory"); or just use a lock.
+	//bool playing;
+	//bool exit;
+	//bool next_track;
+	int control; // bitmask of PLAYER_CONTROL_* flags
 
 	// control over changing tracks
 	//pthread_mutex_t change_track_lock;
@@ -128,3 +124,6 @@ int player_change_next_track( Player *player, int when );
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item );
 
 void player_set_playing( Player *player, bool playing );
+void player_pause( Player *player );
+
+int player_get_control( Player *player );

@@ -25,8 +25,19 @@ int init_player( Player *player, const char *library_path )
 {
 	int res;
 
+	// controls for the loader
 	player->load_item = &player_load_into_buffer;
-	player->exit = false;
+	player->load_in_progress = false;
+	player->load_abort_requested = false;
+	player->playlist_item_to_buffer = NULL;
+	player->playlist_item_to_buffer_override = NULL;
+
+	// audio player thread variables
+	player->control = PLAYER_CONTROL_PLAYING;
+
+	player->current_track = NULL;
+
+	player->library_path = library_path;
 
 #ifdef USE_RASP_PI
 	init_alsa( player );
@@ -50,20 +61,6 @@ int init_player( Player *player, const char *library_path )
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
 
 	pthread_mutex_init( &player->the_lock, NULL );
-
-	player->next_track = false;
-
-	// controls for the loader
-	player->load_in_progress = false;
-	player->load_abort_requested = false;
-
-	player->playing = false;
-	player->current_track = NULL;
-
-	player->playlist_item_to_buffer = NULL;
-	player->playlist_item_to_buffer_override = NULL;
-
-	player->library_path = library_path;
 
 	res = pthread_cond_init( &(player->load_cond), NULL );
 	assert( res == 0 );
@@ -95,6 +92,15 @@ error:
 	//mpg123_exit();
 	//ao_shutdown();
 	return 1;
+}
+
+int player_get_control( Player *player )
+{
+	int control;
+	pthread_mutex_lock( &player->the_lock );
+	control = player->control;
+	pthread_mutex_unlock( &player->the_lock );
+	return control;
 }
 
 int start_player( Player *player )
@@ -149,7 +155,7 @@ int player_change_track_unsafe( Player *player, PlaylistItem *playlist_item, int
 	// player->load_abort_requested = false;
 
 
-	player->next_track = true;
+	player->control |= PLAYER_CONTROL_SKIP;
 
 
 
@@ -242,8 +248,9 @@ int player_add_metadata_observer( Player *player, MetadataObserver observer, voi
 
 void call_observers( Player *player ) {
 	LOG_DEBUG("start call observers");
+	bool is_playing = player_get_control( player ) & PLAYER_CONTROL_PLAYING;
 	for( int i = 0; i < player->metadata_observers_num; i++ ) {
-		player->metadata_observers[i]( player->playing, player->current_track, player->metadata_observers_data[i] );
+		player->metadata_observers[i]( is_playing, player->current_track, player->metadata_observers_data[i] );
 	}
 	LOG_DEBUG("done call observers");
 }
@@ -280,7 +287,11 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 
 	// dont start loading a stream if paused
 	if( strstr(path, "http://") ) {
-		while( !player->playing ) {
+		for(;;) {
+			int control = player_get_control( player );
+			if( control & PLAYER_CONTROL_PLAYING ) {
+				break;
+			}
 			usleep(10000);
 			if( player_should_abort_load( player )) { goto done; }
 		}
@@ -351,9 +362,10 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 	
 	done = false;
 	while( !done ) {
+		int control = player_get_control( player );
 		if( player_should_abort_load( player )) { goto done; }
 
-		if( !player->playing && is_stream ) {
+		if( !(control & PLAYER_CONTROL_PLAYING) && is_stream ) {
 			// can't pause a stream; just quit
 			LOG_DEBUG("quit buffering due to pause of stream");
 			break;
@@ -472,11 +484,12 @@ void* player_reader_thread_run( void *data )
 	PlaylistItem *item = NULL;
 
 	for(;;) {
-		if( player->exit ) {
+		pthread_mutex_lock( &player->the_lock );
+
+		if( player->control & PLAYER_CONTROL_EXIT ) {
+			pthread_mutex_unlock( &player->the_lock );
 			return NULL;
 		}
-		//LOG_DEBUG("locking - player_reader_thread_run");
-		pthread_mutex_lock( &player->the_lock );
 
 		if( player->load_abort_requested ) {
 			// loader has been told to stop, busy-wait here
@@ -543,8 +556,8 @@ void player_unlock( Player *player ) { pthread_mutex_unlock( &player->the_lock )
 
 void* player_audio_thread_run( void *data )
 {
-	//int error;
 	int res;
+	int control;
 	Player *player = (Player*) data;
 
 	//size_t chunk_size;
@@ -563,8 +576,8 @@ void* player_audio_thread_run( void *data )
 	for(;;) {
 		pthread_mutex_lock( &player->the_lock );
 
-		if( player->next_track ) {
-			player->next_track = false;
+		if( player->control & PLAYER_CONTROL_SKIP ) {
+			player->control &= ~PLAYER_CONTROL_SKIP;
 
 			// TODO ideally this should happen elsewhere in a different thread (need to rewind instead of clear)
 			play_queue_clear( &player->play_queue );
@@ -621,7 +634,9 @@ void* player_audio_thread_run( void *data )
 		notified_no_songs = false;
 
 		for(;;) {
-			if( player->exit ) {
+			control = player_get_control( player );
+
+			if( control & PLAYER_CONTROL_EXIT ) {
 				return NULL;
 			}
 			num_read = 0;
@@ -648,7 +663,6 @@ void* player_audio_thread_run( void *data )
 
 			if( payload_id == ID_DATA_START ) {
 				LOG_DEBUG( " ------------ reading ID_DATA_START ------------ " );
-				player->next_track = false;
 				//memcpy( &player->current_track, p, sizeof(PlayerTrackInfo) );
 				//player->current_track.playlist_item->parent->current = player->current_track.playlist_item;
 				//LOG_DEBUG( "artist=s title=s playing new track", player->current_track.artist, player->current_track.title );
@@ -667,28 +681,31 @@ void* player_audio_thread_run( void *data )
 			LOG_DEBUG( "chunk_size=d playing audio", chunk_size );
 			assert( chunk_size < buffer_avail );
 
-			while( !player->next_track && chunk_size > 0 ) {
+			while( chunk_size > 0 ) {
+				control = player_get_control( player );
+
+				if( control & PLAYER_CONTROL_SKIP ) {
+					goto track_done;
+				}
+				if( !(control & PLAYER_CONTROL_PLAYING) ) {
+					usleep(1000);
+					continue;
+				}
+
 				size_t n = chunk_size;
 				if( n > 256 ) {
 					n = 256;
 				}
-				if( !player->playing ) {
-					usleep(1000);
-					continue;
-				}
+
 				player->audio_consumer( player, p, n );
 				p += n;
 				chunk_size -= n;
 			}
-			LOG_DEBUG( "chunk_size=d num_read=d playing audio", chunk_size, num_read );
+			//LOG_DEBUG( "chunk_size=d num_read=d playing audio", chunk_size, num_read );
 			buffer_mark_read( &player->circular_buffer, num_read );
 			num_read = 0;
-
-			if( player->next_track ) {
-				LOG_DEBUG("breaking due to next_track");
-				break;
-			}
 		}
+track_done:
 		pthread_cond_signal( &player->done_track_cond );
 	}
 	return NULL;
@@ -696,13 +713,34 @@ void* player_audio_thread_run( void *data )
 
 void player_set_playing( Player *player, bool playing)
 {
-	player->playing = playing;
+	pthread_mutex_lock( &player->the_lock );
+	player->control |= PLAYER_CONTROL_PLAYING;
+	pthread_mutex_unlock( &player->the_lock );
+}
+
+void player_pause( Player *player )
+{
+	pthread_mutex_lock( &player->the_lock );
+	player->control ^= PLAYER_CONTROL_PLAYING;
+	pthread_mutex_unlock( &player->the_lock );
 }
 
 int stop_player( Player *player )
 {
+	pthread_mutex_lock( &player->the_lock );
+	player->control |= PLAYER_CONTROL_EXIT;
+	pthread_mutex_unlock( &player->the_lock );
+
+	wake_up_get_buffer_read( &player->circular_buffer );
+	assert( !pthread_join( player->audio_thread, NULL ) );
+
+	wake_up_get_buffer_write( &player->circular_buffer );
+	assert( !pthread_join( player->reader_thread, NULL ) );
+
 	mpg123_exit();
-	//ao_shutdown();
+
+	// TODO do i need to shutdown anything audio related?
+
 	return 0;
 }
 
