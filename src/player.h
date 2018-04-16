@@ -100,6 +100,13 @@ struct Player
 	LoadItem load_item;
 };
 
+#ifdef USE_RASP_PI
+	void init_alsa( Player *player );
+	int consume_alsa( Player *player, const char *p, size_t n );
+#else
+	void init_pa( Player *player );
+	int consume_pa( Player *player, const char *p, size_t n );
+#endif
 
 int init_player( Player *player, const char *library_path );
 int start_player( Player *player );
