@@ -93,7 +93,7 @@ snd_pcm_t* open_sound_dev()
 		exit(EXIT_FAILURE);
 	}
 
-	res = snd_pcm_hw_params_set_buffer_size(pcm_handle, params, 1024*8);
+	res = snd_pcm_hw_params_set_buffer_size(pcm_handle, params, 1024*6);
 	if( res < 0 ) {
 		LOG_ERROR("err=s Can't set buffersize", snd_strerror(res));
 		exit(EXIT_FAILURE);

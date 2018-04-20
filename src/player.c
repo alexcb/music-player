@@ -494,10 +494,9 @@ void* player_reader_thread_run( void *data )
 		}
 
 		player->load_in_progress = false;
-		pthread_cond_signal( &player->load_cond );
-
 		pthread_mutex_unlock( &player->the_lock );
-		usleep(50000); // need to sleep before re-attempting to aquire the lock, otherwise we can get stuck while changing the song
+		pthread_cond_signal( &player->load_cond );
+		usleep(100);
 	}
 	return NULL;
 }
