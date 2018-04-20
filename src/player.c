@@ -574,16 +574,15 @@ void* player_audio_thread_run( void *data )
 		pthread_mutex_unlock( &player->the_lock );
 		pthread_cond_signal( &player->done_track_cond );
 
-		call_observers( player );
-
 		notified_no_songs = false;
 
 		for(;;) {
 			control = player_get_control( player );
-
 			if( control & PLAYER_CONTROL_EXIT ) {
 				return NULL;
 			}
+			
+
 			num_read = 0;
 			res = get_buffer_read( &player->circular_buffer, &p, &buffer_avail );
 			if( res ) {
