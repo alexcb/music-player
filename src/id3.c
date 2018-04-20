@@ -158,7 +158,11 @@ int read_str( FILE *fp, sds *s )
 		return 1;
 	}
 	*s = sdsnewlen( fp, n+1 );
-	fread( *s, 1, n, fp );
+	res = fread( *s, 1, n, fp );
+	if( res < 0 || res != n ) {
+		LOG_ERROR( "res=d unable to fread", res );
+		return 1;
+	}
 	sdsrange( *s, 0, n-1 );
 	return 0;
 }

@@ -258,6 +258,8 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 	char *icy_title;
 	char *icy_name = NULL;
 	size_t bytes_written;
+
+	sds full_path = NULL;
 	
 	PlayQueueItem *pqi = NULL;
 	const char *path = item->track->path;
@@ -274,7 +276,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 		}
 	}
 
-	sds full_path = sdscatfmt( NULL, "%s/%s", player->library_path, path);
+	full_path = sdscatfmt( NULL, "%s/%s", player->library_path, path);
 
 	//sleep(2); // simulate a sleep
 	res = open_fd( full_path, &fd, &is_stream, &icy_interval, &icy_name );
@@ -417,7 +419,9 @@ done:
 	if( fd ) {
 		close( fd );
 	}
-	sdsfree( full_path );
+	if( full_path ) {
+		sdsfree( full_path );
+	}
 }
 
 // caller must first lock the player before calling this
