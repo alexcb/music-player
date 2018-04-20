@@ -127,3 +127,5 @@ Finding recently modified albums:
 
 find /media/nugget_share/music/alex-beet/ -mtime -5 -ls | grep -v mp3$
 
+
+gapless - boards of canada - music has the right
