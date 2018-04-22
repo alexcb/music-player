@@ -43,7 +43,13 @@ int playlist_manager_save( PlaylistManager *manager )
 	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
 		fprintf( fp, "%s\n", x->name );
 		for( PlaylistItem *i = x->root; i != NULL; i = i->next ) {
-			fprintf( fp, " %s\n", i->track->path );
+			if( i->track ) {
+				fprintf( fp, " %s\n", i->track->path );
+			} else if( i->stream ) {
+				fprintf( fp, " %s\n", i->stream );
+			} else {
+				assert(0);
+			}
 		}
 	}
 	fclose( fp );
@@ -74,6 +80,7 @@ int playlist_manager_load( PlaylistManager *manager )
 		return 1;
 	}
 
+	char *stream = NULL;
 	char *line = NULL;
 	size_t len = 0;
 	while( getline( &line, &len, fp ) != -1 ) {
@@ -82,14 +89,20 @@ int playlist_manager_load( PlaylistManager *manager )
 		if( !line[0] )
 			continue;
 		if( line[0] == ' ' && playlist ) {
-			res = album_list_get_track( manager->album_list, &line[1], &track );
-			if( res != 0 ) {
-				LOG_ERROR("res=d path=s failed to lookup track", res, &line[1]);
-				continue;
+			if( has_prefix( &line[1], "http://" ) ) {
+				track = NULL;
+				stream = (char*) sdsnew( &line[1] );
+			} else {
+				res = album_list_get_track( manager->album_list, &line[1], &track );
+				if( res != 0 ) {
+					LOG_ERROR("res=d path=s failed to lookup track", res, &line[1]);
+					continue;
+				}
 			}
 
 			item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
 			item->track = track;
+			item->stream = stream;
 			item->id = 0;
 			item->ref_count = 1;
 

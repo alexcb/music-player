@@ -61,6 +61,9 @@ class Playlist(object):
         start = 0
 
         for i, track in enumerate(self._tracks):
+            if 'album' not in track:
+                continue
+
             if album and track['album'] != album:
                 self._albums.append({
                     'artist': artist,

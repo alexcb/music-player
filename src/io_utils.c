@@ -13,14 +13,12 @@
 int open_file( const char *path, int *fd );
 int open_stream( const char *url, int *fd, long int *icy_interval, char **icy_name );
 
-int open_fd( const char *path, int *fd, bool *is_stream, long int *icy_interval, char **icy_name )
+int open_fd( const char *path, int *fd, long int *icy_interval, char **icy_name )
 {
 	int res;
 	if( strstr(path, "http://") ) {
-		*is_stream = true;
 		res = open_stream( path, fd, icy_interval, icy_name );
 	} else {
-		*is_stream = false;
 		res = open_file( path, fd );
 		*icy_interval = 0;
 	}

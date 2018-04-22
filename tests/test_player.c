@@ -125,7 +125,7 @@ Playlist* setupTestPlaylist()
 		item->id = 1;
 		item->ref_count = 1;
 		item->track = track;
-		item->is_stream = false;
+		item->stream = NULL;
 		item->next = last_item;
 		item->parent = playlist;
 		last_item = item;

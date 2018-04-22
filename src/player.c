@@ -4,16 +4,16 @@
 #include "io_utils.h"
 #include "albums.h"
 
-#include <string.h>
-#include <math.h>
-
-#include <stdio.h>
-#include <stdlib.h>
+#include <assert.h>
+#include <err.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <math.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
-#include <err.h>
-#include <assert.h>
 
 #define RATE 44100
 
@@ -157,6 +157,9 @@ int player_change_next_album( Player *player, int when )
 
 	if( player->current_track != NULL ) {
 		for( p = player->current_track; p != NULL; p = p->next ) {
+			if( player->current_track->track == NULL || p->track == NULL ) {
+				break;
+			}
 			if( strcmp(player->current_track->track->album, p->track->album) != 0 ) {
 				break;
 			}
@@ -262,10 +265,19 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 	sds full_path = NULL;
 	
 	PlayQueueItem *pqi = NULL;
-	const char *path = item->track->path;
+	const char *path;
+   
+	if( item->track != NULL ) {
+		path = sdscatfmt( NULL, "%s/%s", player->library_path, item->track->path);
+	} else if( item->stream != NULL ) {
+		path = item->stream;
+		is_stream = true;
+	} else {
+		assert(0);
+	}
 
 	// dont start loading a stream if paused
-	if( strstr(path, "http://") ) {
+	if( is_stream ) {
 		for(;;) {
 			int control = player_get_control( player );
 			if( control & PLAYER_CONTROL_PLAYING ) {
@@ -274,15 +286,19 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 			usleep(10000);
 			if( player_should_abort_load( player )) { goto done; }
 		}
-	}
+		res = open_stream( path, &fd, &icy_interval, &icy_name );
+		if( res ) {
+			LOG_ERROR( "unable to open stream" );
+			goto done;
+		}
+	} else {
+		icy_interval = 0;
 
-	full_path = sdscatfmt( NULL, "%s/%s", player->library_path, path);
-
-	//sleep(2); // simulate a sleep
-	res = open_fd( full_path, &fd, &is_stream, &icy_interval, &icy_name );
-	if( res ) {
-		LOG_ERROR( "unable to open" );
-		goto done;
+		fd = open( path, O_RDONLY );
+		if( fd < 0 ) {
+			LOG_ERROR( "unable to open" );
+			goto done;
+		}
 	}
 
 	mpg123_param( player->mh, MPG123_ICY_INTERVAL, icy_interval, 0);
@@ -580,6 +596,8 @@ void* player_audio_thread_run( void *data )
 
 		notified_no_songs = false;
 
+		bool first_start = true;
+		LOG_INFO("track start");
 		for(;;) {
 			control = player_get_control( player );
 			if( control & PLAYER_CONTROL_EXIT ) {
@@ -636,8 +654,13 @@ void* player_audio_thread_run( void *data )
 				}
 
 				size_t n = chunk_size;
-				if( n > 256 ) {
-					n = 256;
+				if( n > 256*8 ) {
+					n = 256*8;
+				}
+
+				if( first_start ) {
+					LOG_INFO("first consume");
+					first_start = false;
 				}
 
 				player->audio_consumer( player, p, n );
@@ -647,6 +670,7 @@ void* player_audio_thread_run( void *data )
 			buffer_mark_read( &player->circular_buffer, num_read );
 			num_read = 0;
 		}
+		LOG_INFO("track done");
 track_done:
 		pthread_cond_signal( &player->done_track_cond );
 	}

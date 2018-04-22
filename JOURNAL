@@ -129,3 +129,11 @@ find /media/nugget_share/music/alex-beet/ -mtime -5 -ls | grep -v mp3$
 
 
 gapless - boards of canada - music has the right, fuck buttons - tarrot, carbon based lifeforms, apoptygma bezerk welcome to earth
+
+gapless - tests/gapless -- has a 17 track beethoven song
+
+NEXT UP: streaming:
+ - need to support both files and streams as playlist items:
+   1524327174.147370464 level=ERROR file=src/playlist_manager.c line=87 res=1 path=http://live-mp3-128.kexp.org:80/kexp128.mp3 msg="failed to lookup track"
+
+ - testing stream

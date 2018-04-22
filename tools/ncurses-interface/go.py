@@ -174,11 +174,14 @@ class UI(object):
             else:
                 t = self._mc.get_current_track()
                 if t:
-                    track = '%s - %s - %s' % (
-                        t['artist'],
-                        t['album'],
-                        t['title'],
-                        )
+                    if 'stream' in t:
+                        track = t['stream']
+                    else:
+                        track = '%s - %s - %s' % (
+                            t['artist'],
+                            t['album'],
+                            t['title'],
+                            )
                     text = '[%(playing)s] %(track_text)s' % {
                         'playing': 'Playing' if self._mc._playing else 'Paused',
                         'track_text': track,
@@ -276,9 +279,20 @@ class ModelCtrl(object):
         for k, v in get_playlists(self._host).iteritems():
             tracks = []
             for x in v['items']:
-                xx = self._path_lookup[x['path']].copy()
-                xx['id'] = x['id']
-                tracks.append(xx)
+                if 'path' in x:
+                    xx = self._path_lookup[x['path']].copy()
+                    xx['id'] = x['id']
+                    tracks.append(xx)
+                elif 'stream' in x:
+                    x['length'] = 999
+                    x['track_number'] = 0
+                    x['year'] = 0
+                    x['album'] = ''
+                    x['artist'] = x['stream']
+                    x['path'] = x['stream']
+                    tracks.append(x)
+                else:
+                    assert 0, 'unsupported playlist type'
             playlists[k] = Playlist(tracks, self.get_current_track_id())
         self._playlists = playlists
 
@@ -339,9 +353,10 @@ def run(host):
             model_ctrl.refresh_playlists()
             log('refresh done')
         except Exception as e:
-            log(traceback.format_exc())
+            tb = traceback.format_exc()
+            log(tb)
             def wrapped():
-                raise RuntimeError(str(e))
+                raise RuntimeError(str(e)+str(tb))
             model_ctrl.ready = wrapped
     load_thread = threading.Thread(target=refresh)
     load_thread.start()

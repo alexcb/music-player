@@ -109,11 +109,15 @@ void update_metadata_web_clients( bool playing, const PlaylistItem *item, void *
 	json_object *state = json_object_new_object();
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
 	if( item != NULL ) {
-		json_object_object_add( state, "path", json_object_new_string( item->track->path ) );
-		json_object_object_add( state, "artist", json_object_new_string( item->track->artist ) );
-		json_object_object_add( state, "album", json_object_new_string( item->track->album ) );
-		json_object_object_add( state, "track", json_object_new_int( item->track->track ) );
-		json_object_object_add( state, "title", json_object_new_string( item->track->title ) );
+		if( item->track ) {
+			json_object_object_add( state, "path", json_object_new_string( item->track->path ) );
+			json_object_object_add( state, "artist", json_object_new_string( item->track->artist ) );
+			json_object_object_add( state, "album", json_object_new_string( item->track->album ) );
+			json_object_object_add( state, "track", json_object_new_int( item->track->track ) );
+			json_object_object_add( state, "title", json_object_new_string( item->track->title ) );
+		} else if( item->stream ) {
+			json_object_object_add( state, "stream", json_object_new_string( item->stream ) );
+		}
 		json_object_object_add( state, "id", json_object_new_int( item->id ) );
 	}
 	const char *s = json_object_to_json_string( state );
@@ -450,15 +454,21 @@ static int web_handler_playlists_load(
 
 		LOG_DEBUG("s=s id=d adding", s, track_id);
 
-		Track *track;
-		res = album_list_get_track( data->my_data->album_list, s, &track );
-		if( res != 0 ) {
-			LOG_ERROR("res=d path=s failed to lookup track", res, s);
-			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to lookup track" );
+		Track *track = NULL;
+		char *stream = NULL;
+		if( has_prefix(s, "http://") ) {
+			stream = sdsnew( s );
+		} else {
+			res = album_list_get_track( data->my_data->album_list, s, &track );
+			if( res != 0 ) {
+				LOG_ERROR("res=d path=s failed to lookup track", res, s);
+				return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to lookup track" );
+			}
 		}
 
 		item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
 		item->track = track;
+		item->stream = stream;
 		item->id = track_id;
 		item->ref_count = 1;
 
@@ -497,7 +507,7 @@ static int web_handler_playlists_load(
 		} else {
 			data->my_data->player->playlist_item_to_buffer = playlist->root;
 		}
-		LOG_DEBUG("path=s changing next song", data->my_data->player->playlist_item_to_buffer->track->path);
+		//LOG_DEBUG("path=s changing next song", data->my_data->player->playlist_item_to_buffer->track->path);
 	} else {
 		LOG_DEBUG("saved playlist isn't current, no reload/rewind needed");
 	}
@@ -571,9 +581,13 @@ static int web_handler_playlists(
 		json_object *items = json_object_new_array();
 		for( PlaylistItem *item = p->root; item != NULL; item = item->next ) {
 			json_object *item_obj = json_object_new_object();
-			json_object_object_add( item_obj, "path", json_object_new_string( item->track->path ) );
-			json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
-			json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
+			if( item->track ) {
+				json_object_object_add( item_obj, "path", json_object_new_string( item->track->path ) );
+				json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
+				json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
+			} else if( item->stream ) {
+				json_object_object_add( item_obj, "stream", json_object_new_string( item->stream ) );
+			}
 			json_object_object_add( item_obj, "id", json_object_new_int( item->id ) );
 			json_object_array_add( items, item_obj );
 		}

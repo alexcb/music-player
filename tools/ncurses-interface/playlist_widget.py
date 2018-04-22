@@ -101,6 +101,21 @@ class PlaylistWidget(object):
 
             return s
 
+        if 'stream' in track:
+            track['artist'] = track['stream']
+            track['album'] = '???'
+            track['track_number'] = 0
+            track['title'] = '???'
+            track['year'] = 0
+            track['length'] = 999
+
+        if 'length' not in track:
+            track['album'] = '???'
+            track['track_number'] = 0
+            track['title'] = '???'
+            track['year'] = 0
+            track['length'] = 999
+
         duration_min = math.floor(track['length'] / 60)
         duration_sec = math.floor(track['length'] - 60*duration_min)
         duration = '%d:%02d' % (duration_min, duration_sec)

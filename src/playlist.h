@@ -13,7 +13,7 @@ typedef struct PlaylistItem
 	int id;
 	int ref_count;
 	const struct Track *track;
-	bool is_stream;
+	char *stream;
 	struct PlaylistItem *next;
 	struct Playlist *parent;
 } PlaylistItem;
