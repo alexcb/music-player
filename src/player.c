@@ -210,7 +210,11 @@ int player_change_next_playlist( Player *player, int when )
 		if( pl->next ) {
 			pl = pl->next;
 		}
-		p = pl->current;
+		if( pl->current ) {
+			p = pl->current;
+		} else {
+			p = pl->root;
+		}
 		assert( p );
 
 		res = player_change_track_unsafe( player, p, when );
