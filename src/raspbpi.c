@@ -57,7 +57,7 @@ void* gpio_input_thread_run( void *p )
 			LOG_DEBUG("TOGGLE left up");
 			last_switch_left_up = cur_switch_left_up;
 			if( cur_switch_left_up ) {
-				player_pause( player );
+				player_change_next_playlist( player, TRACK_CHANGE_IMMEDIATE );
 			}
 		}
 		if( cur_switch_left_down != last_switch_left_down ) {

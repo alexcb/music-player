@@ -197,6 +197,29 @@ int player_change_next_track( Player *player, int when )
 	return res;
 }
 
+int player_change_next_playlist( Player *player, int when )
+{
+	int res = 1;
+	Playlist *pl;
+	PlaylistItem *p;
+
+	pthread_mutex_lock( &player->the_lock );
+
+	if( player->current_track != NULL ) {
+		pl = player->current_track->parent;
+		if( pl->next ) {
+			pl = pl->next;
+		}
+		p = pl->current;
+		assert( p );
+
+		res = player_change_track_unsafe( player, p, when );
+	}
+
+	pthread_mutex_unlock( &player->the_lock );
+	return res;
+}
+
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 {
 	int res;
@@ -587,6 +610,7 @@ void* player_audio_thread_run( void *data )
 		}
 
 		player->current_track = pqi->playlist_item;
+		player->current_track->parent->current = player->current_track; // update playlist to point to current item
 		void *buf_start = pqi->buf_start;
 		is_stream = (pqi->playlist_item->stream != NULL);
 		assert( buf_start != NULL );

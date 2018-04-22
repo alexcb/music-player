@@ -119,6 +119,7 @@ int player_add_metadata_observer( Player *player, MetadataObserver observer, voi
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when );
 int player_change_next_album( Player *player, int when );
 int player_change_next_track( Player *player, int when );
+int player_change_next_playlist( Player *player, int when );
 
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item );
 
