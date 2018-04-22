@@ -541,6 +541,7 @@ void* player_audio_thread_run( void *data )
 	size_t num_read;
 	size_t buffer_avail;
 	char *p;
+	bool is_stream = false;
 	bool notified_no_songs = false;
 	
 	for(;;) {
@@ -587,6 +588,7 @@ void* player_audio_thread_run( void *data )
 
 		player->current_track = pqi->playlist_item;
 		void *buf_start = pqi->buf_start;
+		is_stream = (pqi->playlist_item->stream != NULL);
 		assert( buf_start != NULL );
 		pqi = NULL; //once the play_queue is unlocked, this memory will point to something else, make sure we dont use it.
 		play_queue_pop( &player->play_queue );
@@ -649,6 +651,9 @@ void* player_audio_thread_run( void *data )
 					goto track_done;
 				}
 				if( !(control & PLAYER_CONTROL_PLAYING) ) {
+					if( is_stream ) {
+						break;
+					}
 					usleep(1000);
 					continue;
 				}
