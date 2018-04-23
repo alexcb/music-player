@@ -574,7 +574,7 @@ static int web_handler_playlists(
 
 	//playlist_manager_lock( data->my_data->playlist_manager );
 
-	for( Playlist *p = data->my_data->playlist_manager->root; p; p = p->next ) {
+	for( Playlist *p = data->my_data->playlist_manager->root; p && p->next != data->my_data->playlist_manager->root; p = p->next ) {
 		json_object *playlist = json_object_new_object();
 		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
 		json_object_object_add( playlist, "id", json_object_new_int( p->id ) );

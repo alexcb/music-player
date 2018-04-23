@@ -40,7 +40,7 @@ int playlist_manager_save( PlaylistManager *manager )
 		LOG_ERROR("path=s failed to open playlist for writing", manager->playlistPath);
 		return 1;
 	}
-	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
+	for( Playlist *x = manager->root; x != NULL && x->next != manager->root; x = x->next ) {
 		fprintf( fp, "%s\n", x->name );
 		for( PlaylistItem *i = x->root; i != NULL; i = i->next ) {
 			if( i->track ) {
@@ -157,16 +157,10 @@ int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name
 
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p )
 {
-	bool first = true;
-	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
+	for( Playlist *x = manager->root; x != NULL && x->next != manager->root; x = x->next ) {
 		if( strcmp(x->name, name) == 0 ) {
 			*p = x;
 			return 0;
-		}
-		if( first ) {
-			first = false;
-		} else if( x == manager->root ) {
-			break;
 		}
 	}
 	return 1;
@@ -195,7 +189,7 @@ int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, P
 
 int playlist_manager_get_item_by_id( PlaylistManager *manager, int id, PlaylistItem **i )
 {
-	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
+	for( Playlist *x = manager->root; x != NULL && x->next != manager->root; x = x->next ) {
 		for( PlaylistItem *j = x->root; j != NULL; j = j->next ) {
 			if( j->id == id ) {
 				*i = j;
