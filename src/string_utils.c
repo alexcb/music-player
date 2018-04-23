@@ -1,6 +1,7 @@
 #include "string_utils.h"
 
 #include <string.h>
+#include <ctype.h>
 
 bool has_suffix(const char *s, const char *suffix) {
 	size_t s_len = strlen(s);
@@ -43,4 +44,12 @@ const char* null_to_empty(char *s) {
 	if( s == NULL )
 		return empty_str;
 	return s;
+}
+
+void str_to_upper(char *s)
+{
+	while (*s) {
+		*s = toupper((unsigned char) *s);
+		s++;
+	}
 }

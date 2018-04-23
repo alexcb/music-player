@@ -53,7 +53,8 @@ PlaylistItem* get_random_track(PlaylistItem *p) {
 
 int main(int argc, char *argv[])
 {
-	const char* log_level = getenv("LOG_LEVEL");
+	char* log_level = (char*) sdsnew(getenv("LOG_LEVEL"));
+	str_to_upper( log_level );
 	set_log_level_string( log_level ? log_level : "INFO" );
 
 	ignore_singal_init();
@@ -115,6 +116,7 @@ int main(int argc, char *argv[])
 		LOG_ERROR("err=d path=s failed to save id3 cache", res, cache->path);
 	}
 	
+	LOG_DEBUG("calling manager init");
 	PlaylistManager playlist_manager;
 	playlist_manager_init( &playlist_manager, playlist_path, &album_list );
 	player.playlist_manager = &playlist_manager;
@@ -140,9 +142,10 @@ int main(int argc, char *argv[])
 			LOG_CRITICAL("failed to create default playlist");
 			return 1;
 		}
+		assert(0);
 	}
 
-	LOG_DEBUG("starting");
+	LOG_DEBUG("p=p starting", default_playlist);
 
 	res = start_player( &player );
 	if( res ) {

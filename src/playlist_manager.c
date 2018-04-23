@@ -157,10 +157,16 @@ int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name
 
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p )
 {
+	bool first = true;
 	for( Playlist *x = manager->root; x != NULL; x = x->next ) {
 		if( strcmp(x->name, name) == 0 ) {
 			*p = x;
 			return 0;
+		}
+		if( first ) {
+			first = false;
+		} else if( x == manager->root ) {
+			break;
 		}
 	}
 	return 1;

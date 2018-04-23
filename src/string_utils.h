@@ -9,3 +9,5 @@ const char* trim_prefix(const char *s, const char *prefix);
 bool trim_suffix(char *s, const char *suffix);
 
 const char* null_to_empty(char *s);
+
+void str_to_upper(char *s);
