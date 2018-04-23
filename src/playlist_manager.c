@@ -175,12 +175,15 @@ int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, P
 	}
 
 	playlist_new( p, name );
-	(*p)->prev = NULL;
-	(*p)->next = manager->root;
-	if( manager->root ) {
-		manager->root->prev = *p;
+	if( manager->root == NULL ) {
+		manager->root = *p;
+		(*p)->next = (*p)->prev = *p;
+	} else {
+		Playlist *tmp = manager->root->next;
+		manager->root->next = *p;
+		(*p)->next = tmp;
+		tmp->prev = *p;
 	}
-	manager->root = *p;
 	return 0;
 }
 
