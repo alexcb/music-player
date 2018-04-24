@@ -93,6 +93,7 @@ int playlist_manager_load( PlaylistManager *manager )
 				track = NULL;
 				stream = (char*) sdsnew( &line[1] );
 			} else {
+				stream = NULL;
 				res = album_list_get_track( manager->album_list, &line[1], &track );
 				if( res != 0 ) {
 					LOG_ERROR("res=d path=s failed to lookup track", res, &line[1]);
