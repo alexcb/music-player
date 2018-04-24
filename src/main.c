@@ -142,7 +142,6 @@ int main(int argc, char *argv[])
 			LOG_CRITICAL("failed to create default playlist");
 			return 1;
 		}
-		assert(0);
 	}
 
 	LOG_DEBUG("p=p starting", default_playlist);
