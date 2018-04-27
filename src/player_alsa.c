@@ -122,9 +122,12 @@ void init_alsa( Player *player )
 {
 	if( player->alsa_handle != NULL ) {
 		//snd_pcm_drain(pcm_handle);
+		LOG_INFO( "closing alsa handle" );
 		snd_pcm_close( player->alsa_handle );
 	}
+	LOG_INFO( "opening alsa dev" );
 	player->alsa_handle = open_sound_dev();
+	LOG_INFO( "opening alsa dev complete" );
 }
 
 int consume_alsa( Player *player, const char *p, size_t n )
