@@ -44,6 +44,9 @@ PlaylistItem* get_random_track(PlaylistItem *p) {
 	for( PlaylistItem *q = p; q != NULL; q = q->next ) {
 		num_tracks++;
 	}
+	if( num_tracks == 0 ) {
+		return NULL;
+	}
 	int r = rand() % num_tracks;
 	for( ; r > 0; r-- ) {
 		p = p->next;
