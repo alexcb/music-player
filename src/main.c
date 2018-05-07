@@ -60,6 +60,12 @@ int main(int argc, char *argv[])
 	str_to_upper( log_level );
 	set_log_level_string( log_level ? log_level : "INFO" );
 
+	bool auto_play = false;
+	char* auto_start = (char*) sdsnew(getenv("MUSIC_AUTO_PLAY"));
+	if( strcmp(auto_start, "1") == 0 ) {
+		auto_play = true;
+	}
+
 	ignore_singal_init();
 
 	srand( get_current_time_ms() );
@@ -137,7 +143,9 @@ int main(int argc, char *argv[])
 		PlaylistItem *p = get_random_track( default_playlist->root );
 		if( p ) {
 			player_change_track( &player, p, TRACK_CHANGE_IMMEDIATE );
-			player_set_playing( &player, true );
+			if( auto_play ) {
+				player_set_playing( &player, true );
+			}
 		}
 	} else {
 		res = playlist_manager_new_playlist( &playlist_manager, "default", &default_playlist );

@@ -137,3 +137,26 @@ NEXT UP: streaming:
    1524327174.147370464 level=ERROR file=src/playlist_manager.c line=87 res=1 path=http://live-mp3-128.kexp.org:80/kexp128.mp3 msg="failed to lookup track"
 
  - testing stream
+
+
+
+sudo fbi -T 2 panda.jpg 
+sudo fbi -T 1 panda.jpg 
+echo hello > /dev/tty1
+
+To send text to console:
+  date | sudo tee /dev/tty0
+  date | sudo tee /dev/tty1
+
+To wake up the console screen via ssh
+  echo -ne "\033[9;0]" | sudo tee /dev/tty1 > /dev/null
+
+
+To clear the screen:
+  echo -ne "\033c" | sudo tee /dev/tty1 > /dev/null
+
+To send random data:
+  cat /dev/urandom >/dev/fb0
+
+To draw a pixel on the screen:
+  printf "\x00\xFF\xFF\x00" | dd bs=4 seek=$((103 * 1024 + 205)) >/dev/fb0

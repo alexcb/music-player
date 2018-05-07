@@ -33,7 +33,7 @@ int init_player( Player *player, const char *library_path )
 	player->playlist_item_to_buffer_override = NULL;
 
 	// audio player thread variables
-	player->control = PLAYER_CONTROL_PLAYING;
+	player->control = 0;
 
 	player->current_track = NULL;
 
