@@ -276,7 +276,8 @@ class ModelCtrl(object):
         playlists = {
             'default': Playlist(),
             }
-        for k, v in get_playlists(self._host).iteritems():
+        for v in get_playlists(self._host):
+            k = v['name']
             tracks = []
             for x in v['items']:
                 if 'path' in x:

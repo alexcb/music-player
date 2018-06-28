@@ -227,7 +227,6 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 
 	// remove any left over tracks that weren't contained in the new list
 	p = old_root;
-	LOG_DEBUG("orphans");
 	while( p ) {
 		x = p->next;
 		LOG_DEBUG("p=p path=s ref=d deleting orphaned", p, p->track->path, p->ref_count);
