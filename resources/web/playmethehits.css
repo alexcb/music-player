@@ -9,3 +9,7 @@
 .active-track {
     font-weight: bold;
 }
+
+*:focus {
+    outline: none;
+}

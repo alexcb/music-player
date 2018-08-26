@@ -586,8 +586,8 @@ static int web_handler_playlists(
 			json_object *item_obj = json_object_new_object();
 			if( item->track ) {
 				json_object_object_add( item_obj, "path", json_object_new_string( item->track->path ) );
-				json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
-				json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
+				//json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
+				//json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
 			} else if( item->stream ) {
 				json_object_object_add( item_obj, "stream", json_object_new_string( item->stream ) );
 			}
