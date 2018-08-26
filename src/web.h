@@ -28,7 +28,7 @@ typedef struct WebHandlerData {
 	
 } WebHandlerData;
 
-void update_metadata_web_clients(bool playing, const PlaylistItem *item, void *data);
+void update_metadata_web_clients(bool playing, const PlaylistItem *item, int playlist_version, void *data);
 
 int init_http_server_data( WebHandlerData *data, MyData *my_data );
 int start_http_server( WebHandlerData *data );

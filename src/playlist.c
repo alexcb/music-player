@@ -169,12 +169,13 @@ int playlist_clear( Playlist *playlist )
 PlaylistItem* pop_item_with_track_id( PlaylistItem **root, int track_id )
 {
 	PlaylistItem *x = *root;
+	PlaylistItem **prev = root;
 	while( x ) {
 		if( x->id == track_id ) {
-			*root = x->next;
+			*prev = x->next;
 			return x;
 		}
-		root = &(x->next);
+		prev = &(x->next);
 		x = x->next;
 	}
 	return NULL;
@@ -188,12 +189,12 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 	PlaylistItem *p = NULL;
 	PlaylistItem *n = NULL;
 
-	p = old_root;
 	LOG_DEBUG("playlist_update start");
-	while( p ) {
-		//LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
-		p = p->next;
-	}
+	//p = old_root;
+	//while( p ) {
+	//	LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
+	//	p = p->next;
+	//}
 
 	PlaylistItem *x = item;
 	while( x ) {
@@ -207,7 +208,7 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 			p = x; // steal the ref counter
 			p->id = playlist_id_next++;
 		} else {
-			//discard x
+			//discard x; and keep the original track item (p)
 			playlist_item_ref_down( x );
 		}
 
@@ -235,6 +236,9 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 		p = x;
 	}
 
+	// update ID (to incidicate the playlist has changed)
+	playlist->id = playlist_id_next++;
+
 	//p = playlist->root;
 	//LOG_DEBUG("after");
 	//while( p ) {
@@ -257,3 +261,4 @@ void playlist_sort_by_path( Playlist *playlist )
 {
 	//qsort( playlist->list, playlist->len, sizeof(PlaylistItem), playlist_item_cmp);
 }
+

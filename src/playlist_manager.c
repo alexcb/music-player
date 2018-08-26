@@ -200,3 +200,12 @@ int playlist_manager_get_item_by_id( PlaylistManager *manager, int id, PlaylistI
 	}
 	return NOT_FOUND;
 }
+
+int playlist_manager_checksum( PlaylistManager *manager )
+{
+	int checksum = 0;
+	for( Playlist *x = manager->root; x != NULL && x->next != manager->root; x = x->next ) {
+		checksum += x->id;
+	}
+	return checksum;
+}

@@ -37,7 +37,7 @@ struct Player;
 typedef struct Player Player;
 
 
-typedef void (*MetadataObserver)( bool playing, const PlaylistItem *playlist_item, void *data );
+typedef void (*MetadataObserver)( bool playing, const PlaylistItem *playlist_item, int playlist_version, void *data );
 typedef int (*AudioConsumer)( Player *player, const char *p, size_t n );
 typedef void (*LoadItem)( Player *player, PlaylistItem *item );
 

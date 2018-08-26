@@ -1,198 +1,44 @@
+var current_playing = null;
+var current_track_id = null;
+var current_playlist_checksum = 0;
 var activewidget = null;
 var tracks_by_path = {};
 var library = null;
 var playlists = null;
-var selected_playlist = null;
+var playlist_widgets = null;
+var selected_playlist_index = 0;
+var ws = null;
 
-var lines = 'yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>yo<br/>'
+function next_playlist() {
+  selected_playlist_index++;
+  if( selected_playlist_index >= playlist_widgets.length ) {
+    selected_playlist_index = 0;
+  }
+  activewidget = playlist_widgets[selected_playlist_index];
+  activewidget.refresh();
+}
+function prev_playlist() {
+  selected_playlist_index--;
+  if( selected_playlist_index < 0 ) {
+    selected_playlist_index = playlist_widgets.length - 1;
+  }
+  activewidget = playlist_widgets[selected_playlist_index];
+  activewidget.refresh();
+}
 
-//
-//var playlists;
-//var currently_selected_playlist = -1;
-//
-//function populatePlaylists() {
-//	var tbody = jQuery("#playlists tbody");
-//	var j = 0;
-//
-//	console.log("updating with playlist ver " + playlists.version);
-//	tbody.empty();
-//	$.each( playlists.playlists, function( i, playlist ) {
-//		var prefix = "";
-//		if( i == currently_selected_playlist ) { prefix = "&gt;"; }
-//		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td><a href=\"javascript:selectPlaylist(" + i + ");\">" + playlist.name + "</a></td></tr>");
-//		tbody.append( x );
-//	});
-//}
-//
-//function populatePlaylist() {
-//	var tbody = jQuery("#playlist tbody");
-//	var j = 0;
-//
-//	tbody.empty();
-//	$.each( playlists.playlists[currently_selected_playlist].items, function( i, item ) {
-//		var prefix = "";
-//		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td><a href=\"javascript:play(" + currently_selected_playlist + ", " + i + ");\">" + item.path + "</td></tr>");
-//		tbody.append( x );
-//	});
-//}
-//
-//function refreshPlaylists() {
-//	$.getJSON("/playlists")
-//		.then(function(data) {
-//			playlists = data;
-//			populatePlaylists();
-//			populatePlaylist();
-//		});
-//}
-//
-//function selectPlaylist(id) {
-//	currently_selected_playlist = id;
-//	populatePlaylist();
-//}
-//
-//function play(playlist_id, track_id) {
-//	$.post( "/play?playlist=" + playlist_id + "&track=" + track_id, function( data ) { });
-//}
-//
-//
-////var albums, playlists;
-////$.when(
-////    $.getJSON("/albums", function(data) {
-////        albums = data;
-////    }),
-////    $.getJSON("/playlists", function(data) {
-////        playlists = data;
-////    })
-////).then(function() {
-////});
-////
-////
-////var albums = [];
-////$.getJSON( "/albums", function( data ) {
-////	albums = data.albums;
-////	$.each( albums, function( i, album ) {
-////		album.id = i;
-////	});
-////	populateTable("");
-////});
-////
-////var fuse_options = {
-////	shouldSort: true,
-////	threshold: 0.6,
-////	location: 0,
-////	distance: 100,
-////	maxPatternLength: 32,
-////	minMatchCharLength: 1,
-////	keys: [
-////		"artist",
-////		"name"
-////	]
-////};
-////
-////var matches = [];
-////function populateTable(filter) {
-////	var tbody = jQuery("#albums tbody");
-////	var j = 0;
-////	matches = [];
-////	if( filter == "" ) {
-////		matches = albums;
-////	} else {
-////		var fuse = new Fuse(albums, fuse_options);
-////		matches = fuse.search(filter);
-////	}
-////
-////	if( current_selection >= matches.length ) {
-////		current_selection = matches.length - 1;
-////	}
-////
-////	tbody.empty();
-////	$.each( matches, function( i, album ) {
-////		var prefix = "";
-////		if( i == current_selection ) {
-////			prefix = "&gt; ";
-////		}
-////		var x = $("<tr><td class=\"icon\">" + prefix + "</td><td>" + album.artist + "</td><td>" + album.name + "</td></tr>");
-////		tbody.append( x );
-////	});
-////}
-////
-////var current_selection = 0;
-////$("#filter").keydown(function(e) {
-////	switch(e.which) {
-////		case 38: // up
-////			current_selection = Math.max( current_selection-1, 0 );
-////			break;
-////
-////		case 40: // down
-////			current_selection++;
-////			break;
-////
-////		case 13: // down
-////			console.log("play song");
-////			var album = matches[current_selection];
-////			$.post( "/albums?album=" + album.id, function( data ) { });
-////
-////			break;
-////
-////		default:
-////
-////			current_selection = 0;
-////			return; // exit this handler for other keys
-////	}
-////	e.preventDefault(); // prevent the default action (scroll / move caret)
-////});
-////
-////
-////$("#filter").keyup(function() {
-////	populateTable(this.value);
-////});
-////
-////$("#filter").attr("autocomplete", "off");
-////$("#filter").select();
-////
-////function updateCurrentSong(msg) {
-////	$("#currentsong").text(msg);
-////}
-////
-////updateCurrentSong("nothing");
-////
-//
-//var first_msg = true;
-//var last_msg;
-//function updatePlaying(msg) {
-//	last_msg = msg;
-//	if( !playlists || msg.playlist_version != playlists.version ) {
-//		if( first_msg ) {
-//			first_msg = false;
-//			currently_selected_playlist = msg.playlist_id;
-//		}
-//		refreshPlaylists();
-//	}
-//}
-//
-//function createWebsocket() {
-//	var exampleSocket = new WebSocket("ws://" + document.domain + ':' + location.port + "/websocket");
-//	exampleSocket.onopen = function (event) {
-//		console.log("websocket opened");
-//	}
-//	exampleSocket.onmessage = function (event) {
-//		console.log("got message: \"" + event.data + "\"");
-//		if( event.data == "" ) {
-//			return;
-//		}
-//		var msg = JSON.parse(event.data);
-//		updatePlaying(msg);
-//		//updateCurrentSong(msg.artist + " - " + msg.title);
-//	}
-//}
-//
-//$(document).ready(function() {
-//	createWebsocket();
-//
-//});
-//
-//
-//
+function get_playlist_widget_by_name(name) {
+  if( playlist_widgets === null ) {
+    return null;
+  }
+  for( var i = 0; i < playlist_widgets.length; i++ ) {
+    console.log(playlist_widgets[i].name);
+    console.log(name);
+    if( playlist_widgets[i].name == name ) {
+      return playlist_widgets[i];
+    }
+  }
+  return null;
+}
 
 function td(text) {
   var td = $('<td>');
@@ -241,45 +87,23 @@ function load() {
   });
 
   console.log('finding default');
-  $.each(playlists.playlists, function(i, playlist) {
-    if( playlist.name == "default" ) {
-      playlistwidget.load(playlist);
-    }
+  playlist_widgets = [];
+  $.each(playlists.playlists, function(i, pl) {
+    w = new playlist();
+    w.load(pl);
+    playlist_widgets.push(w);
   });
+  
+  if( playlist_widgets.length == 0 ) {
+    playlist_widgets.push(playlist(pl));
+  }
 
   selectorwidget.load(library.albums);
 
-  activewidget = playlistwidget;
-  activewidget.refresh();
-  
-  //  //console.log('start load2');
-  //  //});
-  //  //$('#library').empty().append(buildtable(['artist', 'album', 'year', 'title', 'length'], rows));
-  //
-  //  var selected_playlist = null;
-  //  $.each(playlists.playlists, function(i, playlist) {
-  //    if( playlist.name == "default" ) {
-  //      selected_playlist = playlist;
-  //    }
-  //  });
-  //
-  //  var rows = [];
-  //  $.each(selected_playlist.items, function(i, item) {
-  //    var track = tracks[item.path];
-  //    console.log(track.album);
-  //    var cols = [];
-  //    cols.push(track.album.artist);
-  //    cols.push(track.album.album);
-  //    cols.push(track.album.year);
-  //    cols.push(track.track.title);
-  //    cols.push(track.track.length);
-  //    rows.push(cols)
-  //  });
-  //  $('#playlist').empty().append(buildtable(['artist', 'album', 'title', 'length'], rows));
-  //
-  //
-  //  console.log('end load2');
-  //  console.log(rows.length);
+  if( !select_current_track() ) {
+    activewidget = playlist_widgets[0];
+    activewidget.refresh();
+  }
 }
 
 function showAdd() {
@@ -293,6 +117,7 @@ function refresh(cb) {
     }),
     $.getJSON("/playlists", function(data) {
         playlists = data;
+        current_playlist_checksum = data.checksum;
     })
   ).then(function() {
     load();
@@ -316,100 +141,28 @@ var loadingwidget = {
   }
 };
 
-//var playlistwidget = {
-//  refresh: function() {
-//    console.log('playlist refresh');
-//
-//    var rows = [];
-//    console.log('playlist refresh1');
-//    $.each(selected_playlist.items, function(i, item) {
-//      var track = tracks_by_path[item.path];
-//      console.log(track.album);
-//      var cols = [];
-//      cols.push(track.album.artist);
-//      cols.push(track.album.album);
-//      cols.push(track.album.year);
-//      cols.push(track.track.title);
-//      cols.push(track.track.length);
-//      rows.push(cols)
-//    });
-//    console.log('playlist refresh2');
-//    $('#playlist').empty().append('<b>playlist</b>').append(buildtable(['artist', 'album', 'title', 'length'], rows));
-//  },
-//  onkeydown: function (e) {
-//    switch (e.keyCode) {
-//        case 37:
-//            console.log('left');
-//            break;
-//        case 38:
-//          // up
-//          selectPlaylistItem(-1);
-//          return false;
-//        case 39:
-//            alert('right');
-//            break;
-//        case 40:
-//          // down
-//          selectPlaylistItem(1);
-//          return false;
-//        case 13:
-//          // enter
-//          playSelectedPlaylistItem();
-//          return false;
-//        case 65:
-//          // a (add)
-//          activewidget = trackselectorwidget;
-//          activewidget.refresh();
-//          return false;
-//    }
-//    console.log(e.keyCode);
-//  }
-//};
-//
-//var trackselectorwidget = {
-//  refresh: function() {
-//    var rows = [];
-//    $.each(tracks_by_path, function(path, track) {
-//      var cols = [];
-//      cols.push(track.album.artist);
-//      cols.push(track.album.album);
-//      cols.push(track.album.year);
-//      cols.push(track.track.title);
-//      cols.push(track.track.length);
-//      rows.push(cols)
-//    });
-//    $('#playlist').empty().append('<b>selector</b>').append(buildtable(['artist', 'album', 'title', 'length'], rows));
-//  },
-//  onkeydown: function (e) {
-//    switch (e.keyCode) {
-//      case 27:
-//        // escape
-//        activewidget = playlistwidget;
-//        activewidget.refresh();
-//        return false;
-//      case 13:
-//        // enter
-//        activewidget = playlistwidget;
-//        activewidget.refresh();
-//        return false;
-//    }
-//    console.log(e.keyCode);
-//  }
-//};
+var helpwidget = {
+  refresh: function() {
+    console.log('loading refresh');
+    $('#playlist').empty().append($("<p>press... a: add track, left/right to cycle playlists, up/down to select tracks, enter to play</p>"));
+  },
+  onkeydown: function (e) {
+    return false;
+  }
+};
+
 
 function trackTable() {
   this.name = 'tracktable';
   this.selected = 0;
   this.rows = [];
   this.headers = ['artist', 'album', 'title', 'length'];
-  //this.header = null;
-  //this.body = null;
 };
 trackTable.prototype.refresh = function() {
   var table = buildtable(this.headers, this.rows);
 
-  var sticky = $('<div style="position: fixed; top: 0; width:100%">TODO: top part</div>');
-  sticky.append(table.header);
+  var sticky = $('<div style="position: fixed; top: 0; width:100%"></div>');
+  sticky.append(this.getHeader());
 
   var body = $('<div></div>');
   body.append(table.body);
@@ -417,39 +170,35 @@ trackTable.prototype.refresh = function() {
   $('#thepage').empty().append(sticky).append(body);
 
   body.css('margin-top', sticky.height());
-
-  // TODO make the columns match the width
-  //var foo = table.header.find("tr").first().children();
-  //table.body.find("tr").first().children().each(function(i, td) {
-  //  console.log(i);
-  //  foo.eq(i).css('width', 10);
-  //  console.log(td);
-  //  console.log(td.width);
-  //});
 };
 trackTable.prototype.onkeydown = function(e) {
-  switch (e.keyCode) {
-      case 37:
-          console.log('left');
-          break;
-      case 38: // up
-      case 75: // k
+  switch (e.key) {
+      case 'ArrowLeft':
+      case 'h':
+        prev_playlist();
+        return false;
+      case 'ArrowUp':
+      case 'k':
         this.selectPlaylistItem(-1);
         return false;
-      case 39:
-          alert('right');
-          break;
-      case 40: // down
-      case 74: // j
+      case 'ArrowRight':
+      case 'l':
+        next_playlist();
+        return false;
+      case 'ArrowDown':
+      case 'j':
         this.selectPlaylistItem(1);
         return false;
-      case 13:
-        // enter
+      case 'Enter':
         this.onenter();
         return false;
   }
-  console.log(e.keyCode);
+  console.log(e.key);
 };
+
+trackTable.prototype.getHeader = function() {
+  return $('<b>' + this.name + '</b>');
+}
 
 trackTable.prototype.selectPlaylistItem = function(x) {
   $('.mybody tr').eq(this.selected).removeClass("pure-table-odd");
@@ -469,18 +218,32 @@ trackTable.prototype.onenter = function() {
   console.log(this.selected);
 }
 
+function format_length(l) {
+  var h = Math.floor(l / 60 / 60);
+  l -= h*60*60;
+  var m = Math.floor(l / 60);
+  l -= m*60;
+  var l = Math.floor(l);
+
+  if( h > 0 ) {
+    return "" + h.toString() + ":" + m.toString().padStart(2, '0') + ":" + l.toString().padStart(2, '0')
+  }
+  return "" + m.toString() + ":" + l.toString().padStart(2, '0')
+}
+
 function playlist() {
   trackTable.call(this);
-  this.name = 'playlist';
+  this.name = 'default';
   this.paths = [];
   this.ids = [];
   this.headers = ['artist', 'album', 'year', 'title', 'length', 'id'];
+  this.has_changed = false;
 }
 playlist.prototype = Object.create(trackTable.prototype);
 playlist.prototype.onkeydown = function(e) {
-  switch (e.keyCode) {
-    case 65:
-      // 'a' add
+  switch (e.key) {
+    case 'a':
+      // add
       activewidget = selectorwidget;
       selectorwidget.playlist = this;
       activewidget.refresh();
@@ -495,116 +258,247 @@ playlist.prototype.add_track = function(path, id) {
   cols.push(track.album.album);
   cols.push(track.album.year);
   cols.push(track.track.title);
-  cols.push(track.track.length);
+  cols.push(format_length(track.track.length));
   cols.push(id);
   this.rows.push(cols)
   this.paths.push(path);
   this.ids.push(id);
+  if( id === undefined ) {
+    this.has_changed = true;
+  }
 }
 playlist.prototype.load = function(playlist) {
   this.paths = [];
   this.ids = [];
   this.rows = [];
+  this.name = playlist.name;
   for( var i = 0; i < playlist.items.length; i++ ) {
-    this.add_track(playlist.items[i].path, playlist.items[i].id);
+    if( 'stream' in playlist.items[i] ) {
+      console.log('unsupported stream');
+      console.log(playlist.items[i]);
+    } else {
+      this.add_track(playlist.items[i].path, playlist.items[i].id);
+    }
   }
+}
+playlist.prototype.getHeader = function() {
+  return $('<span>playlist: <b>' + this.name + '</b></span>');
 }
 playlist.prototype.onenter = function() {
-  var path = this.paths[this.selected];
-  console.log("play " + path);
+  var selected_index = this.selected;
+  var selected_id = this.ids[this.selected];
+  var playlist_name = this.name;
+  if( this.has_changed ) {
+    // update playlist
+    var playlist_payload = [];
+    for( var i = 0; i < this.paths.length; i++ ) {
+      playlist_payload.push([this.paths[i], this.ids[i]]);
+    }
 
-  var playlist_payload = [];
-  for( var i = 0; i < this.paths.length; i++ ) {
-    playlist_payload.push([this.paths[i], 0]);
-  }
+    var payload = {
+      'name': this.name,
+      'playlist': playlist_payload
+    };
 
-  var payload = {
-    'name': 'default',
-    'playlist': playlist_payload
-  };
-
-  var that = this;
-
-  $.post( "/playlists", JSON.stringify(payload))
-    .done(function( data ) {
-      console.log('posted');
-      console.log(data);
-      refresh(function(){
-        that.play_selected();
+    $.post( "/playlists", JSON.stringify(payload))
+      .done(function( data ) {
+        refresh(function(){
+          // after the refresh, `this` will no longer point to the correct playlist
+          var that = get_playlist_widget_by_name(playlist_name);
+          console.log(that);
+          console.log(selected_id);
+          console.log(selected_index);
+          if( selected_id !== undefined ) {
+            that.play_track_by_id(selected_id);
+          } else {
+            that.play_track_by_index(selected_index);
+          }
+        });
+      })
+      .fail(function( data ) {
+        console.log('failed to post playlist');
+        console.log(data);
       });
+    return;
+  }
+  this.play_track_by_id( selected_id );
+}
+playlist.prototype.play_track_by_id = function(track_id) {
+  $.post( "/play_track_id?track=" + track_id + "&when=immediate")
+    .done(function(data) {
+      console.log('it worked');
+      console.log(data);
     })
-    .fail(function( data ) {
-      console.log('failed to post playlist');
+    .fail(function(data) {
+      console.log('it failed');
       console.log(data);
     });
+  return;
 }
-playlist.prototype.play_selected = function() {
-    console.log('here');
-    var path = this.paths[this.selected];
-    var id = this.ids[this.selected];
-    $.post( "/play?playlist=default&track=" + this.selected + "&when=immediate")
-      .done(function(data) {
-        console.log('it worked');
-        console.log(data);
-      })
-      .fail(function(data) {
-        console.log('it failed');
-        console.log(data);
-      });
+playlist.prototype.play_track_by_index = function(track_index) {
+  if( track_index >= this.ids.length ) {
+    alert('track_index out of range');
+    return;
+  }
+  var track_id = this.ids[track_index];
+  if( track_id > 0 ) {
+    this.play_track_by_id( track_id );
+  } else {
+    alert('track_id is ' + track_id);
+  }
+}
+
+//playlist.prototype.play_selected = function() {
+//    console.log('here');
+//    var path = this.paths[this.selected];
+//    var id = this.ids[this.selected];
+//    $.post( "/play?playlist=default&track=" + this.selected + "&when=immediate")
+//      .done(function(data) {
+//        console.log('it worked');
+//        console.log(data);
+//      })
+//      .fail(function(data) {
+//        console.log('it failed');
+//        console.log(data);
+//      });
+//}
+
+playlist.prototype.refresh = function() {
+  trackTable.prototype.refresh.call(this);
+  for( var i = 0; i < this.ids.length; i++ ) {
+    if( this.ids[i] == current_track_id ) {
+      $('.mybody tr').eq(i).addClass("active-track");
+    }
+  }
 }
 
 function selector() {
   trackTable.call(this);
   this.name = 'selector';
   this.playlist = null;
+  this.albumview = true;
 }
 selector.prototype = Object.create(trackTable.prototype);
 selector.prototype.load = function(albums) {
+  this.albums = albums;
+}
+selector.prototype.refresh = function() {
   var rows = [];
   var paths = []
-  $.each(albums, function(i, album) {
-    $.each(album.tracks, function(i, track) {
+  console.log(this.albumview);
+  if( this.albumview ) {
+    $.each(this.albums, function(i, album) {
+      console.log('album view');
       var cols = [];
       cols.push(album.artist);
       cols.push(album.album);
       cols.push(album.year);
-      cols.push(track.title);
-      cols.push(track.length);
+      cols.push(album.tracks.length);
       rows.push(cols)
-      paths.push(track.path);
+      var album_paths = [];
+      $.each(album.tracks, function(i, track) { album_paths.push(track.path); });
+      paths.push(album_paths);
     });
-  });
+  } else {
+    $.each(this.albums, function(i, album) {
+      console.log('track view');
+      $.each(album.tracks, function(i, track) {
+        var cols = [];
+        cols.push(album.artist);
+        cols.push(album.album);
+        cols.push(album.year);
+        cols.push(track.title);
+        cols.push(track.length);
+        rows.push(cols)
+        paths.push([track.path]);
+      });
+    });
+  }
   this.rows = rows;
   this.paths = paths;
-  console.log(rows);
+
+  trackTable.prototype.refresh.call(this);
 }
 selector.prototype.onkeydown = function(e) {
-  switch (e.keyCode) {
-    case 27:
+  switch (e.key) {
+    case 'Escape':
       // 'escape' escape
       activewidget = this.playlist;
       activewidget.refresh();
+      return false;
+    case 't':
+      // toggle album/track view
+      this.albumview = !this.albumview;
+      this.refresh();
       return false;
   }
   return trackTable.prototype.onkeydown.call(this, e);
 }
 selector.prototype.onenter = function() {
-  var path = this.paths[this.selected];
-  console.log("adding " + path);
-  this.playlist.add_track(path);
+  var paths = this.paths[this.selected];
+  for( var i = 0; i < paths.length; i++ ) {
+    console.log("adding " + paths[i]);
+    this.playlist.add_track(paths[i]);
+  }
 }
 
-playlistwidget = new playlist();
+//playlistwidget = new playlist();
 selectorwidget = new selector();
+
+function set_current_track(playing, track_id) {
+  current_track_id = track_id;
+  current_playing = playing;
+}
+
+function select_current_track() {
+  if( current_track_id == null || playlist_widgets == null ) {
+    return false;
+  }
+  for( var i = 0; i < playlist_widgets.length; i++ ) {
+    var w = playlist_widgets[i];
+    for( var j = 0; j < w.ids.length; j++ ) {
+      var id = w.ids[j];
+      if( id == current_track_id ) {
+        console.log('setting');
+        activewidget = playlist_widgets[i];
+        activewidget.refresh();
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 function playmethehits() {
   activewidget = loadingwidget;
   activewidget.refresh();
   refresh();
 
-  document.onkeydown = function(e) {
-    return activewidget.onkeydown(e);
-  };
+  ws = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/websocket");
+  ws.onmessage = function (event) {
+    msg = JSON.parse( event.data );
+    console.log('websocket message');
+    console.log(msg);
+    if( msg.type == "status" ) {
+      set_current_track( msg.playing, msg.id );
+      if( msg.playlist_checksum != current_playlist_checksum ) {
+        refresh();
+      } else {
+        select_current_track();
+      }
+    }
+  }
+
+  $(document).on("keydown", function(ev) {
+    if( ev.ctrlKey || ev.altKey ) {
+      return true;
+    }
+    if( ev.key == '?' ) {
+      alert('left/right: change playlists; up/down select tracks; a: display add-track; escape: display playlist; enter: select/play song');
+      return
+    }
+    return activewidget.onkeydown(ev);
+  });
 }
 
 

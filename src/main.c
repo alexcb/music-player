@@ -178,7 +178,8 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	update_metadata_web_clients( false, NULL, (void*) &web_handler_data );
+	int playlist_version = playlist_manager_checksum( &playlist_manager );
+	update_metadata_web_clients( false, NULL, playlist_version, (void*) &web_handler_data );
 
 	res = player_add_metadata_observer( &player, &update_metadata_web_clients, (void*) &web_handler_data );
 	if( res ) {

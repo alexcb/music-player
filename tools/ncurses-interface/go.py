@@ -37,14 +37,13 @@ def get_websocket_worker(host, cb):
             if status.get('type') == 'welcome':
                 return
             playing = status['playing']
-            del status['playing']
             if status:
                 track = status
         except Exception as e:
             log(e)
             pass
             #text = 'unknown state: %s; %s' % (str(message), str(e))
-        cb(playing, track)
+        cb(status)
 
     def on_close(ws):
         pass
@@ -173,6 +172,7 @@ class UI(object):
                 time.sleep(loading_spinner.get_speed())
             else:
                 t = self._mc.get_current_track()
+                log(t)
                 if t:
                     if 'stream' in t:
                         track = t['stream']
@@ -301,12 +301,13 @@ class ModelCtrl(object):
         if playlist not in self._playlists:
             self._playlists[playlist] = Playlist()
 
-    def change_playing(self, playing, track_data):
-        log("change_playing: %s %s" % (playing, track_data))
-        self._playing = playing
-        self._current_track = track_data
-        for p in self._playlists.itervalues():
-            p.set_playing(track_data.get('id'))
+    def change_playing(self, status):
+        log("change_playing: %s" % repr(status))
+        self._playing = status['playing']
+        if 'id' in status:
+            self._current_track = status
+            for p in self._playlists.itervalues():
+                p.set_playing(status.get('id'))
 
     def get_track_meta(self, track_id):
         path = None

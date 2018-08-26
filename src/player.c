@@ -259,8 +259,9 @@ int player_add_metadata_observer( Player *player, MetadataObserver observer, voi
 
 void call_observers( Player *player ) {
 	bool is_playing = player_get_control( player ) & PLAYER_CONTROL_PLAYING;
+	int playlist_version = playlist_manager_checksum( player->playlist_manager );
 	for( int i = 0; i < player->metadata_observers_num; i++ ) {
-		player->metadata_observers[i]( is_playing, player->current_track, player->metadata_observers_data[i] );
+		player->metadata_observers[i]( is_playing, player->current_track, playlist_version, player->metadata_observers_data[i] );
 	}
 }
 

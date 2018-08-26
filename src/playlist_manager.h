@@ -24,3 +24,5 @@ int playlist_manager_save( PlaylistManager *manager );
 int playlist_manager_load( PlaylistManager *manager );
 
 int playlist_manager_get_item_by_id( PlaylistManager *manager, int id, PlaylistItem **i );
+
+int playlist_manager_checksum( PlaylistManager *manager );

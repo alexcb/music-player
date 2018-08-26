@@ -101,13 +101,15 @@ int websocket_send( WebsocketData *ws, const char *payload )
 	return res;
 }
 
-void update_metadata_web_clients( bool playing, const PlaylistItem *item, void *d )
+void update_metadata_web_clients( bool playing, const PlaylistItem *item, int playlist_checksum, void *d )
 {
 	WebHandlerData *data = (WebHandlerData*) d;
 	LOG_DEBUG( "playlistitem=p update_metadata_web_clients was called", item );
 
 	json_object *state = json_object_new_object();
+	json_object_object_add( state, "type", json_object_new_string( "status" ) );
 	json_object_object_add( state, "playing", json_object_new_boolean( playing ) );
+	json_object_object_add( state, "playlist_checksum", json_object_new_int( playlist_checksum ) );
 	if( item != NULL ) {
 		if( item->track ) {
 			json_object_object_add( state, "path", json_object_new_string( item->track->path ) );
@@ -121,6 +123,7 @@ void update_metadata_web_clients( bool playing, const PlaylistItem *item, void *
 		json_object_object_add( state, "id", json_object_new_int( item->id ) );
 	}
 	const char *s = json_object_to_json_string( state );
+	LOG_DEBUG("state=s play state", s);
 
 	pthread_mutex_lock( &data->current_track_payload_lock );
 	data->current_track_payload = sdscpy( data->current_track_payload, s );
@@ -596,8 +599,11 @@ static int web_handler_playlists(
 		json_object_array_add( playlists, playlist );
 	}
 
+	int checksum = playlist_manager_checksum( data->my_data->playlist_manager );
+
 	json_object *root_obj = json_object_new_object();
 	json_object_object_add( root_obj, "playlists", playlists );
+	json_object_object_add( root_obj, "checksum", json_object_new_int( checksum ) );
 
 	//playlist_manager_unlock( data->my_data->playlist_manager );
 
@@ -754,6 +760,60 @@ static int web_handler_play(
 	return ret;
 }
 
+static int web_handler_play2(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const sds request_body,
+		void **con_cls)
+{
+	int ret;
+	struct MHD_Response *response;
+	int res;
+
+	int track_id = 0;
+	const char *track_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "track" );
+	if( track_str ) {
+		track_id = atoi(track_str);
+		if( track_id == 0 && strcmp(track_str, "0") != 0 ) {
+			return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad track ID" );
+		}
+	} else {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "no track ID" );
+	}
+
+	int when;
+	const char *when_str = MHD_lookup_connection_value( connection, MHD_GET_ARGUMENT_KIND, "when" );
+	if( when_str && strcmp(when_str, "immediate") == 0 ) {
+		when = TRACK_CHANGE_IMMEDIATE;
+	}
+	else if( when_str && strcmp(when_str, "next") == 0 ) {
+		when = TRACK_CHANGE_NEXT;
+	} else {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "bad when value" );
+	}
+	
+	PlaylistItem *x = NULL;
+	res = playlist_manager_get_item_by_id( data->my_data->playlist_manager, track_id, &x );
+	if( res ) {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to find track" );
+	}
+	
+	res = player_change_track( data->my_data->player, x, when );
+	if( res ) {
+		return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to change track" );
+	}
+
+	player_set_playing( data->my_data->player, true );
+
+	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
 static int web_handler_next(
 		WebHandlerData *data,
 		struct MHD_Connection *connection,
@@ -887,6 +947,10 @@ static int web_handler(
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/play") == 0 ) {
 		return web_handler_play( data, connection, url, method, version, request_session->body, con_cls );
+	}
+
+	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/play_track_id") == 0 ) {
+		return web_handler_play2( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/next-album") == 0 ) {
