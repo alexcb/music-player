@@ -8,6 +8,7 @@
 
 .active-track {
     font-weight: bold;
+	color: #CC0000;
 }
 
 *:focus {
