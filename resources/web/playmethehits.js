@@ -6,6 +6,7 @@ var selector;
 var playlist_manger;
 var current_playlist_checksum;
 var tracks_by_path = {};
+var current_track_id;
 
 function refresh_tracks_by_path(library) {
   tracks_by_path = {};
@@ -20,6 +21,10 @@ function refresh_tracks_by_path(library) {
 }
 
 function set_current_track( playing, track_id ) {
+  current_track_id = track_id;
+  if( active_widget ) {
+    active_widget.refresh();
+  }
 }
 
 function format_length(l) {
@@ -144,6 +149,7 @@ function PlaylistManager() {
   this.selected_playlist = 0;
   this.selected_playlist_item = [];
   this.search = "";
+  this.visible_tracks = null;
 };
 PlaylistManager.prototype.load = function(playlists) {
   this.playlists = playlists;
@@ -164,13 +170,19 @@ PlaylistManager.prototype.select_playlist_by_name = function(name) {
   }
   return false;
 }
+PlaylistManager.prototype.get_selected_name = function() {
+  return this.playlists[this.selected_playlist]['name'];
+}
 PlaylistManager.prototype.add_track = function(path) {
   this.playlists[this.selected_playlist]['items'].push({'path': path});
   this.has_changed[this.selected_playlist] = true;
 }
 PlaylistManager.prototype.refresh = function() {
   var rows = []
+  var playlist_name = this.playlists[this.selected_playlist]['name'];
   var playlist = this.playlists[this.selected_playlist]['items'];
+  var visible_tracks = [];
+  var active_row = null;
   for( var i = 0; i < playlist.length; i++ ) {
     if( playlist[i].path !== undefined ) {
       var track = tracks_by_path[playlist[i].path];
@@ -185,6 +197,10 @@ PlaylistManager.prototype.refresh = function() {
         cols.push(format_length(track.track.length));
         cols.push(playlist[i].id);
         rows.push(cols);
+        visible_tracks.push(i);
+        if( current_track_id !== null && current_track_id == playlist[i].id ) {
+          active_row = i;
+        }
       }
     } else if( playlist[i].stream !== undefined ) {
       console.log('stream not supported');
@@ -194,6 +210,14 @@ PlaylistManager.prototype.refresh = function() {
   var table = buildtable(headers, rows);
   $('#thebody').empty().append(table.body);
   this.select_playlist_item(0); // to highlight the current row
+  if( active_row !== null ) {
+    $('.mybody tr').eq(active_row).addClass("active-track");
+  }
+  this.visible_tracks = visible_tracks;
+
+  var num = this.selected_playlist + 1;
+  var total = this.playlists.length;
+  $('#theheader').empty().append($('<span>Playlist: <b>' + playlist_name + '</b> (' + num + '/' + total + ')</span>'));
 };
 PlaylistManager.prototype.get_track_id_by_position = function(playlist_name, selected_index) {
   for( var i = 0; i < playlist_manger.playlists.length; i++ ) {
@@ -239,9 +263,9 @@ PlaylistManager.prototype.select_playlist_item = function(x) {
   this.selected_playlist_item[this.selected_playlist] = i;
 }
 PlaylistManager.prototype.onenter = function() {
-  var selected_item = this.selected_playlist_item[this.selected_playlist];
   var playlist_name = this.playlists[this.selected_playlist].name;
-  var track_id = this.playlists[this.selected_playlist].items[selected_item].id;
+  var item_index = this.visible_tracks[this.selected_playlist_item[this.selected_playlist]];
+  var track_id = this.playlists[this.selected_playlist].items[item_index].id;
   var has_changed = this.has_changed[this.selected_playlist];
   if( has_changed ) {
     // update playlist
@@ -265,7 +289,7 @@ PlaylistManager.prototype.onenter = function() {
       .done(function( data ) {
         refreshLibraryAndPlaylists(function(){
           if( track_id === undefined ) {
-            track_id = playlist_manger.get_track_id_by_position(playlist_name, selected_item);
+            track_id = playlist_manger.get_track_id_by_position(playlist_name, item_index);
             if( !track_id ) {
               console.log('failed to lookup track id');
             }
@@ -346,26 +370,34 @@ function Selector() {
   this.streams = [];
   this.view = 'album';
   this.selected = 0;
+  this.search = '';
 };
 Selector.prototype.load = function(library) {
   this.albums = library.albums;
   this.streams = library.streams;
 }
 Selector.prototype.refresh = function() {
+  var playlist_name = playlist_manger.get_selected_name();
+  $('#theheader').empty().append($('<span>Select item to add to ' + playlist_name + '</span>'));
+
   var rows = [];
   var paths = []
   if( this.view == 'album' ) {
-    $.each(this.albums, function(i, album) {
-      var cols = [];
-      cols.push(album.artist);
-      cols.push(album.album);
-      cols.push(album.year);
-      cols.push(album.tracks.length);
-      rows.push(cols)
-      var album_paths = [];
-      $.each(album.tracks, function(i, track) { album_paths.push(track.path); });
-      paths.push(album_paths);
-    });
+    for( var i = 0; i < this.albums.length; i++ ) {
+      var album = this.albums[i];
+      if( search_match(this.search, album.artist) ||
+          search_match(this.search, album.album) ) {
+        var cols = [];
+        cols.push(album.artist);
+        cols.push(album.album);
+        cols.push(album.year);
+        cols.push(album.tracks.length);
+        rows.push(cols)
+        var album_paths = [];
+        $.each(album.tracks, function(i, track) { album_paths.push(track.path); });
+        paths.push(album_paths);
+      }
+    }
 
     var headers = ['artist', 'album', 'year', 'num tracks'];
     var table = buildtable(headers, rows);
@@ -499,15 +531,15 @@ $(window).on('load', function () {
   active_widget = playlist_manger;
 
   $('#thesearch').on('input',function(e){
-    playlist_manger.search = this.value;
-    playlist_manger.refresh();
+    active_widget.search = this.value;
+    active_widget.refresh();
   });
   $('#thesearch').on('keydown',function(e){
     if( e.key == 'Escape' ) {
       $('#thebody').focus();
       return false;
     }
-    if( e.key == 'ArrowUp' || e.key == 'ArrowDown' ) {
+    if( e.key == 'ArrowUp' || e.key == 'ArrowDown' || e.key == 'Enter' ) {
       active_widget.onkeydown(e);
       return false;
     }
@@ -523,6 +555,14 @@ $(window).on('load', function () {
   });
 
   $('#thebody').focus();
+
+  $(document).on('keydown', function(e) {
+    var active = document.activeElement;
+    if( active && active.id != "thebody" && active.id != "thesearch" ) {
+      console.log('document received a keydown event; sending focus to #thebody');
+      $('#thebody').focus();
+    }
+  });
 
   refreshLibraryAndPlaylists();
 });
