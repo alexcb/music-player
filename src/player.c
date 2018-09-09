@@ -583,6 +583,7 @@ void* player_audio_thread_run( void *data )
 {
 	int res;
 	int control;
+	int last_control = 19432;
 	Player *player = (Player*) data;
 
 	//size_t chunk_size;
@@ -702,6 +703,10 @@ void* player_audio_thread_run( void *data )
 
 			while( chunk_size > 0 ) {
 				control = player_get_control( player );
+				if( control != last_control ) {
+					last_control = control;
+					call_observers( player );
+				}
 
 				if( control & PLAYER_CONTROL_SKIP ) {
 					goto track_done;

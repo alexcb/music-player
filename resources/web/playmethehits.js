@@ -25,6 +25,8 @@ function refresh_tracks_by_path(library) {
 
 function set_current_track( is_playing, artist, track, duration, track_id ) {
   playing = is_playing;
+  console.log(playing);
+  console.log(artist);
   current_track_id = track_id;
   current_playing_str = artist + ' - ' + track + ' (' + format_length(duration) + ')';
   if( active_widget ) {
@@ -264,6 +266,12 @@ PlaylistManager.prototype.refresh = function() {
       playlist_manager.play();
     });
   }
+
+  var current_status = $('<span>' + current_playing_str + '</span>');
+  current_status.bind( 'click', function() {
+    playlist_manager.scrollToTrack(current_track_id);
+  });
+
   var x = $('<span class="headercontrol">');
   x.append(prev);
   x.append($('<span>&nbsp;&nbsp;</span>'));
@@ -271,7 +279,7 @@ PlaylistManager.prototype.refresh = function() {
   x.append($('<span>&nbsp;&nbsp;</span>'));
   x.append(next);
   x.append($('<span>&nbsp;&nbsp;</span>'));
-  x.append($('<span>' + current_playing_str + '</span>'));
+  x.append(current_status);
 
   header.append(x);
 
@@ -340,6 +348,38 @@ PlaylistManager.prototype.scroll_to_selected_item = function() {
   }
   console.log('scrolling to ' + new_y);
   $.scrollTo(new_y);
+}
+PlaylistManager.prototype.scrollToTrack = function(track_id) {
+  var index = this.get_track_by_id(track_id);
+  if( index === null ) {
+    console.log('failed to scrollToTrack');
+    return;
+  }
+  this.search = '';
+  this.selected_playlist = index['playlist'];
+  this.selected_playlist_item[index['playlist']] = index['item'];
+  this.refresh();
+
+  var i = index['item'];
+  var visible = i-4;
+  if( visible < 0 ) { visible = 0; }
+  var new_y = $('.mybody tr').eq(visible).offset().top-50;
+  if( new_y < 0 ) {
+    new_y = 0;
+  }
+  console.log('scrolling to ' + new_y);
+  $.scrollTo(new_y);
+
+}
+PlaylistManager.prototype.get_track_by_id = function(track_id) {
+  for( var i = 0; i < this.playlists.length; i++ ) {
+    for( var j = 0; j < this.playlists[i].items.length; j++ ) {
+      if( this.playlists[i].items[j].id == track_id ) {
+        return {'playlist': i, 'item': j};
+      }
+    }
+  }
+  return null;
 }
 PlaylistManager.prototype.set_playlist_item_delta = function(x) {
   last_navigation = 'key';
