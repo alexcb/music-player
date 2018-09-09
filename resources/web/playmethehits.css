@@ -14,3 +14,10 @@
 *:focus {
     outline: none;
 }
+
+.headerplaylist {
+	float: left;
+}
+.headercontrol {
+	float: right;
+}

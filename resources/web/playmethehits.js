@@ -7,6 +7,8 @@ var playlist_manger;
 var current_playlist_checksum;
 var tracks_by_path = {};
 var current_track_id;
+var last_navigation = null;
+var playing = false;
 
 function refresh_tracks_by_path(library) {
   tracks_by_path = {};
@@ -20,7 +22,8 @@ function refresh_tracks_by_path(library) {
   });
 }
 
-function set_current_track( playing, track_id ) {
+function set_current_track( is_playing, track_id ) {
+  playing = is_playing;
   current_track_id = track_id;
   if( active_widget ) {
     active_widget.refresh();
@@ -178,6 +181,9 @@ PlaylistManager.prototype.add_track = function(path) {
   this.has_changed[this.selected_playlist] = true;
 }
 PlaylistManager.prototype.refresh = function() {
+  if( this.playlists.length == 0 ) {
+    return;
+  }
   var rows = []
   var playlist_name = this.playlists[this.selected_playlist]['name'];
   var playlist = this.playlists[this.selected_playlist]['items'];
@@ -209,16 +215,63 @@ PlaylistManager.prototype.refresh = function() {
   var headers = ['artist', 'album', 'year', 'title', 'duration', 'id'];
   var table = buildtable(headers, rows);
   $('#thebody').empty().append(table.body);
-  this.select_playlist_item(0); // to highlight the current row
+  this.set_playlist_item_delta(0); // to highlight the current row
   if( active_row !== null ) {
     $('.mybody tr').eq(active_row).addClass("active-track");
   }
   this.visible_tracks = visible_tracks;
 
+  var playlist_manager = this;
+  $('.mybody tr').each(function(i) {
+    $(this).bind( "mouseenter", function() {
+      if( last_navigation == 'mouse' ) {
+        playlist_manager.set_playlist_item(i);
+      }
+      last_navigation = 'mouse';
+    });
+    $(this).bind( "click", function() {
+      playlist_manager.set_playlist_item(i);
+      playlist_manager.onenter();
+    });
+  });
+
   var num = this.selected_playlist + 1;
   var total = this.playlists.length;
-  $('#theheader').empty().append($('<span>Playlist: <b>' + playlist_name + '</b> (' + num + '/' + total + ')</span>'));
+  var header = $('<span>');
+  var leftheader = $('<span class="headerplaylist">Playlist: <b>' + playlist_name + '</b> (' + num + '/' + total + ')</span>');
+  leftheader.bind('click', function() {
+    playlist_manager.next_playlist(1);
+  });
+  header.append(leftheader);
+
+  var playpause;
+  if( playing ) {
+    playpause = $('<i class="fa fa-pause"></i>');
+    playpause.bind( 'click', function() {
+      playlist_manager.pause();
+    });
+  } else {
+    playpause = $('<i class="fa fa-play"></i>');
+    playpause.bind( 'click', function() {
+      playlist_manager.play();
+    });
+  }
+  var x = $('<span class="headercontrol">');
+  x.append(playpause);
+  header.append(x);
+
+  $('#theheader').empty().append(header);
 };
+PlaylistManager.prototype.play = function(playlist_name, selected_index) {
+  console.log('play');
+  playing = true;
+  this.refresh();
+}
+PlaylistManager.prototype.pause = function(playlist_name, selected_index) {
+  console.log('pause');
+  playing = false;
+  this.refresh();
+}
 PlaylistManager.prototype.get_track_id_by_position = function(playlist_name, selected_index) {
   for( var i = 0; i < playlist_manger.playlists.length; i++ ) {
     if( playlist_manger.playlists[i].name == playlist_name ) {
@@ -239,7 +292,30 @@ PlaylistManager.prototype.next_playlist = function(direction) {
   console.log(this.selected_playlist);
   this.refresh();
 }
-PlaylistManager.prototype.select_playlist_item = function(x) {
+PlaylistManager.prototype.scroll_to_selected_item = function() {
+  var i = this.selected_playlist_item[this.selected_playlist];
+  var visible = i-4;
+  if( visible < 0 ) { visible = 0; }
+  var new_y = $('.mybody tr').eq(visible).offset().top-50;
+  if( new_y < 0 ) {
+    new_y = 0;
+  }
+  console.log('scrolling to ' + new_y);
+  $.scrollTo(new_y);
+}
+PlaylistManager.prototype.set_playlist_item_delta = function(x) {
+  last_navigation = 'key';
+  var i = this.selected_playlist_item[this.selected_playlist];
+  var before = $('.mybody tr').eq(i).offset().top;
+  this.set_playlist_item(i + x);
+  i = this.selected_playlist_item[this.selected_playlist];
+  var after = $('.mybody tr').eq(i).offset().top;
+  var diff = after - before;
+  var y = $(document).scrollTop() + diff;
+  if( y < 0 ) { y = 0; }
+  $.scrollTo(y);
+}
+PlaylistManager.prototype.set_playlist_item = function(x) {
   var rows = $('.mybody tr')
   var num_visible_rows = rows.length;
   if( num_visible_rows == 0 ) {
@@ -249,7 +325,7 @@ PlaylistManager.prototype.select_playlist_item = function(x) {
   var i = this.selected_playlist_item[this.selected_playlist];
 
   rows.eq(i).removeClass("pure-table-odd");
-  i += x;
+  i = x;
   if( i < 0 ) {
     i = 0;
   }
@@ -257,9 +333,6 @@ PlaylistManager.prototype.select_playlist_item = function(x) {
     i = num_visible_rows - 1;
   }
   $('.mybody tr').eq(i).addClass("pure-table-odd");
-  var visible = i-4;
-  if( visible < 0 ) { visible = 0; }
-  $.scrollTo($('.mybody tr').eq(visible).offset().top-50); // TODO 50 should be the height of the fixed header
   this.selected_playlist_item[this.selected_playlist] = i;
 }
 PlaylistManager.prototype.onenter = function() {
@@ -344,7 +417,7 @@ PlaylistManager.prototype.onkeydown = function(e) {
         return false;
       case 'ArrowUp':
       case 'k':
-        this.select_playlist_item(-1);
+        this.set_playlist_item_delta(-1);
         return false;
       case 'ArrowRight':
       case 'l':
@@ -352,7 +425,7 @@ PlaylistManager.prototype.onkeydown = function(e) {
         return false;
       case 'ArrowDown':
       case 'j':
-        this.select_playlist_item(1);
+        this.set_playlist_item_delta(1);
         return false;
       case 'Enter':
         this.onenter();
