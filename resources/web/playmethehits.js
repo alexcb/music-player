@@ -305,12 +305,28 @@ PlaylistManager.prototype.scroll_to_selected_item = function() {
 }
 PlaylistManager.prototype.set_playlist_item_delta = function(x) {
   last_navigation = 'key';
+  if( this.selected_playlist >= this.selected_playlist_item.length ) {
+    return;
+  }
   var i = this.selected_playlist_item[this.selected_playlist];
-  var before = $('.mybody tr').eq(i).offset().top;
+
+  var before = $('.mybody tr').eq(i);
+  if( before.length <= 0 ) {
+    return;
+  }
+  console.log(before);
+  var before_y = before.offset().top;
+
   this.set_playlist_item(i + x);
+
   i = this.selected_playlist_item[this.selected_playlist];
-  var after = $('.mybody tr').eq(i).offset().top;
-  var diff = after - before;
+  var after = $('.mybody tr').eq(i);
+  if( after.length <= 0 ) {
+    return;
+  }
+  var after_y = after.offset().top;
+
+  var diff = after_y - before_y;
   var y = $(document).scrollTop() + diff;
   if( y < 0 ) { y = 0; }
   $.scrollTo(y);
