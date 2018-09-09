@@ -9,6 +9,7 @@ var tracks_by_path = {};
 var current_track_id;
 var last_navigation = null;
 var playing = false;
+var current_playing_str = "";
 
 function refresh_tracks_by_path(library) {
   tracks_by_path = {};
@@ -22,9 +23,10 @@ function refresh_tracks_by_path(library) {
   });
 }
 
-function set_current_track( is_playing, track_id ) {
+function set_current_track( is_playing, artist, track, duration, track_id ) {
   playing = is_playing;
   current_track_id = track_id;
+  current_playing_str = artist + ' - ' + track + ' (' + format_length(duration) + ')';
   if( active_widget ) {
     active_widget.refresh();
   }
@@ -50,7 +52,7 @@ function setup_websocket() {
     console.log('websocket message');
     console.log(msg);
     if( msg.type == "status" ) {
-      set_current_track( msg.playing, msg.id );
+      set_current_track( msg.playing, msg.artist, msg.title, msg.length, msg.id );
       if( msg.playlist_checksum != current_playlist_checksum ) {
         refreshLibraryAndPlaylists();
       } else {
@@ -268,6 +270,9 @@ PlaylistManager.prototype.refresh = function() {
   x.append(playpause);
   x.append($('<span>&nbsp;&nbsp;</span>'));
   x.append(next);
+  x.append($('<span>&nbsp;&nbsp;</span>'));
+  x.append($('<span>' + current_playing_str + '</span>'));
+
   header.append(x);
 
   $('#theheader').empty().append(header);

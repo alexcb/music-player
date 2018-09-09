@@ -114,6 +114,7 @@ void update_metadata_web_clients( bool playing, const PlaylistItem *item, int pl
 		if( item->track ) {
 			json_object_object_add( state, "path", json_object_new_string( item->track->path ) );
 			json_object_object_add( state, "artist", json_object_new_string( item->track->artist ) );
+			json_object_object_add( state, "length", json_object_new_int( item->track->length ) );
 			json_object_object_add( state, "album", json_object_new_string( item->track->album ) );
 			json_object_object_add( state, "track", json_object_new_int( item->track->track ) );
 			json_object_object_add( state, "title", json_object_new_string( item->track->title ) );
