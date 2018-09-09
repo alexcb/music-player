@@ -16,8 +16,8 @@
 }
 
 .headerplaylist {
-	float: left;
+	float: right;
 }
 .headercontrol {
-	float: right;
+	float: left;
 }

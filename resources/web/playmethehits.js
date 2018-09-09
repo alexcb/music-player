@@ -223,12 +223,12 @@ PlaylistManager.prototype.refresh = function() {
 
   var playlist_manager = this;
   $('.mybody tr').each(function(i) {
-    $(this).bind( "mouseenter", function() {
-      if( last_navigation == 'mouse' ) {
-        playlist_manager.set_playlist_item(i);
-      }
-      last_navigation = 'mouse';
-    });
+    //$(this).bind( "mouseenter", function() {
+    //  if( last_navigation == 'mouse' ) {
+    //    playlist_manager.set_playlist_item(i);
+    //  }
+    //  last_navigation = 'mouse';
+    //});
     $(this).bind( "click", function() {
       playlist_manager.set_playlist_item(i);
       playlist_manager.onenter();
@@ -238,12 +238,18 @@ PlaylistManager.prototype.refresh = function() {
   var num = this.selected_playlist + 1;
   var total = this.playlists.length;
   var header = $('<span>');
+
   var leftheader = $('<span class="headerplaylist">Playlist: <b>' + playlist_name + '</b> (' + num + '/' + total + ')</span>');
   leftheader.bind('click', function() {
     playlist_manager.next_playlist(1);
   });
   header.append(leftheader);
 
+
+  var prev = $('<i class="fa fa-backward"></li>');
+  prev.bind( 'click', function() { playlist_manager.prev_track(); });
+  var next = $('<i class="fa fa-forward"></li>');
+  next.bind( 'click', function() { playlist_manager.next_track(); });
   var playpause;
   if( playing ) {
     playpause = $('<i class="fa fa-pause"></i>');
@@ -257,20 +263,27 @@ PlaylistManager.prototype.refresh = function() {
     });
   }
   var x = $('<span class="headercontrol">');
+  x.append(prev);
+  x.append($('<span>&nbsp;&nbsp;</span>'));
   x.append(playpause);
+  x.append($('<span>&nbsp;&nbsp;</span>'));
+  x.append(next);
   header.append(x);
 
   $('#theheader').empty().append(header);
 };
 PlaylistManager.prototype.play = function(playlist_name, selected_index) {
-  console.log('play');
-  playing = true;
-  this.refresh();
+  this.pause();
 }
 PlaylistManager.prototype.pause = function(playlist_name, selected_index) {
-  console.log('pause');
-  playing = false;
-  this.refresh();
+  $.post( "/pause")
+    .done(function( data ) {
+      console.log('done pause');
+    })
+    .fail(function( data ) {
+      console.log('failed to post pause');
+      console.log(data);
+    });
 }
 PlaylistManager.prototype.get_track_id_by_position = function(playlist_name, selected_index) {
   for( var i = 0; i < playlist_manger.playlists.length; i++ ) {
@@ -281,6 +294,26 @@ PlaylistManager.prototype.get_track_id_by_position = function(playlist_name, sel
       return playlist_manger.playlists[i].items[selected_index].id;
     }
   }
+}
+PlaylistManager.prototype.prev_track = function() {
+  $.post( "/prev-track")
+    .done(function( data ) {
+      console.log('done prev track');
+    })
+    .fail(function( data ) {
+      console.log('failed to post prev-track');
+      console.log(data);
+    });
+}
+PlaylistManager.prototype.next_track = function() {
+  $.post( "/next-track")
+    .done(function( data ) {
+      console.log('done next track');
+    })
+    .fail(function( data ) {
+      console.log('failed to post next-track');
+      console.log(data);
+    });
 }
 PlaylistManager.prototype.next_playlist = function(direction) {
   this.selected_playlist += direction;

@@ -814,7 +814,53 @@ static int web_handler_play2(
 	return ret;
 }
 
-static int web_handler_next(
+static int web_handler_prev_track(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const sds request_body,
+		void **con_cls)
+{
+	int ret, res;
+	struct MHD_Response *response;
+
+	res = player_change_prev_track( data->my_data->player, TRACK_CHANGE_IMMEDIATE );
+	if( res != 0 ) {
+		LOG_ERROR("err=d failed to change to prev track", res);
+	}
+
+	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
+static int web_handler_next_track(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const sds request_body,
+		void **con_cls)
+{
+	int ret, res;
+	struct MHD_Response *response;
+
+	res = player_change_next_track( data->my_data->player, TRACK_CHANGE_IMMEDIATE );
+	if( res != 0 ) {
+		LOG_ERROR("err=d failed to change to next track", res);
+	}
+
+	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
+static int web_handler_next_album(
 		WebHandlerData *data,
 		struct MHD_Connection *connection,
 		const char *url,
@@ -953,8 +999,16 @@ static int web_handler(
 		return web_handler_play2( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
+	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/prev-track") == 0 ) {
+		return web_handler_prev_track( data, connection, url, method, version, request_session->body, con_cls );
+	}
+
+	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/next-track") == 0 ) {
+		return web_handler_next_track( data, connection, url, method, version, request_session->body, con_cls );
+	}
+
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/next-album") == 0 ) {
-		return web_handler_next( data, connection, url, method, version, request_session->body, con_cls );
+		return web_handler_next_album( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/pause") == 0 ) {

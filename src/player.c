@@ -197,6 +197,33 @@ int player_change_next_track( Player *player, int when )
 	return res;
 }
 
+int player_change_prev_track( Player *player, int when )
+{
+	int res = 1;
+	PlaylistItem *prev = NULL;
+	PlaylistItem *p = NULL;
+
+	pthread_mutex_lock( &player->the_lock );
+
+	p = player->current_track->parent->root;
+	while( p != NULL ) {
+		if( p == player->current_track ) {
+			break;
+		}
+		prev = p;
+		p = p->next;
+	}
+
+	if( prev != NULL ) {
+		res = player_change_track_unsafe( player, prev, when );
+	} else if( p != NULL ) {
+		res = player_change_track_unsafe( player, p, when );
+	}
+
+	pthread_mutex_unlock( &player->the_lock );
+	return res;
+}
+
 int player_change_next_playlist( Player *player, int when )
 {
 	int res = 1;
