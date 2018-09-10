@@ -287,7 +287,36 @@ PlaylistManager.prototype.refresh = function() {
   header.append(x);
 
   $('#theheader').empty().append(header);
+
+  var add_to = $('<a>add to current playlist</a>');
+  add_to.bind( 'click', function() {
+    active_widget = selector;
+    active_widget.refresh();
+  });
+
+  var new_playlist = $('<a>new playlist</a>');
+  new_playlist.bind( 'click', function() {
+    var playlist_name = prompt("enter new playlist name", "new playlist");
+    playlist_manager.new_playlist(playlist_name);
+  });
+
+  $('#footerlink').empty().append(add_to).append('<span>&nbsp;&nbsp;&nbsp;</span>').append(new_playlist);
 };
+PlaylistManager.prototype.new_playlist = function(playlist_name) {
+  for( var i = 0; i < this.playlists.length; i++ ) {
+    if( this.playlists[i].name == playlist_name ) {
+      this.selected_playlist = i;
+      return
+    }
+  }
+  this.playlists.push({
+    'name': playlist_name,
+    'items': [],
+    'id': 0
+  });
+  this.selected_playlist = this.playlists.length - 1;
+  this.refresh();
+}
 PlaylistManager.prototype.play = function(playlist_name, selected_index) {
   this.pause();
 }
@@ -551,6 +580,13 @@ Selector.prototype.refresh = function() {
   var playlist_name = playlist_manager.get_selected_name();
   $('#theheader').empty().append($('<span>Select item to add to ' + playlist_name + '</span>'));
 
+  var back = $('<a>back to playlist</a>');
+  back.bind( 'click', function() {
+    active_widget = playlist_manager;
+    active_widget.refresh();
+  });
+  $('#footerlink').empty().append(back);
+
   var rows = [];
   var paths = []
   if( this.view == 'album' ) {
@@ -574,6 +610,20 @@ Selector.prototype.refresh = function() {
     var table = buildtable(headers, rows);
     $('#thebody').empty().append(table.body);
     this.paths = paths;
+
+    var that = this;
+    $('.mybody tr').each(function(ii) {
+      $(this).bind( "click", function() {
+        console.log(ii);
+        var paths_to_add = paths[ii];
+        for( var i = 0; i < paths_to_add.length; i++ ) {
+          playlist_manager.add_track(paths_to_add[i]);
+        }
+      active_widget = playlist_manager;
+      active_widget.refresh();
+      });
+    });
+
     return;
   }
 

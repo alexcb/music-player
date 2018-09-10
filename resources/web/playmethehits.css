@@ -1,11 +1,3 @@
-/*
-.mytableheader {
-   position: fixed;
-   top: 0;
-}
-*/
-
-
 .active-track {
     font-weight: bold;
 	color: #CC0000;
@@ -26,4 +18,12 @@
 }
 .headercontrol {
 	float: left;
+}
+
+#footerlink {
+	float: right;
+}
+
+a {
+	cursor: pointer;
 }
