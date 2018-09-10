@@ -69,9 +69,9 @@ function setup_websocket() {
 
 function resize_elements() {
   var h = window.innerHeight;
-  $('#thefooter').css('top', h - $('#thefooter').height());
-  $('#thebody').css('margin-top', $('#theheader').height());
-  $('#thebody').css('margin-bottom', $('#thefooter').height());
+  $('#thefooter').css('top', h - $('#thefooter').outerHeight());
+  $('#thebody').css('margin-top', $('#theheader').outerHeight());
+  $('#thebody').css('margin-bottom', $('#thefooter').outerHeight());
 }
 
 function ensure_default_playlist(playlists) {
