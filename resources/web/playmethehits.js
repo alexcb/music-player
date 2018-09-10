@@ -217,7 +217,19 @@ PlaylistManager.prototype.refresh = function() {
         }
       }
     } else if( playlist[i].stream !== undefined ) {
-      console.log('stream not supported');
+      var stream_url = playlist[i].stream;
+      var stream_name = stream_url;
+      var cols = [];
+      cols.push(stream_name);
+      cols.push('');
+      cols.push('');
+      cols.push('');
+      cols.push(playlist[i].id);
+      rows.push(cols);
+      visible_tracks.push(i);
+      if( current_track_id !== null && current_track_id == playlist[i].id ) {
+        active_row = i;
+      }
     }
   }
   var headers = ['artist', 'album', 'year', 'title', 'duration', 'id'];
