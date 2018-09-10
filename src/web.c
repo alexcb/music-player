@@ -629,48 +629,8 @@ static int web_handler_albums(
 		const sds request_body,
 		void **con_cls)
 {
-	Album *p;
-	LOG_DEBUG("in web_handler_albums");
-	json_object *albums = json_object_new_array();
-
-	struct sglib_Album_iterator it;
-	for( p = sglib_Album_it_init_inorder(&it, data->my_data->album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
-		json_object *album = json_object_new_object();
-		json_object_object_add( album, "path", json_object_new_string( p->path ) );
-		json_object_object_add( album, "artist", json_object_new_string( p->artist ) );
-		json_object_object_add( album, "album", json_object_new_string( p->album ) );
-		json_object_object_add( album, "year", json_object_new_int( p->year ) );
-
-		json_object *tracks = json_object_new_array();
-		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {
-			json_object *track = json_object_new_object();
-			json_object_object_add( track, "title", json_object_new_string( t->title ) );
-			json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
-			json_object_object_add( track, "length", json_object_new_double( t->length ) );
-			json_object_object_add( track, "path", json_object_new_string( t->path ) );
-			json_object_array_add( tracks, track );
-			//LOG_DEBUG("path=s how the path is represented on the server", t->path);
-		}
-		json_object_object_add( album, "tracks", tracks );
-
-		json_object_array_add( albums, album );
-	}
-
-	json_object *streams = json_object_new_array();
-	for( Stream *p = data->my_data->stream_list->p; p != NULL; p = p->next_ptr ) {
-		json_object_array_add( streams, json_object_new_string( p->name ) );
-	}
-
-	json_object *root_obj = json_object_new_object();
-	json_object_object_add( root_obj, "albums", albums );
-	json_object_object_add( root_obj, "streams", streams );
-
-	const char *s = json_object_to_json_string( root_obj );
-	struct MHD_Response *response = MHD_create_response_from_buffer( strlen(s), (void*)s, MHD_RESPMEM_MUST_COPY );
+	struct MHD_Response *response = MHD_create_response_from_buffer( sdslen(data->my_data->library_json), (void*)data->my_data->library_json, MHD_RESPMEM_PERSISTENT );
 	MHD_add_response_header( response, "Content-Type", "application/json; charset=utf-8" );
-
-	// this causes the json string to be released
-	json_object_put( root_obj );
 
 	*con_cls = NULL;
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -1041,7 +1001,7 @@ int init_http_server_data( WebHandlerData *data, MyData *my_data )
 
 	data->current_track_payload = NULL;
 
-	return 0;
+	return get_library_json( my_data->stream_list, my_data->album_list, &(my_data->library_json) );
 }
 
 int getenv_int(const char *name, int default_port)
@@ -1076,3 +1036,50 @@ int start_http_server( WebHandlerData *data )
 	websocket_push_thread( data );
 	return 0;
 }
+
+int get_library_json( StreamList *stream_list, AlbumList *album_list, sds *output )
+{
+	Album *p;
+	json_object *albums = json_object_new_array();
+
+	struct sglib_Album_iterator it;
+	for( p = sglib_Album_it_init_inorder(&it, album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
+		json_object *album = json_object_new_object();
+		json_object_object_add( album, "path", json_object_new_string( p->path ) );
+		json_object_object_add( album, "artist", json_object_new_string( p->artist ) );
+		json_object_object_add( album, "album", json_object_new_string( p->album ) );
+		json_object_object_add( album, "year", json_object_new_int( p->year ) );
+
+		json_object *tracks = json_object_new_array();
+		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {
+			json_object *track = json_object_new_object();
+			json_object_object_add( track, "title", json_object_new_string( t->title ) );
+			json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
+			json_object_object_add( track, "length", json_object_new_double( t->length ) );
+			json_object_object_add( track, "path", json_object_new_string( t->path ) );
+			json_object_array_add( tracks, track );
+			//LOG_DEBUG("path=s how the path is represented on the server", t->path);
+		}
+		json_object_object_add( album, "tracks", tracks );
+
+		json_object_array_add( albums, album );
+	}
+
+	json_object *streams = json_object_new_array();
+	for( Stream *p = stream_list->p; p != NULL; p = p->next_ptr ) {
+		json_object_array_add( streams, json_object_new_string( p->name ) );
+	}
+
+	json_object *root_obj = json_object_new_object();
+	json_object_object_add( root_obj, "albums", albums );
+	json_object_object_add( root_obj, "streams", streams );
+
+	const char *s = json_object_to_json_string( root_obj );
+
+	*output = sdscpy( *output, s );
+
+	// this causes the json string to be released
+	json_object_put( root_obj );
+	return 0;
+}
+

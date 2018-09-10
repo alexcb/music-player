@@ -15,8 +15,14 @@
     outline: none;
 }
 
+#theheader {
+	font-size: 1.3em;
+	padding: 0.5em;
+}
+
 .headerplaylist {
 	float: right;
+	margin-right: 1em;
 }
 .headercontrol {
 	float: left;

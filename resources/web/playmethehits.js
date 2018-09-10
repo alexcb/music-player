@@ -3,12 +3,12 @@
 var ws;
 var active_widget;
 var selector;
-var playlist_manger;
+var playlist_manager;
 var current_playlist_checksum;
 var tracks_by_path = {};
 var current_track_id;
 var last_navigation = null;
-var playing = false;
+var playing = null;
 var current_playing_str = "";
 
 function refresh_tracks_by_path(library) {
@@ -56,7 +56,9 @@ function setup_websocket() {
     if( msg.type == "status" ) {
       set_current_track( msg.playing, msg.artist, msg.title, msg.length, msg.id );
       if( msg.playlist_checksum != current_playlist_checksum ) {
-        refreshLibraryAndPlaylists();
+        refreshLibraryAndPlaylists(function() {
+          playlist_manager.scrollToTrack(current_track_id);
+        });
       } else {
         console.log(msg);
         //select_current_track();
@@ -153,6 +155,7 @@ function search_match(filter, s) {
 
 function PlaylistManager() {
   this.playlists = [];
+  console.log('init');
   this.selected_playlist = 0;
   this.selected_playlist_item = [];
   this.search = "";
@@ -188,6 +191,7 @@ PlaylistManager.prototype.refresh = function() {
   if( this.playlists.length == 0 ) {
     return;
   }
+  console.log('refresh!' + this.selected_playlist);
   var rows = []
   var playlist_name = this.playlists[this.selected_playlist]['name'];
   var playlist = this.playlists[this.selected_playlist]['items'];
@@ -219,7 +223,6 @@ PlaylistManager.prototype.refresh = function() {
   var headers = ['artist', 'album', 'year', 'title', 'duration', 'id'];
   var table = buildtable(headers, rows);
   $('#thebody').empty().append(table.body);
-  this.set_playlist_item_delta(0); // to highlight the current row
   if( active_row !== null ) {
     $('.mybody tr').eq(active_row).addClass("active-track");
   }
@@ -243,7 +246,7 @@ PlaylistManager.prototype.refresh = function() {
   var total = this.playlists.length;
   var header = $('<span>');
 
-  var leftheader = $('<span class="headerplaylist">Playlist: <b>' + playlist_name + '</b> (' + num + '/' + total + ')</span>');
+  var leftheader = $('<span class="headerplaylist">Playlist: ' + playlist_name + ' (' + num + '/' + total + ')</span>');
   leftheader.bind('click', function() {
     playlist_manager.next_playlist(1);
   });
@@ -299,12 +302,12 @@ PlaylistManager.prototype.pause = function(playlist_name, selected_index) {
     });
 }
 PlaylistManager.prototype.get_track_id_by_position = function(playlist_name, selected_index) {
-  for( var i = 0; i < playlist_manger.playlists.length; i++ ) {
-    if( playlist_manger.playlists[i].name == playlist_name ) {
+  for( var i = 0; i < this.playlists.length; i++ ) {
+    if( this.playlists[i].name == playlist_name ) {
       console.log(selected_index);
-      console.log(playlist_manger.playlists[i]);
-      console.log(playlist_manger.playlists[i].items[selected_index]);
-      return playlist_manger.playlists[i].items[selected_index].id;
+      console.log(this.playlists[i]);
+      console.log(this.playlists[i].items[selected_index]);
+      return this.playlists[i].items[selected_index].id;
     }
   }
 }
@@ -346,7 +349,6 @@ PlaylistManager.prototype.scroll_to_selected_item = function() {
   if( new_y < 0 ) {
     new_y = 0;
   }
-  console.log('scrolling to ' + new_y);
   $.scrollTo(new_y);
 }
 PlaylistManager.prototype.scrollToTrack = function(track_id) {
@@ -355,6 +357,7 @@ PlaylistManager.prototype.scrollToTrack = function(track_id) {
     console.log('failed to scrollToTrack');
     return;
   }
+  console.log('scrollToTrack');
   this.search = '';
   this.selected_playlist = index['playlist'];
   this.selected_playlist_item[index['playlist']] = index['item'];
@@ -452,11 +455,12 @@ PlaylistManager.prototype.onenter = function() {
       'playlist': playlist_payload
     };
 
+    var that = this;
     $.post( "/playlists", JSON.stringify(payload))
       .done(function( data ) {
         refreshLibraryAndPlaylists(function(){
           if( track_id === undefined ) {
-            track_id = playlist_manger.get_track_id_by_position(playlist_name, item_index);
+            track_id = that.get_track_id_by_position(playlist_name, item_index);
             if( !track_id ) {
               console.log('failed to lookup track id');
             }
@@ -485,8 +489,8 @@ function play_track_by_id(track_id) {
   return;
 }
 function play_track_by_index(playlist_name, selected_index) {
-  for( var i = 0; i < playlist_manger.playlists.length; i++ ) {
-    if( playlist_manger.playlists[i].name == playlist_name ) {
+  for( var i = 0; i < playlist_manager.playlists.length; i++ ) {
+    if( playlist_manager.playlists[i].name == playlist_name ) {
       return playlists;
     }
   }
@@ -544,7 +548,7 @@ Selector.prototype.load = function(library) {
   this.streams = library.streams;
 }
 Selector.prototype.refresh = function() {
-  var playlist_name = playlist_manger.get_selected_name();
+  var playlist_name = playlist_manager.get_selected_name();
   $('#theheader').empty().append($('<span>Select item to add to ' + playlist_name + '</span>'));
 
   var rows = [];
@@ -614,7 +618,7 @@ Selector.prototype.toggle_view = function() {
 Selector.prototype.onenter = function() {
   var paths = this.paths[this.selected];
   for( var i = 0; i < paths.length; i++ ) {
-    playlist_manger.add_track(paths[i]);
+    playlist_manager.add_track(paths[i]);
   }
 }
 Selector.prototype.onkeydown = function(e) {
@@ -635,7 +639,7 @@ Selector.prototype.onkeydown = function(e) {
         this.onenter();
         return false;
       case 'Escape':
-        active_widget = playlist_manger;
+        active_widget = playlist_manager;
         active_widget.refresh();
         return false;
   }
@@ -680,9 +684,8 @@ function refreshLibraryAndPlaylists(cb) {
     refresh_tracks_by_path(library);
     //
     selector.load(library);
-    playlist_manger.load(ensure_default_playlist(playlists));
-    playlist_manger.select_playlist_by_name('default');
-    playlist_manger.refresh();
+    playlist_manager.load(ensure_default_playlist(playlists));
+    playlist_manager.refresh();
     //load();
     if( cb !== undefined ) { cb(); }
   });
@@ -694,8 +697,8 @@ $(window).on('load', function () {
   $(window).on("resize", resize_elements);
 
   selector = new Selector();
-  playlist_manger = new PlaylistManager();
-  active_widget = playlist_manger;
+  playlist_manager = new PlaylistManager();
+  active_widget = playlist_manager;
 
   $('#thesearch').on('input',function(e){
     active_widget.search = this.value;
@@ -731,5 +734,7 @@ $(window).on('load', function () {
     }
   });
 
-  refreshLibraryAndPlaylists();
+  refreshLibraryAndPlaylists(function() {
+    playlist_manager.scrollToTrack(current_track_id);
+  });
 });

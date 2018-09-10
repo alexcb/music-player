@@ -8,6 +8,7 @@
 #include "sds.h"
 
 typedef struct ID3Cache ID3Cache;
+typedef struct StreamList StreamList;
 
 typedef struct Track
 {
