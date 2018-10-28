@@ -14,8 +14,9 @@
 #include "id3.h"
 #include "log.h"
 
-SGLIB_DEFINE_RBTREE_FUNCTIONS(Album, left, right, color_field, ALBUM_CMPARATOR)
-SGLIB_DEFINE_RBTREE_FUNCTIONS(Track, left, right, color_field, TRACK_PATH_COMPARATOR)
+SGLIB_DEFINE_RBTREE_FUNCTIONS(Album,  left, right, color_field, ALBUM_CMPARATOR)
+SGLIB_DEFINE_RBTREE_FUNCTIONS(Track,  left, right, color_field, TRACK_PATH_COMPARATOR)
+SGLIB_DEFINE_RBTREE_FUNCTIONS(Artist, left, right, color_field, ARTIST_PATH_CMPARATOR)
 
 
 int album_list_init( AlbumList *album_list, ID3Cache *cache, const char *library_path )
@@ -88,6 +89,7 @@ error:
 
 int album_list_load( AlbumList *album_list )
 {
+	Artist *artist;
 	struct dirent *artist_dirent, *album_dirent;
 
 	DIR *artist_dir = opendir(album_list->library_path);
@@ -103,8 +105,17 @@ int album_list_load( AlbumList *album_list )
 			continue;
 		}
 
+
 		sdsclear( s );
 		s = sdscatfmt( s, "%s/%s", album_list->library_path, artist_dirent->d_name );
+
+		artist = (Artist*) malloc(sizeof(Artist));
+		artist->artist = NULL;
+		artist->path = sdsnew( s );
+		artist->albums = NULL;
+		artist->color_field = '\0';
+		artist->left = NULL;
+		artist->right = NULL; // TODO do any other of these need to be initted elsewhere?
 		
 		LOG_DEBUG("path=s opening dir", s);
 		DIR *album_dir = opendir(s);
@@ -132,9 +143,16 @@ int album_list_load( AlbumList *album_list )
 			memset( album, 0, sizeof(Album) );
 			album->path = sdscatfmt( NULL, "%s/%s", artist_dirent->d_name, album_dirent->d_name );
 			setup_album( album_list, album );
-			sglib_Album_add( &(album_list->root), album );
+			artist->artist = album->artist;
+			sglib_Album_add( &(artist->albums), album );
 		}
 		closedir( album_dir );
+
+		if( artist->artist != NULL ) {
+			sglib_Artist_add( &(album_list->root), artist );
+		} else {
+			LOG_WARN("path=s no albums found", s);
+		}
 	}
 	closedir( artist_dir );
 

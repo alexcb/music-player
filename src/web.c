@@ -1039,30 +1039,41 @@ int start_http_server( WebHandlerData *data )
 
 int get_library_json( StreamList *stream_list, AlbumList *album_list, sds *output )
 {
-	Album *p;
-	json_object *albums = json_object_new_array();
+	Artist *p;
+	Album *q;
+	json_object *artists = json_object_new_array();
 
-	struct sglib_Album_iterator it;
-	for( p = sglib_Album_it_init_inorder(&it, album_list->root); p != NULL; p = sglib_Album_it_next(&it) ) {
-		json_object *album = json_object_new_object();
-		json_object_object_add( album, "path", json_object_new_string( p->path ) );
-		json_object_object_add( album, "artist", json_object_new_string( p->artist ) );
-		json_object_object_add( album, "album", json_object_new_string( p->album ) );
-		json_object_object_add( album, "year", json_object_new_int( p->year ) );
+	struct sglib_Artist_iterator artist_it;
+	struct sglib_Album_iterator album_it;
+	for( p = sglib_Artist_it_init_inorder(&artist_it, album_list->root); p != NULL; p = sglib_Artist_it_next(&artist_it) ) {
+		json_object *artist = json_object_new_object();
+		json_object_object_add( artist, "path", json_object_new_string( p->path ) );
+		json_object_object_add( artist, "artist", json_object_new_string( p->artist ) );
 
-		json_object *tracks = json_object_new_array();
-		for( Track *t = p->tracks; t != NULL; t = t->next_ptr ) {
-			json_object *track = json_object_new_object();
-			json_object_object_add( track, "title", json_object_new_string( t->title ) );
-			json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
-			json_object_object_add( track, "length", json_object_new_double( t->length ) );
-			json_object_object_add( track, "path", json_object_new_string( t->path ) );
-			json_object_array_add( tracks, track );
-			//LOG_DEBUG("path=s how the path is represented on the server", t->path);
+		json_object *albums = json_object_new_array();
+
+		for( q = sglib_Album_it_init_inorder(&album_it, p->albums); q != NULL; q = sglib_Album_it_next(&album_it) ) {
+			json_object *album = json_object_new_object();
+			json_object_object_add( album, "path", json_object_new_string( q->path ) );
+			json_object_object_add( album, "artist", json_object_new_string( q->artist ) );
+			json_object_object_add( album, "album", json_object_new_string( q->album ) );
+			json_object_object_add( album, "year", json_object_new_int( q->year ) );
+
+			json_object *tracks = json_object_new_array();
+			for( Track *t = q->tracks; t != NULL; t = t->next_ptr ) {
+				json_object *track = json_object_new_object();
+				json_object_object_add( track, "title", json_object_new_string( t->title ) );
+				json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
+				json_object_object_add( track, "length", json_object_new_double( t->length ) );
+				json_object_object_add( track, "path", json_object_new_string( t->path ) );
+				json_object_array_add( tracks, track );
+				//LOG_DEBUG("path=s how the path is represented on the server", t->path);
+			}
+			json_object_object_add( album, "tracks", tracks );
+			json_object_array_add( albums, album );
 		}
-		json_object_object_add( album, "tracks", tracks );
-
-		json_object_array_add( albums, album );
+		json_object_object_add( artist, "albums", albums );
+		json_object_array_add( artists, artist );
 	}
 
 	json_object *streams = json_object_new_array();
@@ -1071,7 +1082,7 @@ int get_library_json( StreamList *stream_list, AlbumList *album_list, sds *outpu
 	}
 
 	json_object *root_obj = json_object_new_object();
-	json_object_object_add( root_obj, "albums", albums );
+	json_object_object_add( root_obj, "artists", artists );
 	json_object_object_add( root_obj, "streams", streams );
 
 	const char *s = json_object_to_json_string( root_obj );
