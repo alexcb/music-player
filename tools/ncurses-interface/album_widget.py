@@ -27,7 +27,7 @@ class AlbumsWidget(object):
         return (artist_index, album_index) in self._expanded
 
     def _albums_by_artist(self):
-        return self._parent._mc._albums_by_artist
+        return self._parent._mc._artists
 
     def _get_lines_helper(self):
         artist = 0
@@ -35,16 +35,16 @@ class AlbumsWidget(object):
         track = None
         line = None
         text_filter = self.strip_chars(self._filter.lower())
-        for i, album_group in enumerate(self._albums_by_artist()):
+        for i, artist in enumerate(self._albums_by_artist()):
             show = self._is_artist_expanded(i)
             prefix = '-' if show else '+'
             key = (i,)
-            if text_filter not in self.strip_chars(album_group[0]['artist'].lower()):
-                continue
-            yield key, '%s %s' % (prefix, album_group[0]['artist'])
+            #if text_filter not in self.strip_chars(artist[0]['artist'].lower()):
+            #    continue
+            yield key, '%s %s' % (prefix, artist['artist'])
             if not show:
                 continue
-            for j, album in enumerate(album_group):
+            for j, album in enumerate(artist['albums']):
                 show = self._is_album_expanded(i, j)
                 prefix = '-' if show else '+'
                 key = (i, j)
@@ -66,18 +66,18 @@ class AlbumsWidget(object):
     def _add_item(self, key):
         playlist_name = self._parent._playlist_widget._selected_playlist
         if len(key) == 1:
-            albums = self._albums_by_artist()[key[0]]
-            for album in albums:
+            artist = self._albums_by_artist()[key[0]]
+            for album in artist['albums']:
                 for track in album['tracks']:
                     self._parent._mc.add_track(track, playlist_name)
 
         if len(key) == 2:
-            album = self._albums_by_artist()[key[0]][key[1]]
+            album = self._albums_by_artist()[key[0]]['albums'][key[1]]
             for track in album['tracks']:
                 self._parent._mc.add_track(track, playlist_name)
 
         if len(key) == 3:
-            track = self._albums_by_artist()[key[0]][key[1]]['tracks'][key[2]]
+            track = self._albums_by_artist()[key[0]]['albums'][key[1]]['tracks'][key[2]]
             self._parent._mc.add_track(track, playlist_name)
 
     def draw(self, screen, xx, yy, width, height, nprint):

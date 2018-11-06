@@ -97,13 +97,14 @@ def group_albums_by_artist(albums):
         l.append(sorted(v, key=lambda x: (x['year'], x['album'])))
     return l
 
-def add_data_to_tracks(albums):
-    for album in albums:
-        for track in album['tracks']:
-            track['artist'] = album['artist']
-            track['album'] = album['album']
-            track['year'] = album['year']
-    return albums
+def add_data_to_tracks(artists):
+    for artist in artists:
+        for album in artist['albums']:
+            for track in album['tracks']:
+                track['artist'] = album['artist']
+                track['album'] = album['album']
+                track['year'] = album['year']
+    return artists
 
 
 
@@ -239,7 +240,7 @@ class ModelCtrl(object):
         self._host = host
         self._playing = None
         self._playlists = None
-        self._albums_by_artist = None
+        self._artists = None
         self._active_playlist = 'default'
         self._current_track = None
 
@@ -247,7 +248,7 @@ class ModelCtrl(object):
         if self._playing is None:
             log("not ready 1")
             return False
-        if self._albums_by_artist is None:
+        if self._artists is None:
             log("not ready 2")
             return False
         if self._playlists is None:
@@ -257,20 +258,21 @@ class ModelCtrl(object):
 
     def refresh_library(self):
         library = get_library(self._host)
-        self._albums_by_artist = group_albums_by_artist(add_data_to_tracks(library['albums']))
+        self._artists = add_data_to_tracks(library['artists'])
 
         self._path_lookup = {}
-        for album in library['albums']:
-            for track in album['tracks']:
-                self._path_lookup[track['path']] = {
-                    'path':         track['path'],
-                    'artist':       album['artist'],
-                    'album':        album['album'],
-                    'year':         album['year'],
-                    'title':        track['title'],
-                    'length':       track['length'],
-                    'track_number': track['track_number'],
-                    }
+        for artist in library['artists']:
+            for album in artist['albums']:
+                for track in album['tracks']:
+                    self._path_lookup[track['path']] = {
+                        'path':         track['path'],
+                        'artist':       album['artist'],
+                        'album':        album['album'],
+                        'year':         album['year'],
+                        'title':        track['title'],
+                        'length':       track['length'],
+                        'track_number': track['track_number'],
+                        }
 
     def refresh_playlists(self):
         playlists = {
