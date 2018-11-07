@@ -263,9 +263,6 @@ gboolean library_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer u
 			}
 
 			return TRUE;
-		case GDK_KEY_a:
-			printf("got a\n" );
-			return TRUE;
 	}
 	return FALSE;
 }
