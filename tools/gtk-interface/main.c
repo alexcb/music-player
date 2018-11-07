@@ -56,7 +56,7 @@ static const char *css =
   //"}"
 
   ".view { "
-  "  color: #FFAA00; "
+  "  color: #000000; "
   "}"
 ;
 
@@ -230,7 +230,7 @@ void delete_selected( GtkWidget *widget )
 	gtk_list_store_remove( GTK_LIST_STORE(model), &iter );
 }
 
-gboolean on_key_press (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+gboolean playlist_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer user_data )
 {
 	switch( event->keyval )
 	{
@@ -242,11 +242,48 @@ gboolean on_key_press (GtkWidget *widget, GdkEventKey *event, gpointer user_data
 	return FALSE;
 }
 
+gboolean library_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer user_data )
+{
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	GtkTreePath *path;
+
+	switch( event->keyval )
+	{
+		case GDK_KEY_space:
+
+			if( gtk_tree_selection_get_selected( gtk_tree_view_get_selection( GTK_TREE_VIEW(widget) ), &model, &iter ) ) {
+				path = gtk_tree_model_get_path( model, &iter );
+				if( gtk_tree_view_row_expanded( GTK_TREE_VIEW(widget), path ) ) {
+					gtk_tree_view_collapse_row( GTK_TREE_VIEW(widget), path );
+				} else {
+					gtk_tree_view_expand_row( GTK_TREE_VIEW(widget), path, FALSE );
+				}
+				gtk_tree_path_free( path );
+			}
+
+			return TRUE;
+		case GDK_KEY_a:
+			printf("got a\n" );
+			return TRUE;
+	}
+	return FALSE;
+}
+
+void library_on_row_activated( GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer user_data )
+{
+	GtkTreeIter src_iter;
+	GtkTreeModel *model = gtk_tree_view_get_model( tree_view );
+	assert( gtk_tree_model_get_iter( model, &src_iter, path ) );
+
+	insert_all_tracks( global_library, model, &src_iter, GTK_LIST_STORE(user_data), NULL, 0 );
+}
+
 static void remove_item_visitor(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
 	gtk_list_store_remove( GTK_LIST_STORE(model), iter );
 }
 
-static void drag_data_received (GtkWidget * widget, GdkDragContext *context, int x, int y, GtkSelectionData * sel, unsigned info, unsigned time, gpointer user_data)
+static void drag_data_received( GtkWidget *widget, GdkDragContext *context, int x, int y, GtkSelectionData * sel, unsigned info, unsigned time, gpointer user_data)
 {
 	//const guchar *path_str;
 	gint len;
@@ -298,11 +335,8 @@ static void drag_data_received (GtkWidget * widget, GdkDragContext *context, int
 		const gchar *path_str = (const gchar*) gtk_selection_data_get_data_with_length( sel, &len );
 		assert( gtk_tree_model_get_iter_from_string( GTK_TREE_MODEL( library_tree_store ), &library_iter, path_str ) );
 
-
 		printf("inserting at %p\n", iter_ptr);
 		insert_all_tracks( global_library, GTK_TREE_MODEL( library_tree_store ), &library_iter, GTK_LIST_STORE(model), iter_ptr, 0 );
-
-
 
 		//gint len;
 		//const guchar *ptr = gtk_selection_data_get_data_with_length( sel, &len );
@@ -506,6 +540,8 @@ GtkTreeStore* create_library_store( Library *library )
 	GtkTreeStore  *store;
 	GtkTreeIter artist_iter, album_iter, track_iter;
 
+	char buf[1024];
+
 	store = gtk_tree_store_new( 2, G_TYPE_STRING, G_TYPE_POINTER );
 	for( i = 0; i < library->num_artists; i++ ) {
 		gtk_tree_store_append( store, &artist_iter, NULL );
@@ -515,9 +551,10 @@ GtkTreeStore* create_library_store( Library *library )
 				-1);
 
 		for( j = 0; j < library->artists[i].num_albums; j++ ) {
+			sprintf( buf, "%s (%d)", library->artists[i].albums[j].title->str, library->artists[i].albums[j].year );
 			gtk_tree_store_append( store, &album_iter, &artist_iter );
 			gtk_tree_store_set( store, &album_iter,
-					0, library->artists[i].albums[j].title->str,
+					0, buf,
 					1, NULL,
 					-1);
 
@@ -534,7 +571,7 @@ GtkTreeStore* create_library_store( Library *library )
 }
 
 
-GtkWidget* create_library_widget( GtkTreeStore *library_tree_store )
+GtkWidget* create_library_widget( GtkTreeStore *library_tree_store, GtkListStore *playlist_list_store )
 {
 	GtkCellRenderer *renderer;
 	GtkTreeModel *model;
@@ -562,6 +599,8 @@ GtkWidget* create_library_widget( GtkTreeStore *library_tree_store )
 			GDK_ACTION_COPY);
 
 	g_signal_connect( view, "drag-data-get", G_CALLBACK(drag_data_get_from_library), model);
+	g_signal_connect( view, "key-press-event", G_CALLBACK(library_on_key_press), NULL);
+	g_signal_connect( view, "row-activated", G_CALLBACK(library_on_row_activated), playlist_list_store );
 	return view;
 }
 
@@ -646,7 +685,7 @@ GtkWidget* create_playlist_widget( GtkTreeStore *library_tree_store, GtkListStor
 	g_signal_connect( view, "drag-data-get", G_CALLBACK(drag_data_get), model );
 	g_signal_connect( view, "drag-data-received", G_CALLBACK(drag_data_received), library_tree_store );
 	g_signal_connect( view, "row-activated", G_CALLBACK(on_row_activated), library_tree_store );
-	g_signal_connect( view, "key-press-event", G_CALLBACK(on_key_press), NULL);
+	g_signal_connect( view, "key-press-event", G_CALLBACK(playlist_on_key_press), NULL);
 
 
 	return view;
@@ -714,7 +753,7 @@ int main(int argc, char *argv[])
 	GtkTreeStore *library_tree_store = create_library_store( libraryDetails );
 	GtkListStore *playlist_list_store = create_playlist_store( libraryDetails, get_playlist(&playlists, "default") );
 
-	GtkWidget *library_widget = create_library_widget( library_tree_store );
+	GtkWidget *library_widget = create_library_widget( library_tree_store, playlist_list_store );
 	GtkWidget *playlist_widget = create_playlist_widget( library_tree_store, playlist_list_store );
 
 

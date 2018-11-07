@@ -18,8 +18,16 @@ int compare_artist(const void *s1, const void *s2)
   return g_strcmp0( a1->artist->str, a2->artist->str );
 }
 
+int compare_album(const void *s1, const void *s2)
+{
+  Album *a1 = (Album *)s1;
+  Album *a2 = (Album *)s2;
+  return a1->year - a2->year;
+}
+
 int parse_library( const char *s, Library **library )
 {
+	int i, j, k;
 	struct json_object *root_obj, *album_obj, *artist_obj, *tracks_obj, *track_obj;
 	int num_albums, num_tracks;
 
@@ -38,7 +46,7 @@ int parse_library( const char *s, Library **library )
 	int num_artists = json_object_array_length( json_artists );
 	(**library).artists = malloc(sizeof(Artist)*num_artists);
 	(**library).num_artists = num_artists;
-	for( int i = 0; i < num_artists; i++ ) {
+	for( i = 0; i < num_artists; i++ ) {
 		artist = &((**library).artists[i]);
 		artist_obj = json_object_array_get_idx( json_artists, i );
 
@@ -50,7 +58,7 @@ int parse_library( const char *s, Library **library )
 		num_albums = json_object_array_length( albums );
 		artist->albums = (Album*) malloc(sizeof(Album)*num_albums);
 		artist->num_albums = num_albums;
-		for( int j = 0; j < num_albums; j++ ) {
+		for( j = 0; j < num_albums; j++ ) {
 			album_obj = json_object_array_get_idx( albums, j );
 
 			artist->albums[j].title = get_json_object_string_default( album_obj, "album", "unknown album" );
@@ -63,7 +71,7 @@ int parse_library( const char *s, Library **library )
 			artist->albums[j].num_tracks = num_tracks;
 
 			Track *tracks = malloc(sizeof(Track)*num_tracks);
-			for( int k = 0; k < num_tracks; k++ ) {
+			for( k = 0; k < num_tracks; k++ ) {
 				track_obj = json_object_array_get_idx( tracks_obj, k );
 
 				assert( get_json_object_string( track_obj, "path", &path ) );
@@ -85,8 +93,21 @@ int parse_library( const char *s, Library **library )
 		}
 	}
 	
-	// CAREFUL! if I sort this here, the pointers get messed up and tracks will say they are by the wrong artist
-	//qsort((**library).artists, (**library).num_artists, sizeof(Artist), compare_artist);
+	// CAREFUL! once this gets sorted, the album->artist pointers have to be fixed, otherwise they will point to the incorrect artist.
+	qsort((**library).artists, (**library).num_artists, sizeof(Artist), compare_artist);
+
+	for( i = 0; i < (**library).num_artists; i++ ) {
+		artist = &((**library).artists[i]);
+
+		qsort(artist->albums, artist->num_albums, sizeof(Album), compare_album);
+		for( j = 0; j < artist->num_albums; j++ ) {
+			artist->albums[j].artist = artist;
+			for( k = 0; k < artist->albums[j].num_tracks; k++ ) {
+				artist->albums[j].tracks[k].album = &(artist->albums[j]);
+			}
+		}
+	}
+
 	return 0;
 }
 
