@@ -1085,7 +1085,6 @@ int get_library_json( StreamList *stream_list, Library *library, sds *output )
 			LOG_WARN("path=s skipping", p->path);
 			continue;
 		}
-		LOG_WARN("path=s adding", p->path);
 		json_object *artist = json_object_new_object();
 		json_object_object_add( artist, "path", json_object_new_string( p->path ) );
 		json_object_object_add( artist, "artist", json_object_new_string( p->artist ) );
