@@ -134,8 +134,8 @@ int library_add_album( Library *library, Artist *artist, const char *relative_al
 		LOG_DEBUG( "path=s calling", s );
 		library_add_track( library, artist, album, s );
 	}
+	closedir( album_dir );
 
-	goto error;
 error:
 
 	if( !album ) {
@@ -206,12 +206,14 @@ error:
 
 int library_load( Library *library )
 {
+	int error_code = 0;
 	struct dirent *artist_dirent;
 
-	DIR *artist_dir = opendir(library->library_path);
+	DIR *artist_dir = opendir( library->library_path );
 	if( artist_dir == NULL ) {
 		LOG_ERROR("path=s err=s opendir failed", library->library_path, strerror(errno));
-		return FILESYSTEM_ERROR;
+		error_code = FILESYSTEM_ERROR;
+		goto error:
 	}
 
 	while( (artist_dirent = readdir(artist_dir)) != NULL) {
@@ -220,54 +222,10 @@ int library_load( Library *library )
 		}
 
 		library_add_artist( library, artist_dirent->d_name );
-
-		//artist = (Artist*) malloc(sizeof(Artist));
-		//artist->artist = NULL;
-		//artist->path = sdsnew( s );
-		//artist->albums = NULL;
-		//artist->color_field = '\0';
-		//artist->left = NULL;
-		//artist->right = NULL; // TODO do any other of these need to be initted elsewhere?
-		//
-		//LOG_DEBUG("path=s opening dir", s);
-		//DIR *album_dir = opendir(s);
-		//if( artist_dir == NULL ) {
-		//	LOG_ERROR("path=s err=s opendir failed", s, strerror(errno));
-		//	sdsfree( s );
-		//	return FILESYSTEM_ERROR;
-		//}
-
-		//while( (album_dirent = readdir( album_dir )) != NULL) {
-		//	if( album_dirent->d_type != DT_DIR || strcmp(album_dirent->d_name, ".") == 0 || strcmp(album_dirent->d_name, "..") == 0 ) {
-		//		continue;
-		//	}
-
-		//	// path to album
-		//	sdsclear( s );
-
-		//	// save album
-		//	Album *album = (Album*) malloc(sizeof(Album));
-		//	if( album == NULL ) {
-		//		LOG_ERROR("allocation failed");
-		//		closedir( album_dir );
-		//		return 1;
-		//	}
-		//	memset( album, 0, sizeof(Album) );
-		//	album->path = sdscatfmt( NULL, "%s/%s", artist_dirent->d_name, album_dirent->d_name );
-		//	setup_album( library, album );
-		//	artist->artist = album->artist;
-		//	sglib_Album_add( &(artist->albums), album );
-		//}
-		//closedir( album_dir );
-
-		//if( artist->artist != NULL ) {
-		//	sglib_Artist_add( &(library->root), artist );
-		//} else {
-		//	LOG_WARN("path=s no albums found", s);
-		//}
 	}
 	closedir( artist_dir );
-	return 0;
+error:
+	return error_code;
 }
 
 int library_get_track( Library *library, const char *path, Track **track )
