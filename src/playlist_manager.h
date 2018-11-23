@@ -9,12 +9,12 @@
 typedef struct PlaylistManager
 {
 	Playlist *root;
-	AlbumList *album_list;
+	Library *library;
 	sds playlistPath;
 	pthread_mutex_t lock;
 } PlaylistManager;
 
-int playlist_manager_init( PlaylistManager *manager, const char *path, AlbumList *album_list );
+int playlist_manager_init( PlaylistManager *manager, const char *path, Library *library );
 
 int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, Playlist **p );
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p );

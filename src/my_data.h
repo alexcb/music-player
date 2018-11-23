@@ -9,7 +9,7 @@
 // TODO rename this (and this file)
 typedef struct MyData {
 	Player *player;
-	AlbumList *album_list;
+	Library *library;
 	PlaylistManager *playlist_manager;
 	StreamList *stream_list;
 	sds library_json;

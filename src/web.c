@@ -463,7 +463,7 @@ static int web_handler_playlists_load(
 		if( has_prefix(s, "http://") ) {
 			stream = sdsnew( s );
 		} else {
-			res = album_list_get_track( data->my_data->album_list, s, &track );
+			res = library_get_track( data->my_data->library, s, &track );
 			if( res != 0 ) {
 				LOG_ERROR("res=d path=s failed to lookup track", res, s);
 				return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to lookup track" );
@@ -634,6 +634,36 @@ static int web_handler_albums(
 
 	*con_cls = NULL;
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
+static int web_handler_rescan_albums(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const sds request_body,
+		void **con_cls)
+{
+	int ret;
+	struct MHD_Response *response;
+	int res;
+
+	res = library_load( data->my_data->library );
+	if( res ) {
+		LOG_CRITICAL("err=d failed to load albums", res);
+	}
+
+	// refresh cached json result
+	res = get_library_json( data->my_data->stream_list, data->my_data->library, &(data->my_data->library_json) );
+	if( res ) {
+		LOG_CRITICAL("err=d failed to produce library json", res);
+	}
+
+	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
 	MHD_destroy_response(response);
 	return ret;
 }
@@ -881,9 +911,9 @@ static int web_handler_pause(
 //	//	bool ok = !errno;
 //
 //	//	if( ok ) {
-//	//		//if( 0 <= i && i < data->album_list->len ) {
+//	//		//if( 0 <= i && i < data->library->len ) {
 //	//		//	// TODO error handling
-//	//		//	load_quick_album( data->playlist_manager, data->album_list->list[i].path );
+//	//		//	load_quick_album( data->playlist_manager, data->library->list[i].path );
 //	//		//}
 //	//	}
 //	//}
@@ -930,6 +960,10 @@ static int web_handler(
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/library") == 0 ) {
 		return web_handler_albums( data, connection, url, method, version, request_session->body, con_cls );
+	}
+
+	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/library") == 0 ) {
+		return web_handler_rescan_albums( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "GET" ) == 0 && strcmp(url, "/playlists") == 0 ) {
@@ -1001,7 +1035,7 @@ int init_http_server_data( WebHandlerData *data, MyData *my_data )
 
 	data->current_track_payload = NULL;
 
-	return get_library_json( my_data->stream_list, my_data->album_list, &(my_data->library_json) );
+	return get_library_json( my_data->stream_list, my_data->library, &(my_data->library_json) );
 }
 
 int getenv_int(const char *name, int default_port)
@@ -1037,7 +1071,7 @@ int start_http_server( WebHandlerData *data )
 	return 0;
 }
 
-int get_library_json( StreamList *stream_list, AlbumList *album_list, sds *output )
+int get_library_json( StreamList *stream_list, Library *library, sds *output )
 {
 	Artist *p;
 	Album *q;
@@ -1045,7 +1079,13 @@ int get_library_json( StreamList *stream_list, AlbumList *album_list, sds *outpu
 
 	struct sglib_Artist_iterator artist_it;
 	struct sglib_Album_iterator album_it;
-	for( p = sglib_Artist_it_init_inorder(&artist_it, album_list->root); p != NULL; p = sglib_Artist_it_next(&artist_it) ) {
+	LOG_INFO("in get_library_json");
+	for( p = sglib_Artist_it_init_inorder(&artist_it, library->artists); p != NULL; p = sglib_Artist_it_next(&artist_it) ) {
+		if( p->artist == NULL ) {
+			LOG_WARN("path=s skipping", p->path);
+			continue;
+		}
+		LOG_WARN("path=s adding", p->path);
 		json_object *artist = json_object_new_object();
 		json_object_object_add( artist, "path", json_object_new_string( p->path ) );
 		json_object_object_add( artist, "artist", json_object_new_string( p->artist ) );
@@ -1053,6 +1093,10 @@ int get_library_json( StreamList *stream_list, AlbumList *album_list, sds *outpu
 		json_object *albums = json_object_new_array();
 
 		for( q = sglib_Album_it_init_inorder(&album_it, p->albums); q != NULL; q = sglib_Album_it_next(&album_it) ) {
+			if( q->album == NULL ) {
+				LOG_WARN("path=s skipping", q->path);
+				continue;
+			}
 			json_object *album = json_object_new_object();
 			json_object_object_add( album, "path", json_object_new_string( q->path ) );
 			json_object_object_add( album, "artist", json_object_new_string( q->artist ) );
@@ -1061,6 +1105,10 @@ int get_library_json( StreamList *stream_list, AlbumList *album_list, sds *outpu
 
 			json_object *tracks = json_object_new_array();
 			for( Track *t = q->tracks; t != NULL; t = t->next_ptr ) {
+				if( t->title == NULL ) {
+					LOG_WARN("path=s skipping", t->path);
+					continue;
+				}
 				json_object *track = json_object_new_object();
 				json_object_object_add( track, "title", json_object_new_string( t->title ) );
 				json_object_object_add( track, "track_number", json_object_new_int( t->track ) );

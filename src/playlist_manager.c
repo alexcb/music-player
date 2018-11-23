@@ -19,7 +19,7 @@
 
 
 
-int playlist_manager_init( PlaylistManager *manager, const char *path, AlbumList *album_list )
+int playlist_manager_init( PlaylistManager *manager, const char *path, Library *library )
 {
 	//int res;
 
@@ -29,7 +29,7 @@ int playlist_manager_init( PlaylistManager *manager, const char *path, AlbumList
 
 	manager->playlistPath = sdsnew( path );
 	manager->root = NULL;
-	manager->album_list = album_list;
+	manager->library = library;
 	return 0;
 }
 
@@ -94,7 +94,7 @@ int playlist_manager_load( PlaylistManager *manager )
 				stream = (char*) sdsnew( &line[1] );
 			} else {
 				stream = NULL;
-				res = album_list_get_track( manager->album_list, &line[1], &track );
+				res = library_get_track( manager->library, &line[1], &track );
 				if( res != 0 ) {
 					LOG_ERROR("res=d path=s failed to lookup track", res, &line[1]);
 					continue;

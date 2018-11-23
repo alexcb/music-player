@@ -66,15 +66,15 @@ typedef struct Artist
 #define ARTIST_PATH_CMPARATOR(x,y) strcmp((x)->path, (y)->path)
 SGLIB_DEFINE_RBTREE_PROTOTYPES(Artist, left, right, color_field, ARTIST_PATH_CMPARATOR)
 
-typedef struct AlbumList
+typedef struct Library
 {
-	Artist *root;
+	Artist *artists;
 	Track *root_track;
 	ID3Cache *id3_cache;
 	sds library_path;
-} AlbumList;
+} Library;
 
-int album_list_init( AlbumList *album_list, ID3Cache *cache, const char *library_path );
-int album_list_load( AlbumList *album_list );
-int album_list_get_track( AlbumList *album_list, const char *path, Track **track );
+int library_init( Library *library, ID3Cache *cache, const char *library_path );
+int library_load( Library *library );
+int library_get_track( Library *library, const char *path, Track **track );
 

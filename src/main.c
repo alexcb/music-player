@@ -108,13 +108,13 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	AlbumList album_list;
-	res = album_list_init( &album_list, cache, music_path );
+	Library library;
+	res = library_init( &library, cache, music_path );
 	if( res ) {
 		LOG_CRITICAL("err=d failed to init album list", res);
 		return 1;
 	}
-	res = album_list_load( &album_list );
+	res = library_load( &library );
 	if( res ) {
 		LOG_CRITICAL("err=d failed to load albums", res);
 		return 1;
@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 	
 	LOG_DEBUG("calling manager init");
 	PlaylistManager playlist_manager;
-	playlist_manager_init( &playlist_manager, playlist_path, &album_list );
+	playlist_manager_init( &playlist_manager, playlist_path, &library );
 	player.playlist_manager = &playlist_manager;
 
 	LOG_DEBUG("calling load");
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 
 	MyData my_data = {
 		&player,
-		&album_list,
+		&library,
 		&playlist_manager,
 		&stream_list
 	};

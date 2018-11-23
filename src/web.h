@@ -31,7 +31,7 @@ typedef struct WebHandlerData {
 
 void update_metadata_web_clients(bool playing, const PlaylistItem *item, int playlist_version, void *data);
 
-int get_library_json( StreamList *streams, AlbumList *album_list, sds *output );
+int get_library_json( StreamList *streams, Library *library, sds *output );
 
 int init_http_server_data( WebHandlerData *data, MyData *my_data );
 int start_http_server( WebHandlerData *data );
