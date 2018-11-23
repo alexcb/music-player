@@ -213,7 +213,7 @@ int library_load( Library *library )
 	if( artist_dir == NULL ) {
 		LOG_ERROR("path=s err=s opendir failed", library->library_path, strerror(errno));
 		error_code = FILESYSTEM_ERROR;
-		goto error
+		goto error;
 	}
 
 	while( (artist_dirent = readdir(artist_dir)) != NULL) {
