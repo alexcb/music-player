@@ -1,4 +1,4 @@
-#include "albums.h"
+#include "library.h"
 
 #include "errors.h"
 #include "cmp.h"
@@ -228,10 +228,10 @@ error:
 	return error_code;
 }
 
-int library_get_track( Library *library, const char *path, Track **track )
+int library_get_track( Library *library, const char *relative_path, Track **track )
 {
 	Track e;
-	e.path = (char *) path;
+	e.path = (char *) relative_path;
 	*track = sglib_Track_find_member( library->root_track, &e);
 	if( *track == NULL ) {
 		return 1;

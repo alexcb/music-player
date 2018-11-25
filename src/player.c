@@ -2,7 +2,7 @@
 #include "icy.h"
 #include "log.h"
 #include "io_utils.h"
-#include "albums.h"
+#include "library.h"
 
 #include <assert.h>
 #include <err.h>

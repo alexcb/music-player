@@ -3,7 +3,7 @@
 #include "errors.h"
 #include "log.h"
 #include "httpget.h"
-#include "albums.h"
+#include "library.h"
 
 #include <string.h>
 #include <stdlib.h>

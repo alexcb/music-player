@@ -9,7 +9,7 @@
 
 #include "httpget.h"
 #include "player.h"
-#include "albums.h"
+#include "library.h"
 #include "playlist_manager.h"
 #include "playlist.h"
 #include "string_utils.h"

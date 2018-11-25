@@ -5,7 +5,6 @@
 #include "errors.h"
 #include "log.h"
 #include "sglib.h"
-#include "albums.h"
 
 #include <dirent.h> 
 #include <string.h>

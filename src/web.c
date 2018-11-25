@@ -2,7 +2,7 @@
 
 #include "httpget.h"
 #include "player.h"
-#include "albums.h"
+#include "library.h"
 #include "playlist_manager.h"
 #include "string_utils.h"
 #include "log.h"

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "player.h"
-#include "albums.h"
+#include "library.h"
 #include "playlist_manager.h"
 #include "streams.h"
 #include "sds.h"
