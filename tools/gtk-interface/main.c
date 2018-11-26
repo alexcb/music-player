@@ -321,6 +321,7 @@ gboolean playlist_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer 
 {
 	switch( event->keyval )
 	{
+		case 65288: // delete on a mac
 		case GDK_KEY_Delete:
 			printf("got delete\n" ); 
 			delete_selected( widget );
