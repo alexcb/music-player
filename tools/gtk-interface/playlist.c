@@ -7,6 +7,25 @@
 #include <string.h>
 #include <assert.h>
 
+int add_playlist( const char *name, Playlists *playlists )
+{
+	int i, j;
+	for( i = 0; i < playlists->num_playlists; i++ ) {
+		if( strcmp( playlists->playlists[i].name->str, name ) == 0 ) {
+			return -1;
+		}
+	}
+	j = playlists->num_playlists;
+	playlists->num_playlists++;
+	playlists->playlists = realloc( playlists->playlists, sizeof(Playlist)*playlists->num_playlists );
+	playlists->playlists[j].name = g_string_new( name );
+	playlists->playlists[j].num_items = 0;
+	playlists->playlists[j].list_store = NULL;
+	playlists->playlists[j].items = NULL;
+
+	return j;
+}
+
 void parse_playlists( const char *s, Playlists *playlists )
 {
 	GString *path;

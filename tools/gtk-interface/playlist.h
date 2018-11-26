@@ -2,6 +2,7 @@
 #define _PLAYLIST_H_
 
 #include <glib.h>
+#include <gtk/gtk.h>
 
 typedef struct playlist_item {
 	GString *path;
@@ -14,6 +15,7 @@ typedef struct playlist {
 	GString *name;
 	PlaylistItem *items;
 	int num_items;
+	GtkListStore *list_store;
 } Playlist;
 
 typedef struct playlists {
@@ -22,6 +24,8 @@ typedef struct playlists {
 } Playlists;
 
 int fetch_playlists( const char *endpoint, Playlists *playlists );
+
+int add_playlist( const char *name, Playlists *playlists );
 
 int send_playlist( const char *endpoint, const char *playlist_name, const Playlist *playlist );
 

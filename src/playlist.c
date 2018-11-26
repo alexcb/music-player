@@ -227,14 +227,19 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 	}
 
 	// remove any left over tracks that weren't contained in the new list
-	p = old_root;
-	while( p ) {
-		x = p->next;
-		LOG_DEBUG("p=p path=s ref=d deleting orphaned", p, p->track->path, p->ref_count);
-		p->parent = NULL; // this track has been orphaned; there's a chance it's currently being played
-		playlist_item_ref_down( p );
-		p = x;
-	}
+	//there's a bug when I play files, then a stream, then back to files.
+	//BUG p = old_root;
+	//BUG while( p ) {
+	//BUG 	x = p->next;
+	//BUG 	if( p->track ) {
+	//BUG 		LOG_DEBUG("p=p path=s ref=d deleting orphaned", p, p->track->path, p->ref_count);
+	//BUG 	} else {
+	//BUG 		LOG_DEBUG("p=p path=no-track(stream?) ref=d deleting orphaned", p, p->ref_count);
+	//BUG 	}
+	//BUG 	p->parent = NULL; // this track has been orphaned; there's a chance it's currently being played
+	//BUG 	playlist_item_ref_down( p );
+	//BUG 	p = x;
+	//BUG }
 
 	// update ID (to incidicate the playlist has changed)
 	playlist->id = playlist_id_next++;
