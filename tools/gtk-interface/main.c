@@ -136,6 +136,11 @@ void accelerator_new_playlist( gpointer user_data )
 	quick_message( NULL );
 }
 
+void accelerator_pause( gpointer user_data )
+{
+	music_pause( music_endpoint );
+}
+
 
 static void destroy( GtkWidget *widget, gpointer   data )
 {
@@ -993,6 +998,7 @@ int main(int argc, char *argv[])
 
 	GtkAccelGroup *accel_group = gtk_accel_group_new ();
 	gtk_accel_group_connect( accel_group, GDK_KEY_n, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( accelerator_new_playlist ), window, 0) );
+	gtk_accel_group_connect( accel_group, GDK_KEY_p, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( accelerator_pause ), window, 0) );
     gtk_window_add_accel_group( GTK_WINDOW(window), accel_group );
 
 

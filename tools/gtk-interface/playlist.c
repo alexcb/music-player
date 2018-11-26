@@ -208,3 +208,33 @@ int play_song( const char *endpoint, const char *playlist_name, int track_index,
 	return res;
 }
 
+int music_pause( const char *endpoint )
+{
+	int err = 0;
+	CURL *curl;
+	CURLcode res;
+
+	char url[1024];
+	snprintf( url, 1024, "%s/pause", endpoint );
+
+	printf("post %s\n", url );
+	curl = curl_easy_init();
+	if(curl) {
+		curl_easy_setopt( curl, CURLOPT_URL, url );
+		curl_easy_setopt( curl, CURLOPT_FOLLOWLOCATION, 1L );
+		curl_easy_setopt( curl, CURLOPT_POST, 1L );
+		curl_easy_setopt( curl, CURLOPT_POSTFIELDSIZE, 0 );
+
+		res = curl_easy_perform(curl);
+		if(res != CURLE_OK) {
+			fprintf(stderr, "curl_easy_perform() failed: %s\n",
+					curl_easy_strerror(res));
+			err = 1;
+		}
+
+		curl_easy_cleanup( curl );
+	}
+
+	return res;
+}
+

@@ -31,5 +31,7 @@ int send_playlist( const char *endpoint, const char *playlist_name, const Playli
 
 int play_song( const char *endpoint, const char *playlist_name, int track_index, const char *when );
 
+int music_pause( const char *endpoint );
+
 #endif // _PLAYLIST_H_
 
