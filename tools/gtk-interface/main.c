@@ -11,7 +11,11 @@ Library *global_library;
 
 int global_selected_playlist_index = 0;
 Playlists global_playlists;
+
+GtkWidget *global_library_widget;
 GtkWidget *global_playlist_widget;
+GtkWidget *global_playlist_selector_widget;
+
 
 GtkListStore *global_playlists_list_store;
 
@@ -72,8 +76,15 @@ static const GtkTargetEntry queuelike_targets[] = {
 static const char *css =
   //".view:hover { "
   //"  color: #FF0000; "
-  //"  border-top: 1px solid #000000; "
   //"}"
+
+  ".view:focus { "
+  "  color: #00A900; "
+  "}"
+
+  ".view:selected { "
+  "  background-color: #E0E0E0; "
+  "}"
 
   ".view { "
   "  color: #000000; "
@@ -317,14 +328,38 @@ void delete_selected( GtkWidget *widget )
 	gtk_list_store_remove( GTK_LIST_STORE(model), &iter );
 }
 
+
+gboolean playlist_selector_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer user_data )
+{
+	switch( event->keyval )
+	{
+		case GDK_KEY_Left:
+			printf("got left\n" ); 
+			printf("from playlist selector to playlist\n");
+			gtk_widget_grab_focus( global_playlist_widget );
+			return TRUE;
+	}
+	return FALSE;
+}
+
+
 gboolean playlist_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer user_data )
 {
 	switch( event->keyval )
 	{
 		case 65288: // delete on a mac
+		case GDK_KEY_space:
 		case GDK_KEY_Delete:
 			printf("got delete\n" ); 
 			delete_selected( widget );
+			return TRUE;
+		case GDK_KEY_Left:
+			printf("from playlist to library\n");
+			gtk_widget_grab_focus( global_library_widget );
+			return TRUE;
+		case GDK_KEY_Right:
+			printf("from playlist to playlist selector\n");
+			gtk_widget_grab_focus( global_playlist_selector_widget );
 			return TRUE;
 	}
 	return FALSE;
@@ -338,8 +373,7 @@ gboolean library_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer u
 
 	switch( event->keyval )
 	{
-		case GDK_KEY_space:
-
+		case GDK_KEY_Return:
 			if( gtk_tree_selection_get_selected( gtk_tree_view_get_selection( GTK_TREE_VIEW(widget) ), &model, &iter ) ) {
 				path = gtk_tree_model_get_path( model, &iter );
 				if( gtk_tree_view_row_expanded( GTK_TREE_VIEW(widget), path ) ) {
@@ -349,7 +383,15 @@ gboolean library_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer u
 				}
 				gtk_tree_path_free( path );
 			}
-
+			return TRUE;
+		case GDK_KEY_space:
+			if( gtk_tree_selection_get_selected( gtk_tree_view_get_selection( GTK_TREE_VIEW(widget) ), &model, &iter ) ) {
+				insert_all_tracks( global_library, model, &iter, global_playlists.playlists[global_selected_playlist_index].list_store, NULL, 0 );
+			}
+			return TRUE;
+		case GDK_KEY_Right:
+			printf("from library to playlist\n" ); 
+			gtk_widget_grab_focus( global_playlist_widget );
 			return TRUE;
 	}
 	return FALSE;
@@ -764,7 +806,7 @@ GtkWidget* create_library_widget( GtkTreeStore *library_tree_store )
 
 	g_signal_connect( view, "drag-data-get", G_CALLBACK(drag_data_get_from_library), model);
 	g_signal_connect( view, "key-press-event", G_CALLBACK(library_on_key_press), NULL);
-	g_signal_connect( view, "row-activated", G_CALLBACK(library_on_row_activated), NULL );
+	//g_signal_connect( view, "row-activated", G_CALLBACK(library_on_row_activated), NULL );
 	return view;
 }
 
@@ -787,6 +829,7 @@ GtkWidget* create_playlist_selector_widget( GtkListStore *playlists_list_store )
 	gtk_tree_view_set_model( GTK_TREE_VIEW( view ), GTK_TREE_MODEL( playlists_list_store ) );
 
 	g_signal_connect( gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), "changed", G_CALLBACK(on_playlist_selector_row_activated), NULL );
+	g_signal_connect( view, "key-press-event", G_CALLBACK(playlist_selector_on_key_press), NULL);
 
 	return view;
 }
@@ -945,10 +988,9 @@ int main(int argc, char *argv[])
 	GtkListStore *playlists_list_store = create_playlists_store( &global_playlists );
 	global_playlists_list_store = playlists_list_store;
 
-	GtkWidget *library_widget = create_library_widget( library_tree_store );
-	GtkWidget *playlist_widget = create_playlist_widget( library_tree_store );
-	GtkWidget *playlist_selector_widget = create_playlist_selector_widget( playlists_list_store );
-	global_playlist_widget = playlist_widget;
+	global_library_widget = create_library_widget( library_tree_store );
+	global_playlist_widget = create_playlist_widget( library_tree_store );
+	global_playlist_selector_widget = create_playlist_selector_widget( playlists_list_store );
 
 	assert( set_active_playlist_by_name( "default" ) );
 
@@ -987,13 +1029,13 @@ int main(int argc, char *argv[])
 	gtk_paned_pack1( GTK_PANED(paned2), sw2, TRUE, FALSE );
 	gtk_paned_pack2( GTK_PANED(paned2), sw3, TRUE, FALSE );
 
-	gtk_widget_set_size_request( library_widget, 50, -1 );
-	gtk_widget_set_size_request( playlist_widget, 50, -1);
-	gtk_widget_set_size_request( playlist_selector_widget, 50, -1);
+	gtk_widget_set_size_request( global_library_widget, 50, -1 );
+	gtk_widget_set_size_request( global_playlist_widget, 50, -1);
+	gtk_widget_set_size_request( global_playlist_selector_widget, 50, -1);
 
-	gtk_container_add( GTK_CONTAINER( sw ), library_widget );
-	gtk_container_add( GTK_CONTAINER( sw2 ), playlist_widget );
-	gtk_container_add( GTK_CONTAINER( sw3 ), playlist_selector_widget );
+	gtk_container_add( GTK_CONTAINER( sw ), global_library_widget );
+	gtk_container_add( GTK_CONTAINER( sw2 ), global_playlist_widget );
+	gtk_container_add( GTK_CONTAINER( sw3 ), global_playlist_selector_widget );
 
 	gtk_container_add( GTK_CONTAINER(window), paned1 );
 
