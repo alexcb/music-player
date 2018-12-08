@@ -7,7 +7,7 @@
 #include "library_fetcher.h"
 #include "playlist.h"
 
-Library *global_library;
+Library *global_library = NULL;
 
 int global_selected_playlist_index = 0;
 Playlists global_playlists;
@@ -18,6 +18,7 @@ GtkWidget *global_playlist_selector_widget;
 
 
 GtkListStore *global_playlists_list_store;
+GtkTreeStore *global_library_tree_store;
 
 const char *music_endpoint = "http://music";
 
@@ -26,6 +27,8 @@ GtkListStore* create_playlist_store( Library *library, Playlist *playlist );
 
 void set_active_playlist( int i );
 bool set_active_playlist_by_name( const char *name );
+void refresh( void );
+void save_current_playlist( void );
 
 // the playlist
 enum
@@ -152,6 +155,15 @@ void accelerator_pause( gpointer user_data )
 	music_pause( music_endpoint );
 }
 
+void accelerator_save( gpointer user_data )
+{
+	save_current_playlist();
+}
+
+void accelerator_refresh( gpointer user_data )
+{
+	refresh();
+}
 
 static void destroy( GtkWidget *widget, gpointer   data )
 {
@@ -505,18 +517,20 @@ void on_playlist_selector_row_activated( GtkTreeSelection *tree_selection, gpoin
 	GtkTreeModel *model;
 	GtkTreeIter iter;
 
-	assert( gtk_tree_selection_get_selected( tree_selection, &model, &iter ) );
+	if( gtk_tree_selection_get_selected( tree_selection, &model, &iter ) ) {
+		GValue val = G_VALUE_INIT;
+		gtk_tree_model_get_value( model, &iter, PLAYLISTS_COL_INDEX, &val );
+		playlist_index = (int) g_value_get_int( &val );
+		g_value_unset( &val );
 
-	GValue val = G_VALUE_INIT;
-	gtk_tree_model_get_value( model, &iter, PLAYLISTS_COL_INDEX, &val );
-	playlist_index = (int) g_value_get_int( &val );
-	g_value_unset( &val );
-
-	printf("switched to %d\n", playlist_index );
-	set_active_playlist( playlist_index );
+		printf("switched to %d\n", playlist_index );
+		set_active_playlist( playlist_index );
+	} else {
+		printf("failed to get selected playlist\n" );
+	}
 }
 
-void on_row_activated( GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer user_data )
+void save_current_playlist()
 {
 	gboolean ok;
 	GtkTreeIter iter;
@@ -524,7 +538,7 @@ void on_row_activated( GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewCol
 	GtkTreeModel *model;
 	int i;
 
-	model = gtk_tree_view_get_model( tree_view );
+	model = gtk_tree_view_get_model( GTK_TREE_VIEW( global_playlist_widget ) );
 
 	playlist.name = g_string_new( global_playlists.playlists[global_selected_playlist_index].name->str );
 	playlist.num_items = gtk_tree_model_iter_n_children( model, NULL );
@@ -552,12 +566,19 @@ void on_row_activated( GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewCol
 		g_string_free( playlist.items[i].path, TRUE );
 	}
 	free( playlist.items );
+	g_string_free( playlist.name, TRUE );
 	printf("sending done\n");
+}
+
+void on_row_activated( GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer user_data )
+{
+	save_current_playlist();
 
 	assert( gtk_tree_path_get_depth( path ) == 1 );
 	gint selected_track = gtk_tree_path_get_indices( path )[0];
 
-	play_song( music_endpoint, playlist.name->str, (int) selected_track, "immediate" );
+	const char *current_playlist_name = global_playlists.playlists[global_selected_playlist_index].name->str;
+	play_song( music_endpoint, current_playlist_name, (int) selected_track, "immediate" );
 }
 
 //static void my_visitor(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
@@ -663,19 +684,26 @@ static void drag_data_get_from_library (GtkWidget *widget, GdkDragContext *conte
 	}
 }
 
-GtkListStore* create_playlists_store( Playlists *playlists )
+GtkListStore* create_playlists_store( void )
 {
-	int i;
-	GtkTreeIter iter;
-	GtkListStore *store;
-	Track *track = NULL;
-   
 	// artist, album, track, track_num, duration (seconds), show_top_border
-	store = gtk_list_store_new( PLAYLISTS_NUM_COLS,
+	return gtk_list_store_new( PLAYLISTS_NUM_COLS,
 			G_TYPE_STRING, // name of playlist
 			G_TYPE_INT // name of playlist
 			);
 
+}
+
+void update_playlists_store( void )
+{
+	int i;
+	GtkTreeIter iter;
+	GtkListStore *store = global_playlists_list_store;
+	Track *track = NULL;
+	Playlists *playlists = &global_playlists;
+
+	gtk_list_store_clear( store );
+   
 	bool default_found = false;
 	for( i = 0; i < playlists->num_playlists; i++ ) {
 		printf("add %s\n", playlists->playlists[i].name->str);
@@ -690,7 +718,7 @@ GtkListStore* create_playlists_store( Playlists *playlists )
 		}
 	}
 
-	return store;
+	return;
 }
 
 GtkListStore* create_playlist_store( Library *library, Playlist *playlist )
@@ -740,15 +768,20 @@ GtkListStore* create_playlist_store( Library *library, Playlist *playlist )
 	return store;
 }
 
-GtkTreeStore* create_library_store( Library *library )
+GtkTreeStore* create_library_store( void )
+{
+	return gtk_tree_store_new( 2, G_TYPE_STRING, G_TYPE_POINTER );
+}
+
+void update_library_store( Library *library, GtkTreeStore *store )
 {
 	int i, j, k;
-	GtkTreeStore  *store;
 	GtkTreeIter artist_iter, album_iter, track_iter;
 
 	char buf[1024];
 
-	store = gtk_tree_store_new( 2, G_TYPE_STRING, G_TYPE_POINTER );
+	gtk_tree_store_clear( store );
+
 	for( i = 0; i < library->num_artists; i++ ) {
 		gtk_tree_store_append( store, &artist_iter, NULL );
 		gtk_tree_store_set( store, &artist_iter,
@@ -773,7 +806,6 @@ GtkTreeStore* create_library_store( Library *library )
 			}
 		}
 	}
-	return store;
 }
 
 
@@ -951,6 +983,39 @@ Playlist* get_playlist(Playlists *playlists, const char *name)
 	return NULL;
 }
 
+void refresh( void )
+{
+	printf("refreshing\n");
+
+	// update library
+	Library *libraryDetails;
+	int err = fetch_library( music_endpoint, &libraryDetails );
+	if( err != 0 ) {
+		printf("failed to fetch library\n");
+		return;
+	}
+	if( global_library ) free( global_library );
+	global_library = libraryDetails;
+
+	// update library tree store
+	update_library_store( global_library, global_library_tree_store );
+
+
+	// update playlists
+	// TODO memory leak -- need to free prev playlists and gtk models
+	err = fetch_playlists( music_endpoint, &global_playlists );
+	if( err != 0 ) {
+		printf("failed to fetch playlists\n");
+		return;
+	}
+	for( int i = 0; i < global_playlists.num_playlists; i++ ) {
+		global_playlists.playlists[i].list_store = create_playlist_store( libraryDetails, &global_playlists.playlists[i] );
+	}
+	assert( global_playlists.num_playlists > 0 );
+	update_playlists_store();
+
+	assert( set_active_playlist_by_name( "default" ) );
+}
 
 int main(int argc, char *argv[])
 {
@@ -965,34 +1030,31 @@ int main(int argc, char *argv[])
 		music_endpoint = argv[1];
 	}
 
-	Library *libraryDetails;
-	int err = fetch_library( music_endpoint, &libraryDetails );
-	if( err != 0 ) {
-		printf("failed to fetch library\n");
-		return 1;
-	}
-	global_library = libraryDetails;
+	//Library *libraryDetails;
+	//int err = fetch_library( music_endpoint, &libraryDetails );
+	//if( err != 0 ) {
+	//	printf("failed to fetch library\n");
+	//	return 1;
+	//}
+	//global_library = libraryDetails;
 
-	err = fetch_playlists( music_endpoint, &global_playlists );
-	if( err != 0 ) {
-		printf("failed to fetch playlists\n");
-		return 1;
-	}
-	for( int i = 0; i < global_playlists.num_playlists; i++ ) {
-		global_playlists.playlists[i].list_store = create_playlist_store( libraryDetails, &global_playlists.playlists[i] );
-	}
-	assert( global_playlists.num_playlists > 0 );
+	//err = fetch_playlists( music_endpoint, &global_playlists );
+	//if( err != 0 ) {
+	//	printf("failed to fetch playlists\n");
+	//	return 1;
+	//}
+	//for( int i = 0; i < global_playlists.num_playlists; i++ ) {
+	//	global_playlists.playlists[i].list_store = create_playlist_store( libraryDetails, &global_playlists.playlists[i] );
+	//}
+	//assert( global_playlists.num_playlists > 0 );
 
 
-	GtkTreeStore *library_tree_store = create_library_store( libraryDetails );
-	GtkListStore *playlists_list_store = create_playlists_store( &global_playlists );
-	global_playlists_list_store = playlists_list_store;
+	global_library_tree_store = create_library_store();
+	global_playlists_list_store = create_playlists_store();
 
-	global_library_widget = create_library_widget( library_tree_store );
-	global_playlist_widget = create_playlist_widget( library_tree_store );
-	global_playlist_selector_widget = create_playlist_selector_widget( playlists_list_store );
-
-	assert( set_active_playlist_by_name( "default" ) );
+	global_library_widget = create_library_widget( global_library_tree_store );
+	global_playlist_widget = create_playlist_widget( global_library_tree_store );
+	global_playlist_selector_widget = create_playlist_selector_widget( global_playlists_list_store );
 
 	provider = gtk_css_provider_new();
 	gtk_css_provider_load_from_data( provider, css, -1, NULL );
@@ -1042,10 +1104,17 @@ int main(int argc, char *argv[])
 	GtkAccelGroup *accel_group = gtk_accel_group_new ();
 	gtk_accel_group_connect( accel_group, GDK_KEY_n, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( accelerator_new_playlist ), window, 0) );
 	gtk_accel_group_connect( accel_group, GDK_KEY_p, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( accelerator_pause ), window, 0) );
+	gtk_accel_group_connect( accel_group, GDK_KEY_r, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( accelerator_refresh ), window, 0) );
+	gtk_accel_group_connect( accel_group, GDK_KEY_s, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( accelerator_save ), window, 0) );
+	gtk_accel_group_connect( accel_group, GDK_KEY_q, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( destroy ), window, 0) );
+	gtk_accel_group_connect( accel_group, GDK_KEY_w, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( destroy ), window, 0) );
+
     gtk_window_add_accel_group( GTK_WINDOW(window), accel_group );
 
 
 	gtk_widget_show_all (window);
+
+	refresh();
 
 	gtk_main();
 	return 0;
