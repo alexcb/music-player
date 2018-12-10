@@ -15,12 +15,14 @@ Playlists global_playlists;
 GtkWidget *global_library_widget;
 GtkWidget *global_playlist_widget;
 GtkWidget *global_playlist_selector_widget;
+GtkWidget *global_host_selector_widget;
 
 
+GtkListStore *global_host_list_store;
 GtkListStore *global_playlists_list_store;
 GtkTreeStore *global_library_tree_store;
 
-const char *music_endpoint = "http://music";
+GString *music_endpoint = NULL;
 
 static void insert_all_tracks( Library *library, GtkTreeModel *src_model, GtkTreeIter *src_iter, GtkListStore *dst_store, GtkTreeIter *dst_iter, int level);
 GtkListStore* create_playlist_store( Library *library, Playlist *playlist );
@@ -29,6 +31,7 @@ void set_active_playlist( int i );
 bool set_active_playlist_by_name( const char *name );
 void refresh( void );
 void save_current_playlist( void );
+void host_selector_changed( void );
 
 // the playlist
 enum
@@ -152,7 +155,7 @@ void accelerator_new_playlist( gpointer user_data )
 
 void accelerator_pause( gpointer user_data )
 {
-	music_pause( music_endpoint );
+	music_pause( music_endpoint->str );
 }
 
 void accelerator_save( gpointer user_data )
@@ -523,8 +526,9 @@ void on_playlist_selector_row_activated( GtkTreeSelection *tree_selection, gpoin
 		playlist_index = (int) g_value_get_int( &val );
 		g_value_unset( &val );
 
-		printf("switched to %d\n", playlist_index );
+		printf("switched to %d\n", playlist_index);
 		set_active_playlist( playlist_index );
+		printf("done\n");
 	} else {
 		printf("failed to get selected playlist\n" );
 	}
@@ -559,7 +563,7 @@ void save_current_playlist()
 	}
 
 	printf("sending\n");
-	send_playlist( music_endpoint, playlist.name->str, &playlist );
+	send_playlist( music_endpoint->str, playlist.name->str, &playlist );
 
 	// cleanup
 	for( int i = 0; i < playlist.num_items; i++ ) {
@@ -578,7 +582,7 @@ void on_row_activated( GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewCol
 	gint selected_track = gtk_tree_path_get_indices( path )[0];
 
 	const char *current_playlist_name = global_playlists.playlists[global_selected_playlist_index].name->str;
-	play_song( music_endpoint, current_playlist_name, (int) selected_track, "immediate" );
+	play_song( music_endpoint->str, current_playlist_name, (int) selected_track, "immediate" );
 }
 
 //static void my_visitor(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
@@ -588,6 +592,10 @@ void on_row_activated( GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewCol
 void set_active_playlist( int i )
 {
 	global_selected_playlist_index = i;
+	if( global_selected_playlist_index >= global_playlists.num_playlists ) {
+		printf("index overflow\n");
+		global_selected_playlist_index = 0;
+	}
 
 	gtk_tree_view_set_model(
 			GTK_TREE_VIEW( global_playlist_widget ),
@@ -682,6 +690,13 @@ static void drag_data_get_from_library (GtkWidget *widget, GdkDragContext *conte
 	} else {
 		printf("NOT OK!\n");
 	}
+}
+
+GtkListStore* create_hosts_store( void )
+{
+	return gtk_list_store_new( 1,
+			G_TYPE_STRING // hostname
+			);
 }
 
 GtkListStore* create_playlists_store( void )
@@ -989,7 +1004,7 @@ void refresh( void )
 
 	// update library
 	Library *libraryDetails;
-	int err = fetch_library( music_endpoint, &libraryDetails );
+	int err = fetch_library( music_endpoint->str, &libraryDetails );
 	if( err != 0 ) {
 		printf("failed to fetch library\n");
 		return;
@@ -1003,7 +1018,7 @@ void refresh( void )
 
 	// update playlists
 	// TODO memory leak -- need to free prev playlists and gtk models
-	err = fetch_playlists( music_endpoint, &global_playlists );
+	err = fetch_playlists( music_endpoint->str, &global_playlists );
 	if( err != 0 ) {
 		printf("failed to fetch playlists\n");
 		return;
@@ -1017,6 +1032,39 @@ void refresh( void )
 	assert( set_active_playlist_by_name( "default" ) );
 }
 
+void populate_hosts( GtkListStore *store, const char **argv )
+{
+	GtkTreeIter iter;
+	for( ; *argv != NULL; argv++ ) {
+		gtk_list_store_append( store, &iter );
+		gtk_list_store_set( store, &iter,
+			0, *argv,
+			-1);
+	}
+}
+
+void host_selector_changed( void )
+{
+	GtkTreeIter iter;
+	GtkTreeModel *model = gtk_combo_box_get_model( GTK_COMBO_BOX(global_host_selector_widget) );
+	GValue val = G_VALUE_INIT;
+	const char *s;
+
+	if( gtk_combo_box_get_active_iter( GTK_COMBO_BOX(global_host_selector_widget), &iter ) ) {
+		gtk_tree_model_get_value( model, &iter, 0, &val );
+
+		s = (const char*) g_value_get_string( &val );
+		if( music_endpoint != NULL ) {
+			g_string_free( music_endpoint, TRUE );
+		}
+		music_endpoint = g_string_new(s);
+		printf("changed host to %s\n", s);
+		g_value_unset( &val );
+
+	}
+	refresh();
+}
+
 int main(int argc, char *argv[])
 {
 	GtkWidget *window;
@@ -1026,9 +1074,11 @@ int main(int argc, char *argv[])
 
 	gtk_init(&argc, &argv);
 
-	if( argc == 2 ) {
-		music_endpoint = argv[1];
+	if( argc <= 1 ) {
+		printf("No hosts arguments given\n");
+		return 1;
 	}
+	music_endpoint = g_string_new(argv[1]);
 
 	//Library *libraryDetails;
 	//int err = fetch_library( music_endpoint, &libraryDetails );
@@ -1048,23 +1098,41 @@ int main(int argc, char *argv[])
 	//}
 	//assert( global_playlists.num_playlists > 0 );
 
-
-	global_library_tree_store = create_library_store();
-	global_playlists_list_store = create_playlists_store();
-
-	global_library_widget = create_library_widget( global_library_tree_store );
-	global_playlist_widget = create_playlist_widget( global_library_tree_store );
-	global_playlist_selector_widget = create_playlist_selector_widget( global_playlists_list_store );
-
-	provider = gtk_css_provider_new();
-	gtk_css_provider_load_from_data( provider, css, -1, NULL );
-	gtk_style_context_add_provider_for_screen( gdk_screen_get_default(), GTK_STYLE_PROVIDER( provider ), 800 );
-
 	window = gtk_window_new( GTK_WINDOW_TOPLEVEL );
 	gtk_window_set_title( GTK_WINDOW(window), "Music playlist" );
 	gtk_window_set_default_size( GTK_WINDOW(window), 1400, 800 );
 
 	g_signal_connect( window, "destroy", G_CALLBACK( destroy ), NULL );
+
+	GtkWidget *box = gtk_box_new( GTK_ORIENTATION_VERTICAL, 0 );
+	gtk_container_add( GTK_CONTAINER(window), box );
+
+	global_library_tree_store = create_library_store();
+	global_playlists_list_store = create_playlists_store();
+	global_host_list_store = create_hosts_store();
+	populate_hosts( global_host_list_store, (const char**) &argv[1] );
+
+	global_library_widget = create_library_widget( global_library_tree_store );
+	global_playlist_widget = create_playlist_widget( global_library_tree_store );
+	global_playlist_selector_widget = create_playlist_selector_widget( global_playlists_list_store );
+	global_host_selector_widget = gtk_combo_box_new();
+	gtk_combo_box_set_model( GTK_COMBO_BOX(global_host_selector_widget), GTK_TREE_MODEL(global_host_list_store) );
+
+	GtkCellRenderer *renderer = gtk_cell_renderer_text_new ();
+	gtk_cell_layout_pack_start (GTK_CELL_LAYOUT(global_host_selector_widget), renderer, TRUE);
+	gtk_cell_layout_set_attributes( GTK_CELL_LAYOUT(global_host_selector_widget), renderer,
+			"text", 0,
+			NULL);
+
+	gtk_combo_box_set_active (GTK_COMBO_BOX (global_host_selector_widget), 0);
+	g_signal_connect_swapped( global_host_selector_widget,
+			"changed",
+			G_CALLBACK( host_selector_changed ),
+			NULL );
+
+	provider = gtk_css_provider_new();
+	gtk_css_provider_load_from_data( provider, css, -1, NULL );
+	gtk_style_context_add_provider_for_screen( gdk_screen_get_default(), GTK_STYLE_PROVIDER( provider ), 800 );
 
 	sw = gtk_scrolled_window_new (NULL, NULL);
 	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (sw), GTK_SHADOW_ETCHED_IN);
@@ -1099,7 +1167,9 @@ int main(int argc, char *argv[])
 	gtk_container_add( GTK_CONTAINER( sw2 ), global_playlist_widget );
 	gtk_container_add( GTK_CONTAINER( sw3 ), global_playlist_selector_widget );
 
-	gtk_container_add( GTK_CONTAINER(window), paned1 );
+	gtk_box_pack_start( GTK_BOX(box), global_host_selector_widget, FALSE, FALSE, 0);
+	gtk_box_pack_start( GTK_BOX(box), paned1, TRUE, TRUE, 0);
+
 
 	GtkAccelGroup *accel_group = gtk_accel_group_new ();
 	gtk_accel_group_connect( accel_group, GDK_KEY_n, GDK_CONTROL_MASK, 0, g_cclosure_new( G_CALLBACK( accelerator_new_playlist ), window, 0) );
