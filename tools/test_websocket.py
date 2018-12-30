@@ -32,6 +32,8 @@ import websocket
 
 
 ws = websocket.WebSocket()
-ws.connect("ws://localhost/websocket")
+ws.connect("ws://localhost:8080/websocket")
 while 1:
-    print ws.recv()
+    s = ws.recv()
+    print(s)
+    print(len(s))

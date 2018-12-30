@@ -46,6 +46,15 @@ int get_json_object_double( struct json_object *obj, const char *key, double *va
 	return 1;
 }
 
+int get_json_object_bool( struct json_object *obj, const char *key, bool *val ) {
+	struct json_object *value;
+	if( !get_json_object( obj, key, json_type_boolean, &value )) {
+		return 0;
+	}
+	*val = json_object_get_boolean( value );
+	return 1;
+}
+
 GString* get_json_object_string_default( struct json_object *obj, const char *key, const char *default_val ) {
 	struct json_object *value;
 	if( !get_json_object( obj, key, json_type_string, &value )) {

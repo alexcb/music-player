@@ -6,6 +6,9 @@
 #include "custom_renderer.h"
 #include "library_fetcher.h"
 #include "playlist.h"
+#include "web_socket_streamer.h"
+
+WebsocketClient websocket_client;
 
 Library *global_library = NULL;
 
@@ -357,6 +360,16 @@ gboolean playlist_selector_on_key_press( GtkWidget *widget, GdkEventKey *event, 
 	return FALSE;
 }
 
+
+gboolean window_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer user_data )
+{
+	switch( event->keyval )
+	{
+		case GDK_KEY_Tab:
+			return TRUE;
+	}
+	return FALSE;
+}
 
 gboolean playlist_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer user_data )
 {
@@ -964,7 +977,6 @@ GtkWidget* create_playlist_widget( GtkTreeStore *library_tree_store )
 	g_signal_connect( view, "row-activated", G_CALLBACK(on_row_activated), library_tree_store );
 	g_signal_connect( view, "key-press-event", G_CALLBACK(playlist_on_key_press), NULL);
 
-
 	return view;
 }
 
@@ -1000,7 +1012,14 @@ Playlist* get_playlist(Playlists *playlists, const char *name)
 
 void refresh( void )
 {
-	printf("refreshing\n");
+	printf("refreshing %s\n", music_endpoint->str);
+
+	char hostname[1024];
+	int port;
+	if( split_host_port( music_endpoint->str, hostname, &port ) == 0 ) {
+		printf("connecting to %s %d\n", hostname, port);
+		websocket_client_connect( &websocket_client, hostname, port );
+	}
 
 	// update library
 	Library *libraryDetails;
@@ -1065,6 +1084,17 @@ void host_selector_changed( void )
 	refresh();
 }
 
+void playlist_item_changed( bool playing, int item_id )
+{
+	printf("playing=%d item=%d\n", playing, item_id);
+}
+
+typedef struct {
+	const char *host;
+	int port;
+	PlaylistItemChanged callback;
+} WebsocketClientUserData;
+
 int main(int argc, char *argv[])
 {
 	GtkWidget *window;
@@ -1072,12 +1102,17 @@ int main(int argc, char *argv[])
 	GtkWidget *sw, *sw2, *sw3;
 	GtkCssProvider *provider;
 
-	gtk_init(&argc, &argv);
-
 	if( argc <= 1 ) {
 		printf("No hosts arguments given\n");
 		return 1;
 	}
+
+	if( start_stream_websocket_thread( &websocket_client ) ) {
+		return 1;
+	}
+
+	gtk_init(&argc, &argv);
+
 	music_endpoint = g_string_new(argv[1]);
 
 	//Library *libraryDetails;
@@ -1181,6 +1216,8 @@ int main(int argc, char *argv[])
 
     gtk_window_add_accel_group( GTK_WINDOW(window), accel_group );
 
+	g_signal_connect( window, "key-press-event", G_CALLBACK(window_on_key_press), NULL);
+	gtk_widget_grab_focus( global_library_widget );
 
 	gtk_widget_show_all (window);
 
