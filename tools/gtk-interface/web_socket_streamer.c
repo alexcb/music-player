@@ -2,13 +2,14 @@
 #include "json_helpers.h"
 #include "line_reader.h"
 
-#include <libwebsockets.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <json-c/json.h>
 #include <unistd.h>
 #include <assert.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 PlaylistItemChanged global_callback;
 
