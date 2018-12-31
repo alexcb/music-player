@@ -13,7 +13,7 @@
 
 PlaylistItemChanged global_callback;
 
-int print_payload( json_object *obj, bool *playing, int *item_id )
+int decode_json_status( json_object *obj, bool *playing, int *item_id )
 {
 	json_object *js;
 	if( !get_json_object( obj, "type", json_type_string, &js ) ) {
@@ -33,6 +33,25 @@ int print_payload( json_object *obj, bool *playing, int *item_id )
 		return 1;
 	}
 	return 0;
+}
+
+void parseMessage( WebsocketClient *data, const char *buf, size_t len )
+{
+	bool playing;
+	int item_id;
+	struct json_tokener *tok = json_tokener_new();
+	enum json_tokener_error jerr;
+	json_object *root_obj;
+
+	root_obj = json_tokener_parse_ex( tok, buf, len );
+	jerr = json_tokener_get_error(tok);
+	assert( jerr == json_tokener_success );
+
+	if( decode_json_status( root_obj, &playing, &item_id ) == 0 ) {
+		data->callback(	playing, item_id );
+	} else {
+		data->callback(	false, -1 );
+	}
 }
 
 int connect_server( WebsocketClient *data )
@@ -89,12 +108,6 @@ void* cb( void *user )
 	bool looking_for_upgrade = true;
 	int num_new_lines = 0;
 	char buf[1024];
-
-	struct json_tokener *tok = json_tokener_new();
-	enum json_tokener_error jerr;
-	json_object *root_obj;
-	bool playing;
-	int item_id;
 
 	size_t n;
 
@@ -223,6 +236,7 @@ void* cb( void *user )
 					assert( 0 );
 				}
 				printf("handle %.*s \n", (int)message_size, buf);
+				parseMessage( data, buf, message_size );
 				state = MESSAGE_FRAME_A_STATE;
 				break;
 
@@ -236,10 +250,11 @@ wait_for_more:
 	return NULL;
 }
 
-int start_stream_websocket_thread( WebsocketClient *data )
+int start_stream_websocket_thread( WebsocketClient *data, PlaylistItemChanged callback )
 {
 	memset(data, 0, sizeof(WebsocketClient));
 	data->socket = -1;
+	data->callback = callback;
 	pipe( data->wakeup_fd ); // read, write
 	if( pthread_mutex_init( &(data->lock), NULL ) != 0 ) {
 		return 1;

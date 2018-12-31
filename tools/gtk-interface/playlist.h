@@ -9,6 +9,7 @@ typedef struct playlist_item {
 	GString *artist;
 	GString *album;
 	GString *track;
+	int item_id;
 } PlaylistItem;
 
 typedef struct playlist {
@@ -32,6 +33,8 @@ int send_playlist( const char *endpoint, const char *playlist_name, const Playli
 int play_song( const char *endpoint, const char *playlist_name, int track_index, const char *when );
 
 int music_pause( const char *endpoint );
+
+const PlaylistItem* get_playlist_item_by_id( const Playlists *playlists, int item_id );
 
 #endif // _PLAYLIST_H_
 

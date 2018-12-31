@@ -19,6 +19,7 @@ GtkWidget *global_library_widget;
 GtkWidget *global_playlist_widget;
 GtkWidget *global_playlist_selector_widget;
 GtkWidget *global_host_selector_widget;
+GtkWidget *global_label_status;
 
 
 GtkListStore *global_host_list_store;
@@ -1084,16 +1085,24 @@ void host_selector_changed( void )
 	refresh();
 }
 
+const char* playing_text[] = { "Paused", "Playing" };
 void playlist_item_changed( bool playing, int item_id )
 {
-	printf("playing=%d item=%d\n", playing, item_id);
-}
+	char buf[1024];
+	if( item_id < 0 ) {
+		gtk_label_set_text( GTK_LABEL(global_label_status), "unknown state" );
+		return;
+	}
 
-typedef struct {
-	const char *host;
-	int port;
-	PlaylistItemChanged callback;
-} WebsocketClientUserData;
+	const PlaylistItem *item = get_playlist_item_by_id( &global_playlists, item_id );
+	if( item ) {
+		sprintf( buf, "%s %s", playing_text[(int)playing], item->path->str );
+		gtk_label_set_text( GTK_LABEL(global_label_status), buf );
+	} else {
+		sprintf( buf, "%s %d", playing_text[(int)playing], item_id );
+	}
+	gtk_label_set_text( GTK_LABEL(global_label_status), buf );
+}
 
 int main(int argc, char *argv[])
 {
@@ -1107,7 +1116,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if( start_stream_websocket_thread( &websocket_client ) ) {
+	if( start_stream_websocket_thread( &websocket_client, playlist_item_changed ) ) {
 		return 1;
 	}
 
@@ -1153,8 +1162,10 @@ int main(int argc, char *argv[])
 	global_host_selector_widget = gtk_combo_box_new();
 	gtk_combo_box_set_model( GTK_COMBO_BOX(global_host_selector_widget), GTK_TREE_MODEL(global_host_list_store) );
 
+	global_label_status = gtk_label_new("hello");
+
 	GtkCellRenderer *renderer = gtk_cell_renderer_text_new ();
-	gtk_cell_layout_pack_start (GTK_CELL_LAYOUT(global_host_selector_widget), renderer, TRUE);
+	gtk_cell_layout_pack_start( GTK_CELL_LAYOUT(global_host_selector_widget), renderer, TRUE );
 	gtk_cell_layout_set_attributes( GTK_CELL_LAYOUT(global_host_selector_widget), renderer,
 			"text", 0,
 			NULL);
@@ -1203,6 +1214,7 @@ int main(int argc, char *argv[])
 	gtk_container_add( GTK_CONTAINER( sw3 ), global_playlist_selector_widget );
 
 	gtk_box_pack_start( GTK_BOX(box), global_host_selector_widget, FALSE, FALSE, 0);
+	gtk_box_pack_start( GTK_BOX(box), global_label_status, FALSE, FALSE, 0);
 	gtk_box_pack_start( GTK_BOX(box), paned1, TRUE, TRUE, 0);
 
 

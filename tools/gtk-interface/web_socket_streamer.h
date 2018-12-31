@@ -19,7 +19,7 @@ typedef struct {
 	int socket;
 } WebsocketClient;
 
-int start_stream_websocket_thread( WebsocketClient *data );
+int start_stream_websocket_thread( WebsocketClient *data, PlaylistItemChanged callback );
 
 void websocket_client_connect( WebsocketClient *data, const char *hostname, int port );
 

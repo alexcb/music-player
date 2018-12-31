@@ -28,6 +28,7 @@ int add_playlist( const char *name, Playlists *playlists )
 
 void parse_playlists( const char *s, Playlists *playlists )
 {
+	int item_id;
 	GString *path;
 	json_object *playlists_obj, *root_obj, *playlist_obj, *items_obj, *playlist_item_obj;
 	root_obj = json_tokener_parse( s );
@@ -49,7 +50,13 @@ void parse_playlists( const char *s, Playlists *playlists )
 			playlists->playlists[i].num_items = num_items;
 			for( int j = 0; j < num_items; j++ ) {
 				playlist_item_obj = json_object_array_get_idx( items_obj, j );
-				printf("got %s\n", json_object_get_string(playlist_item_obj));
+				//printf("got %s\n", json_object_get_string(playlist_item_obj));
+				if( get_json_object_int(playlist_item_obj, "id", &item_id) ) {
+					playlists->playlists[i].items[j].item_id = item_id;
+				} else {
+					assert(0);
+				}
+
 				if( get_json_object_string(playlist_item_obj, "path", &path) ) {
 					playlists->playlists[i].items[j].path = path;
 				} else if( get_json_object_string(playlist_item_obj, "stream", &path) ) {
@@ -238,3 +245,15 @@ int music_pause( const char *endpoint )
 	return res;
 }
 
+const PlaylistItem* get_playlist_item_by_id( const Playlists *playlists, int item_id )
+{
+	for( int i = 0; i < playlists->num_playlists; i++ ) {
+		for( int j = 0; j < playlists->playlists[i].num_items; j++ ) {
+			printf("%d vs %d\n", playlists->playlists[i].items[j].item_id, item_id );
+			if( playlists->playlists[i].items[j].item_id == item_id ) {
+				return &(playlists->playlists[i].items[j]);
+			}
+		}
+	}
+	return NULL;
+}
