@@ -396,6 +396,7 @@ gboolean playlist_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer 
 
 gboolean library_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer user_data )
 {
+	gboolean ok;
 	GtkTreeModel *model;
 	GtkTreeIter iter;
 	GtkTreePath *path;
@@ -415,7 +416,21 @@ gboolean library_on_key_press( GtkWidget *widget, GdkEventKey *event, gpointer u
 			return TRUE;
 		case GDK_KEY_space:
 			if( gtk_tree_selection_get_selected( gtk_tree_view_get_selection( GTK_TREE_VIEW(widget) ), &model, &iter ) ) {
-				insert_all_tracks( global_library, model, &iter, global_playlists.playlists[global_selected_playlist_index].list_store, NULL, 0 );
+
+				GtkTreeIter insert_iter;
+				GtkTreeIter iter_tmp;
+				GtkTreeModel *playlist_model = gtk_tree_view_get_model( GTK_TREE_VIEW(global_playlist_widget) );
+
+				ok = false;
+				if( gtk_tree_model_get_iter_first( playlist_model, &insert_iter ) ) {
+					iter_tmp = insert_iter;
+					while( gtk_tree_model_iter_next( playlist_model, &iter_tmp ) ) {
+						insert_iter = iter_tmp;
+					}
+					ok = true;
+				}
+
+				insert_all_tracks( global_library, model, &iter, global_playlists.playlists[global_selected_playlist_index].list_store, ok ? &insert_iter : NULL, 0 );
 			}
 			return TRUE;
 		case GDK_KEY_Right:
@@ -491,7 +506,7 @@ static void drag_data_received( GtkWidget *widget, GdkDragContext *context, int 
 		const gchar *path_str = (const gchar*) gtk_selection_data_get_data_with_length( sel, &len );
 		assert( gtk_tree_model_get_iter_from_string( GTK_TREE_MODEL( library_tree_store ), &library_iter, path_str ) );
 
-		printf("inserting at %p\n", iter_ptr);
+		printf("inserting at %p %d\n", iter_ptr, ok);
 		insert_all_tracks( global_library, GTK_TREE_MODEL( library_tree_store ), &library_iter, GTK_LIST_STORE(model), iter_ptr, 0 );
 
 		//gint len;

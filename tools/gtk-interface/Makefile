@@ -14,5 +14,8 @@ hello: $(OBJ)
 %.o: %.c
 	$(CC) -c $(CCFLAGS) $< -o $@
 
+install: hello
+	cp hello /home/alex/music-ui
+
 clean:
 	rm -f hello $(OBJ)
