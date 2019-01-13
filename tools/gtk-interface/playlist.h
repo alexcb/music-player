@@ -34,7 +34,7 @@ int play_song( const char *endpoint, const char *playlist_name, int track_index,
 
 int music_pause( const char *endpoint );
 
-const PlaylistItem* get_playlist_item_by_id( const Playlists *playlists, int item_id );
+const PlaylistItem* get_playlist_item_by_id( const Playlists *playlists, int *playlist_index, int item_id );
 
 #endif // _PLAYLIST_H_
 

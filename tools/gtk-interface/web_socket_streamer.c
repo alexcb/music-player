@@ -48,9 +48,16 @@ void parseMessage( WebsocketClient *data, const char *buf, size_t len )
 	assert( jerr == json_tokener_success );
 
 	if( decode_json_status( root_obj, &playing, &item_id ) == 0 ) {
-		data->callback(	playing, item_id );
+		PlayerStatus *status = (PlayerStatus*) malloc( sizeof(PlayerStatus) );
+		memset( status, 0, sizeof(PlayerStatus) );
+
+		status->playing = playing;
+		status->item_id = item_id;
+
+		// the callback is responsible for calling free( status )
+		data->callback(	status );
 	} else {
-		data->callback(	false, -1 );
+		printf("failed to decode json status\n");
 	}
 }
 
@@ -184,7 +191,7 @@ void* cb( void *user )
 				} else if( res != BUFFERED_STREAM_OK ) {
 					assert( 0 );
 				}
-				printf("got %x\n", ((uint8_t*)buf)[0]);
+				//printf("got %x\n", ((uint8_t*)buf)[0]);
 				printf("got %x\n", ((uint8_t*)buf)[1]);
 				assert( (uint8_t)buf[0] == 0x81 );
 				switch( buf[1] ) {
@@ -204,7 +211,7 @@ void* cb( void *user )
 
 			case MESSAGE_FRAME_B_STATE:
 
-				printf("expecting %d sized header message\n", message_header_size);
+				//printf("expecting %d sized header message\n", message_header_size);
 				res = read_bytes( &buffered_stream, message_header_size, buf );
 				if( res == BUFFERED_STREAM_EAGAIN ) {
 					goto wait_for_more;
@@ -228,7 +235,7 @@ void* cb( void *user )
 				// fall through
 
 			case MESSAGE_STATE:
-				printf("expecting %d sized message\n", message_size);
+				//printf("expecting %d sized message\n", message_size);
 				res = read_bytes( &buffered_stream, message_size, buf );
 				if( res == BUFFERED_STREAM_EAGAIN ) {
 					goto wait_for_more;

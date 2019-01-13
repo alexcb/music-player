@@ -51,7 +51,7 @@ int parse_library( const char *s, Library **library )
 		artist_obj = json_object_array_get_idx( json_artists, i );
 
 		artist->artist = get_json_object_string_default( artist_obj, "artist", "unknown artist" );
-		printf("adding artist %d %s\n", i, artist->artist->str);
+		//printf("adding artist %d %s\n", i, artist->artist->str);
 
 		assert( json_object_object_get_ex(artist_obj, "albums", &albums) );
 
@@ -63,7 +63,7 @@ int parse_library( const char *s, Library **library )
 
 			artist->albums[j].title = get_json_object_string_default( album_obj, "album", "unknown album" );
 			artist->albums[j].year = get_json_object_int_default( album_obj, "year", 0 );
-			printf("adding album %d.%d %s\n", i, j, artist->albums[j].title->str );
+			//printf("adding album %d.%d %s\n", i, j, artist->albums[j].title->str );
 
 			assert( get_json_object( album_obj, "tracks", json_type_array, &tracks_obj ) );
 
@@ -84,7 +84,7 @@ int parse_library( const char *s, Library **library )
 				tracks[k].title = title;
 				tracks[k].path = path;
 
-				printf("adding track %d.%d.%d artist=%s album=%s track=%s path=%s\n", i, j, k, artist->artist->str, tracks[k].album->title->str, tracks[k].title->str, path->str );
+				//printf("adding track %d.%d.%d artist=%s album=%s track=%s path=%s\n", i, j, k, artist->artist->str, tracks[k].album->title->str, tracks[k].title->str, path->str );
 
 				g_hash_table_insert( (**library).path_lookup, path->str, &tracks[k] );
 			}
@@ -92,6 +92,8 @@ int parse_library( const char *s, Library **library )
 			artist->albums[j].artist = artist;
 		}
 	}
+
+	printf("sorting\n");
 	
 	// CAREFUL! once this gets sorted, the album->artist pointers have to be fixed, otherwise they will point to the incorrect artist.
 	qsort((**library).artists, (**library).num_artists, sizeof(Artist), compare_artist);
@@ -147,7 +149,7 @@ int fetch_library( const char *endpoint, Library **library )
 
 int library_lookup_by_path( Library *library, const char *path, Track **track )
 {
-	printf("looking up %s\n", path);
+	//printf("looking up %s\n", path);
 	gpointer p = g_hash_table_lookup( library->path_lookup, path );
 	if( p == NULL ) {
 		return 1;

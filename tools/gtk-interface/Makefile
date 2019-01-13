@@ -17,5 +17,8 @@ hello: $(OBJ)
 install: hello
 	cp hello /home/alex/music-ui
 
+run: hello
+	gdb -ex=r --args hello localhost:8080 music:80
+
 clean:
 	rm -f hello $(OBJ)

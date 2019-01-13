@@ -4,7 +4,14 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-typedef void (*PlaylistItemChanged)( bool playing, int item_id );
+typedef struct {
+	int item_id;
+	bool playing;
+	char info[1024];
+} PlayerStatus;
+
+// Note, the caller is responsible for calling free(status) once done
+typedef void (*PlaylistItemChanged)( PlayerStatus *status );
 
 typedef struct {
 	char hostname[1024];

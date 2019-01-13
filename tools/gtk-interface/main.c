@@ -11,8 +11,6 @@
 WebsocketClient websocket_client;
 
 Library *global_library = NULL;
-
-int global_selected_playlist_index = 0;
 Playlists global_playlists;
 
 GtkWidget *global_library_widget;
@@ -27,15 +25,24 @@ GtkListStore *global_playlists_list_store;
 GtkTreeStore *global_library_tree_store;
 
 GString *music_endpoint = NULL;
+int status_playlist_item = -1;
+bool status_playing = false;
+int global_selected_playlist_index = 0;
+bool has_user_changed_anything = false;
 
 static void insert_all_tracks( Library *library, GtkTreeModel *src_model, GtkTreeIter *src_iter, GtkListStore *dst_store, GtkTreeIter *dst_iter, int level);
 GtkListStore* create_playlist_store( Library *library, Playlist *playlist );
 
 void set_active_playlist( int i );
 bool set_active_playlist_by_name( const char *name );
-void refresh( void );
 void save_current_playlist( void );
 void host_selector_changed( void );
+void trigger_playlist_refresh();
+
+int update_currently_playing_status();
+
+int handled_updated_playing_status( gpointer user_data );
+int handled_updated_playlist( gpointer user_data );
 
 // the playlist
 enum
@@ -169,7 +176,8 @@ void accelerator_save( gpointer user_data )
 
 void accelerator_refresh( gpointer user_data )
 {
-	refresh();
+	printf("trigger_playlist_refresh triggered by ctrl-r\n");
+	trigger_playlist_refresh();
 }
 
 static void destroy( GtkWidget *widget, gpointer   data )
@@ -549,6 +557,8 @@ void on_playlist_selector_row_activated( GtkTreeSelection *tree_selection, gpoin
 	GtkTreeModel *model;
 	GtkTreeIter iter;
 
+	has_user_changed_anything = true;
+
 	if( gtk_tree_selection_get_selected( tree_selection, &model, &iter ) ) {
 		GValue val = G_VALUE_INIT;
 		gtk_tree_model_get_value( model, &iter, PLAYLISTS_COL_INDEX, &val );
@@ -630,6 +640,10 @@ void set_active_playlist( int i )
 			GTK_TREE_VIEW( global_playlist_widget ),
 			GTK_TREE_MODEL( global_playlists.playlists[global_selected_playlist_index].list_store )
 			);
+
+	GtkTreePath *path = gtk_tree_path_new_from_indices( global_selected_playlist_index, -1 );
+	gtk_tree_view_set_cursor( GTK_TREE_VIEW( global_playlist_selector_widget ), path, NULL, FALSE );
+	gtk_tree_path_free( path );
 }
 
 bool set_active_playlist_by_name( const char *name )
@@ -1026,45 +1040,103 @@ Playlist* get_playlist(Playlists *playlists, const char *name)
 	return NULL;
 }
 
-void refresh( void )
+int handled_updated_playlist( gpointer user_data )
 {
-	printf("refreshing %s\n", music_endpoint->str);
+	printf("refreshing widgets with updated library and playlists\n");
 
-	char hostname[1024];
-	int port;
-	if( split_host_port( music_endpoint->str, hostname, &port ) == 0 ) {
-		printf("connecting to %s %d\n", hostname, port);
-		websocket_client_connect( &websocket_client, hostname, port );
-	}
+	int bkup = global_selected_playlist_index;
+	printf("before %d\n", bkup);
 
+	update_library_store( global_library, global_library_tree_store );
+	update_playlists_store();
+
+	update_currently_playing_status();
+	set_active_playlist(bkup);
+
+	return 0;
+}
+
+gpointer fetch_playlist_in_worker_thread( gpointer user_data )
+{
 	// update library
 	Library *libraryDetails;
 	int err = fetch_library( music_endpoint->str, &libraryDetails );
 	if( err != 0 ) {
 		printf("failed to fetch library\n");
-		return;
+		return NULL;
 	}
 	if( global_library ) free( global_library );
 	global_library = libraryDetails;
 
-	// update library tree store
-	update_library_store( global_library, global_library_tree_store );
-
-
 	// update playlists
-	// TODO memory leak -- need to free prev playlists and gtk models
 	err = fetch_playlists( music_endpoint->str, &global_playlists );
 	if( err != 0 ) {
 		printf("failed to fetch playlists\n");
-		return;
+		return NULL;
 	}
 	for( int i = 0; i < global_playlists.num_playlists; i++ ) {
 		global_playlists.playlists[i].list_store = create_playlist_store( libraryDetails, &global_playlists.playlists[i] );
 	}
 	assert( global_playlists.num_playlists > 0 );
-	update_playlists_store();
 
-	assert( set_active_playlist_by_name( "default" ) );
+	// trigger a rebuild of the widgets (in the main gtk thread)
+	gdk_threads_add_idle( handled_updated_playlist, NULL );
+	return NULL;
+}
+
+void trigger_playlist_refresh()
+{
+	// TODO this should be done in a thread; but the code is currently aweful and not thread-safe
+	//g_thread_new( "thread", fetch_playlist_in_worker_thread, NULL );
+
+	// FIXME this should be done in a thread once the program is thread-safe
+	fetch_playlist_in_worker_thread( NULL );
+}
+
+const char* playing_text[] = { "Paused", "Playing" };
+int update_currently_playing_status()
+{
+	int playlist_index = -1;
+	int res = 0;
+	char buf[1024];
+	const PlaylistItem *item = get_playlist_item_by_id( &global_playlists, &playlist_index, status_playlist_item );
+	if( item ) {
+		sprintf( buf, "%s %s", playing_text[(int)status_playing], item->path->str );
+		gtk_label_set_text( GTK_LABEL(global_label_status), buf );
+		if( !has_user_changed_anything ) {
+			// only jump here initially
+			set_active_playlist( playlist_index );
+		}
+	} else {
+		sprintf( buf, "%s %d", playing_text[(int)status_playing], status_playlist_item );
+		res = 1;
+	}
+	gtk_label_set_text( GTK_LABEL(global_label_status), buf );
+	return res;
+}
+
+int handled_updated_playing_status( gpointer user_data )
+{
+	if( user_data == NULL ) {
+		printf("bad data sent to handled_updated_playing_status\n");
+		return 0;
+	}
+
+	PlayerStatus *status = (PlayerStatus*) user_data;
+	printf("playing status has been updated; playing=%d item=%d info=%s\n", status->playing, status->item_id, status->info);
+
+	status_playlist_item = status->item_id;
+	status_playing = status->playing;
+
+	free( user_data );
+
+	if( update_currently_playing_status() != 0 ) {
+		// item_id was not found
+		printf("update_currently_playing_status couldnt find item_id, so refreshing\n");
+		trigger_playlist_refresh();
+	}
+
+	return 0;
 }
 
 void populate_hosts( GtkListStore *store, const char **argv )
@@ -1096,27 +1168,21 @@ void host_selector_changed( void )
 		printf("changed host to %s\n", s);
 		g_value_unset( &val );
 
+		// clear current status
+		status_playlist_item = -1;
+		status_playing = false;
+		global_selected_playlist_index = 0;
+
 	}
-	refresh();
+	
+	printf(" TODO need to refresh everything now\n");
+	//refresh();
 }
 
-const char* playing_text[] = { "Paused", "Playing" };
-void playlist_item_changed( bool playing, int item_id )
+void on_status_update_in_worker_thread( PlayerStatus *status )
 {
-	char buf[1024];
-	if( item_id < 0 ) {
-		gtk_label_set_text( GTK_LABEL(global_label_status), "unknown state" );
-		return;
-	}
-
-	const PlaylistItem *item = get_playlist_item_by_id( &global_playlists, item_id );
-	if( item ) {
-		sprintf( buf, "%s %s", playing_text[(int)playing], item->path->str );
-		gtk_label_set_text( GTK_LABEL(global_label_status), buf );
-	} else {
-		sprintf( buf, "%s %d", playing_text[(int)playing], item_id );
-	}
-	gtk_label_set_text( GTK_LABEL(global_label_status), buf );
+	// schedule call in main gtk thread
+	gdk_threads_add_idle( handled_updated_playing_status, status );
 }
 
 int main(int argc, char *argv[])
@@ -1131,11 +1197,17 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if( start_stream_websocket_thread( &websocket_client, playlist_item_changed ) ) {
+	gtk_init(&argc, &argv);
+
+	if( start_stream_websocket_thread( &websocket_client, on_status_update_in_worker_thread ) ) {
 		return 1;
 	}
-
-	gtk_init(&argc, &argv);
+	char hostname[1024];
+	int port;
+	if( split_host_port( argv[1], hostname, &port ) == 0 ) {
+		printf("connecting to %s %d\n", hostname, port);
+		websocket_client_connect( &websocket_client, hostname, port );
+	}
 
 	music_endpoint = g_string_new(argv[1]);
 
@@ -1248,7 +1320,16 @@ int main(int argc, char *argv[])
 
 	gtk_widget_show_all (window);
 
-	refresh();
+	printf("trigger_playlist_refresh triggered by main loop\n");
+	trigger_playlist_refresh();
+
+	// TODO re-enable the websocket client 
+	//char hostname[1024];
+	//int port;
+	//if( split_host_port( music_endpoint->str, hostname, &port ) == 0 ) {
+	//	printf("connecting to %s %d\n", hostname, port);
+	//	websocket_client_connect( &websocket_client, hostname, port );
+	//}
 
 	gtk_main();
 	return 0;

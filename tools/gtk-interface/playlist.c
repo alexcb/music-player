@@ -245,12 +245,13 @@ int music_pause( const char *endpoint )
 	return res;
 }
 
-const PlaylistItem* get_playlist_item_by_id( const Playlists *playlists, int item_id )
+const PlaylistItem* get_playlist_item_by_id( const Playlists *playlists, int *playlist_index, int item_id )
 {
 	for( int i = 0; i < playlists->num_playlists; i++ ) {
 		for( int j = 0; j < playlists->playlists[i].num_items; j++ ) {
-			printf("%d vs %d\n", playlists->playlists[i].items[j].item_id, item_id );
+			//printf("%d vs %d\n", playlists->playlists[i].items[j].item_id, item_id );
 			if( playlists->playlists[i].items[j].item_id == item_id ) {
+				*playlist_index = i;
 				return &(playlists->playlists[i].items[j]);
 			}
 		}
