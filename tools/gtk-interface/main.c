@@ -1175,8 +1175,7 @@ void host_selector_changed( void )
 
 	}
 	
-	printf(" TODO need to refresh everything now\n");
-	//refresh();
+	trigger_playlist_refresh();
 }
 
 void on_status_update_in_worker_thread( PlayerStatus *status )
