@@ -71,6 +71,7 @@ configured to use alsa
 # list all drivers
 sudo aplay -l
 
+raspberrypi uses alsa; desktop uses pulse
  
 alex@raspberrypi:~ $ sudo amixer
 Simple mixer control 'PCM',0
@@ -81,3 +82,6 @@ Simple mixer control 'PCM',0
 
 # next time it locks up, see if aplay still works:
 sudo aplay Left-Right\ Channel\ Audio\ Test.mp3
+
+notes from 2019-jan
+sudo amixer cset numid=3 1
