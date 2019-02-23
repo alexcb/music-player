@@ -85,8 +85,9 @@ int playlist_manager_load( PlaylistManager *manager )
 	while( getline( &line, &len, fp ) != -1 ) {
 		trim_suffix_newline( line );
 		LOG_DEBUG("line=s got line", line);
-		if( !line[0] )
+		if( !line[0] ) {
 			continue;
+		}
 		if( line[0] == ' ' && playlist ) {
 			if( has_prefix( &line[1], "http://" ) ) {
 				track = NULL;
@@ -115,8 +116,8 @@ int playlist_manager_load( PlaylistManager *manager )
 				last->next = item;
 			}
 			last = item;
-		}
-		else if( line[0] != ' ' ) {
+		} else if( line[0] != ' ' ) {
+			// new playlist
 			if( root != NULL ) {
 				playlist_update( playlist, root );
 				root = NULL;

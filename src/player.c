@@ -249,6 +249,7 @@ int player_change_next_playlist( Player *player, int when )
 	for(;;) {
 		assert( pl->next );
 		pl = pl->next;
+		LOG_DEBUG("playlist=s root=p playlist", pl->name, pl->root);
 		if( pl->root ) {
 			break;
 		}
