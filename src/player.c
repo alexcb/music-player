@@ -235,33 +235,39 @@ int player_change_next_playlist( Player *player, int when )
 
 	if( player->current_track != NULL ) {
 		pl = player->current_track->parent;
-		assert( pl );
-		initial_playlist = pl;
-		for(;;) {
-			assert( pl->next );
-			pl = pl->next;
-			if( pl->root ) {
-				break;
-			}
-			if( pl == initial_playlist ) {
-				break;
-			}
-		}
-		if( pl->current ) {
-			p = pl->current;
-		} else {
-			p = pl->root;
-		}
-		if( p != NULL ) {
-			LOG_WARN("unable to change playlist");
-			res = 1;
+	} else {
+		LOG_WARN("no current track; setting default playlist as active playlist");
+		res = playlist_manager_get_playlist( player->playlist_manager, "default", &pl );
+		if( res ) {
+			LOG_ERROR("no default playlist");
 			goto error;
 		}
-
-		res = player_change_track_unsafe( player, p, when );
-	} else {
-		LOG_WARN("unable to change playlist: no current track");
 	}
+	assert( pl );
+	initial_playlist = pl;
+
+	for(;;) {
+		assert( pl->next );
+		pl = pl->next;
+		if( pl->root ) {
+			break;
+		}
+		if( pl == initial_playlist ) {
+			break;
+		}
+	}
+	if( pl->current ) {
+		p = pl->current;
+	} else {
+		p = pl->root;
+	}
+	if( p != NULL ) {
+		LOG_WARN("unable to change playlist");
+		res = 1;
+		goto error;
+	}
+
+	res = player_change_track_unsafe( player, p, when );
 
 error:
 	pthread_mutex_unlock( &player->the_lock );
