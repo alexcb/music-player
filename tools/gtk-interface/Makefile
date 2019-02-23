@@ -20,5 +20,8 @@ install: hello
 run: hello
 	gdb -ex=r --args hello localhost:8080 music:80
 
+stub: hello
+	gdb -ex=r --args hello localhost:8090 localhost:8091
+
 clean:
 	rm -f hello $(OBJ)

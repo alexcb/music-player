@@ -228,25 +228,42 @@ int player_change_next_playlist( Player *player, int when )
 {
 	int res = 1;
 	Playlist *pl;
+	Playlist *initial_playlist;
 	PlaylistItem *p;
 
 	pthread_mutex_lock( &player->the_lock );
 
 	if( player->current_track != NULL ) {
 		pl = player->current_track->parent;
-		if( pl->next ) {
+		assert( pl );
+		initial_playlist = pl;
+		for(;;) {
+			assert( pl->next );
 			pl = pl->next;
+			if( pl->root ) {
+				break;
+			}
+			if( pl == initial_playlist ) {
+				break;
+			}
 		}
 		if( pl->current ) {
 			p = pl->current;
 		} else {
 			p = pl->root;
 		}
-		assert( p );
+		if( p != NULL ) {
+			LOG_WARN("unable to change playlist");
+			res = 1;
+			goto error;
+		}
 
 		res = player_change_track_unsafe( player, p, when );
+	} else {
+		LOG_WARN("unable to change playlist: no current track");
 	}
 
+error:
 	pthread_mutex_unlock( &player->the_lock );
 	return res;
 }
