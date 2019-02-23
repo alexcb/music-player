@@ -262,7 +262,7 @@ int player_change_next_playlist( Player *player, int when )
 	} else {
 		p = pl->root;
 	}
-	if( p != NULL ) {
+	if( p == NULL ) {
 		LOG_WARN("unable to change playlist");
 		res = 1;
 		goto error;
