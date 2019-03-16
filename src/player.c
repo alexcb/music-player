@@ -25,6 +25,8 @@ int init_player( Player *player, const char *library_path )
 {
 	int res;
 
+	memset( player, 0, sizeof(Player) );
+
 	// controls for the loader
 	player->load_item = &player_load_into_buffer;
 	player->load_in_progress = false;
