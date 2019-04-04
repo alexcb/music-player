@@ -1,3 +1,4 @@
 to compile:
 
-gcc -g `pkg-config --cflags gtk+-3.0` main.c custom_renderer.c library_fetcher.c json_helpers.c playlist.c -o hello `pkg-config --libs gtk+-3.0 libcurl json-c` && ./hello http://localhost:8080
+apt-get install libgtk-3-dev libcurl4-openssl-dev
+make
