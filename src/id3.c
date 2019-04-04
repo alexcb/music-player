@@ -11,10 +11,16 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <sys/stat.h>
+#include <byteswap.h>
 
 #include <mpg123.h>
 
-
+int is_little_endian()
+{
+	int i = 1;
+	char* p = (char*)&i;
+	return p[0] == 1;
+}
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(ID3CacheItem, left, right, color_field, ID3CACHE_CMPARATOR)
 
@@ -114,18 +120,9 @@ error:
 	return res;
 }
 
-int read_long( FILE *fp, long *x )
-{
-	int res;
-	res = fread( x, sizeof(long), 1, fp );
-	if( res != 1 ) {
-		return 1;
-	}
-	return 0;
-}
-
 int read_float( FILE *fp, float *x )
 {
+	assert(sizeof(float) == 4 );
 	int res;
 	res = fread( x, sizeof(float), 1, fp );
 	if( res != 1 ) {
@@ -141,20 +138,20 @@ int read_uint32( FILE *fp, uint32_t *x )
 	if( res != 1 ) {
 		return 1;
 	}
+
+	if( !is_little_endian() ) {
+		bswap_32( *x );
+	}
+
 	return 0;
 }
 
 int read_str( FILE *fp, sds *s )
 {
 	int res;
-	int n;
-	res = fread( &n, sizeof(int), 1, fp );
-	if( res != 1 ) {
-		return 1;
-	}
-	if( n < 0 ) {
-		assert( false );
-		*s = NULL;
+	uint32_t n;
+	res = read_uint32( fp, &n );
+	if( res != 0 ) {
 		return 1;
 	}
 	*s = sdsnewlen( fp, n+1 );
@@ -195,7 +192,7 @@ int id3_cache_load( ID3Cache *cache )
 		}
 
 		//LOG_INFO( "path=s loading cached entry", item->path );
-		res = read_long(   fp, &item->mod_time ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
+		res = read_uint32(   fp, &item->mod_time ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str(    fp, &item->album    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str(    fp, &item->artist   ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
 		res = read_str(    fp, &item->title    ); if( res ) { LOG_ERROR( "unable to read complete record" ); break; }
@@ -270,21 +267,6 @@ int id3_cache_get( ID3Cache *cache, const char *library_path, const char *path, 
 	return 0;
 }
 
-void write_str( FILE *fp, const char *s )
-{
-	int n;
-	n = strlen( s );
-	fwrite( &n, sizeof(int), 1, fp );
-	if( n > 0 ) {
-		fwrite( s, 1, n, fp );
-	}
-}
-
-void write_long( FILE *fp, long x )
-{
-	fwrite( &x, sizeof(long), 1, fp );
-}
-
 void write_float( FILE *fp, float x )
 {
 	fwrite( &x, sizeof(float), 1, fp );
@@ -292,7 +274,20 @@ void write_float( FILE *fp, float x )
 
 void write_uint32( FILE *fp, uint32_t x )
 {
+	if( !is_little_endian() ) {
+		bswap_32( x );
+	}
 	fwrite( &x, sizeof(uint32_t), 1, fp );
+}
+
+void write_str( FILE *fp, const char *s )
+{
+	int n;
+	n = strlen( s );
+	write_uint32( fp, (uint32_t) n );
+	if( n > 0 ) {
+		fwrite( s, 1, n, fp );
+	}
 }
 
 int id3_cache_save( ID3Cache *cache )
@@ -310,7 +305,7 @@ int id3_cache_save( ID3Cache *cache )
 	ID3CacheItem *te;
 	for( te=sglib_ID3CacheItem_it_init_inorder(&it, cache->root); te!=NULL; te=sglib_ID3CacheItem_it_next(&it) ) {
 		write_str( fp, te->path );
-		fwrite( &(te->mod_time), sizeof(long), 1, fp );
+		write_uint32( fp, te->mod_time );
 		write_str( fp, te->album );
 		write_str( fp, te->artist );
 		write_str( fp, te->title );

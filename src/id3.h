@@ -11,7 +11,7 @@
 typedef struct ID3CacheItem
 {
 	sds path;
-	long mod_time;
+	uint32_t mod_time;
 	bool seen;
 
 	// The ID3 fields
