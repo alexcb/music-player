@@ -6,3 +6,9 @@ then
 else
 	echo -n -g
 fi
+
+if [[ $(hostname -f) = "music-kitchen" ]]; then
+	echo -n " -DKITCHEN"
+fi
+
+

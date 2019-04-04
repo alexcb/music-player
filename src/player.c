@@ -772,7 +772,11 @@ track_done:
 void player_set_playing( Player *player, bool playing)
 {
 	pthread_mutex_lock( &player->the_lock );
-	player->control |= PLAYER_CONTROL_PLAYING;
+	if( playing ) {
+		player->control |= PLAYER_CONTROL_PLAYING;
+	} else {
+		player->control &= ~PLAYER_CONTROL_PLAYING;
+	}
 	pthread_mutex_unlock( &player->the_lock );
 }
 

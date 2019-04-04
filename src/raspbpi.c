@@ -60,6 +60,15 @@ void* gpio_input_thread_run( void *p )
 				player_change_next_playlist( player, TRACK_CHANGE_IMMEDIATE );
 			}
 		}
+#ifdef KITCHEN
+		// push/play is a switch
+		if( cur_switch_left_down != last_switch_left_down ) {
+			LOG_DEBUG("val=d play switch changed", cur_switch_left_down);
+			player_set_playing( player, cur_switch_left_down );
+			last_switch_left_down = cur_switch_left_down;
+		}
+#else
+		// push/play is a button
 		if( cur_switch_left_down != last_switch_left_down ) {
 			LOG_DEBUG("TOGGLE left down");
 			last_switch_left_down = cur_switch_left_down;
@@ -67,6 +76,8 @@ void* gpio_input_thread_run( void *p )
 				player_pause( player );
 			}
 		}
+
+#endif
 		if( cur_switch_right_up != last_switch_right_up ) {
 			LOG_DEBUG("TOGGLE right up");
 			last_switch_right_up = cur_switch_right_up;
