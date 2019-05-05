@@ -85,18 +85,31 @@ int playlist_manager_load( PlaylistManager *manager )
 	while( getline( &line, &len, fp ) != -1 ) {
 		trim_suffix_newline( line );
 		LOG_DEBUG("line=s got line", line);
-		if( !line[0] ) {
-			continue;
+
+		if( line[0] != ' ' ) {
+			// new playlist
+			if( root != NULL ) {
+				playlist_update( playlist, root );
+				root = NULL;
+			}
+			playlist_manager_new_playlist( manager, line, &playlist );
 		}
-		if( line[0] == ' ' && playlist ) {
-			if( has_prefix( &line[1], "http://" ) ) {
+		else if( line[0] == ' ') {
+			if( !playlist ) {
+				LOG_ERROR("line=s got track without playlist heading", line);
+				assert(0);
+			}
+			line++;
+			if( has_prefix( line, "http://" ) ) {
+				LOG_INFO("stream=s got stream", line);
 				track = NULL;
-				stream = (char*) sdsnew( &line[1] );
+				stream = (char*) sdsnew( line );
 			} else {
 				stream = NULL;
-				res = library_get_track( manager->library, &line[1], &track );
+				LOG_INFO("stream=s got track", line);
+				res = library_get_track( manager->library, line, &track );
 				if( res != 0 ) {
-					LOG_ERROR("res=d path=s failed to lookup track", res, &line[1]);
+					LOG_ERROR("res=d path=s failed to lookup track", res, line);
 					continue;
 				}
 			}
@@ -116,15 +129,10 @@ int playlist_manager_load( PlaylistManager *manager )
 				last->next = item;
 			}
 			last = item;
-		} else if( line[0] != ' ' ) {
-			// new playlist
-			if( root != NULL ) {
-				playlist_update( playlist, root );
-				root = NULL;
-			}
-			playlist_manager_new_playlist( manager, line, &playlist );
 		} else {
-			LOG_ERROR("line=s skipping line while loading", line);
+			if( line[0] ) {
+				LOG_ERROR("line=s skipping line while loading", line);
+			}
 		}
 	}
 	if( root != NULL ) {
@@ -158,10 +166,19 @@ int playlist_manager_delete_playlist( PlaylistManager *manager, const char *name
 
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p )
 {
-	for( Playlist *x = manager->root; x != NULL && x->next != manager->root; x = x->next ) {
+	Playlist *x = manager->root;
+	if( manager->root == NULL ) {
+		return 1;
+	}
+	for( ;; ) {
 		if( strcmp(x->name, name) == 0 ) {
 			*p = x;
 			return 0;
+		}
+
+		x = x->next;
+		if( x == manager->root ) {
+			break;
 		}
 	}
 	return 1;
@@ -175,15 +192,21 @@ int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, P
 		return 1;
 	}
 
+	LOG_INFO("playlist=s creating new playlist", name);
 	playlist_new( p, name );
 	if( manager->root == NULL ) {
 		manager->root = *p;
 		(*p)->next = (*p)->prev = *p;
+		LOG_INFO("save as root");
 	} else {
-		Playlist *tmp = manager->root->next;
-		manager->root->next = *p;
-		(*p)->next = tmp;
-		tmp->prev = *p;
+		Playlist *prev = manager->root->prev;
+		Playlist *next = prev->next;
+
+		(*p)->prev = prev;
+		(*p)->next = next;
+
+		prev->next = *p;
+		next->prev = *p;
 	}
 	return 0;
 }

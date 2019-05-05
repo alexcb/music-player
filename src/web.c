@@ -578,26 +578,39 @@ static int web_handler_playlists(
 
 	//playlist_manager_lock( data->my_data->playlist_manager );
 
-	for( Playlist *p = data->my_data->playlist_manager->root; p && p->next != data->my_data->playlist_manager->root; p = p->next ) {
-		json_object *playlist = json_object_new_object();
-		json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
-		json_object_object_add( playlist, "id", json_object_new_int( p->id ) );
-		json_object *items = json_object_new_array();
-		for( PlaylistItem *item = p->root; item != NULL; item = item->next ) {
-			json_object *item_obj = json_object_new_object();
-			if( item->track ) {
-				json_object_object_add( item_obj, "path", json_object_new_string( item->track->path ) );
-				//json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
-				//json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
-			} else if( item->stream ) {
-				json_object_object_add( item_obj, "stream", json_object_new_string( item->stream ) );
+	Playlist *p = data->my_data->playlist_manager->root;
+	if( p ) {
+		for( ;; ) {
+			json_object *playlist = json_object_new_object();
+			json_object_object_add( playlist, "name", json_object_new_string( p->name ) );
+			json_object_object_add( playlist, "id", json_object_new_int( p->id ) );
+			json_object *items = json_object_new_array();
+			LOG_INFO("s=s playlist", p->name);
+			for( PlaylistItem *item = p->root; item != NULL; item = item->next ) {
+				json_object *item_obj = json_object_new_object();
+				if( item->track ) {
+					json_object_object_add( item_obj, "path", json_object_new_string( item->track->path ) );
+					//json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
+					//json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
+					LOG_INFO("s=s trakc!", item->track);
+				} else if( item->stream ) {
+					LOG_INFO("s=s stream!", item->stream);
+					json_object_object_add( item_obj, "stream", json_object_new_string( item->stream ) );
+				} else {
+					assert(0);
+				}
+				json_object_object_add( item_obj, "id", json_object_new_int( item->id ) );
+				json_object_array_add( items, item_obj );
 			}
-			json_object_object_add( item_obj, "id", json_object_new_int( item->id ) );
-			json_object_array_add( items, item_obj );
-		}
-		json_object_object_add( playlist, "items", items );
+			json_object_object_add( playlist, "items", items );
 
-		json_object_array_add( playlists, playlist );
+			json_object_array_add( playlists, playlist );
+
+			p = p->next;
+			if( p == data->my_data->playlist_manager->root ) {
+				break;
+			}
+		}
 	}
 
 	int checksum = playlist_manager_checksum( data->my_data->playlist_manager );

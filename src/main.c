@@ -137,25 +137,20 @@ int main(int argc, char *argv[])
 	}
 	LOG_DEBUG("load done");
 
-	Playlist *default_playlist;
-	res = playlist_manager_get_playlist( &playlist_manager, "default", &default_playlist );
-	if( res == 0 ) {
-		PlaylistItem *p = get_random_track( default_playlist->root );
-		if( p ) {
-			player_change_track( &player, p, TRACK_CHANGE_IMMEDIATE );
-			if( auto_play ) {
-				player_set_playing( &player, true );
-			}
-		}
-	} else {
-		res = playlist_manager_new_playlist( &playlist_manager, "default", &default_playlist );
-		if( res != 0 ) {
-			LOG_CRITICAL("failed to create default playlist");
-			return 1;
-		}
+	Playlist *default_playlist = playlist_manager.root;
+	if( !default_playlist ) {
+		LOG_ERROR("no playlists");
+		return 1;
 	}
 
 	LOG_DEBUG("p=p starting", default_playlist);
+	PlaylistItem *p = get_random_track( default_playlist->root );
+	if( p ) {
+		player_change_track( &player, p, TRACK_CHANGE_IMMEDIATE );
+		if( auto_play ) {
+			player_set_playing( &player, true );
+		}
+	}
 
 	res = start_player( &player );
 	if( res ) {

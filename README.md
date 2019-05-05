@@ -167,3 +167,5 @@ cd music-player
 make
 touch streams
 sudo cp init.d-music /etc/init.d/music
+
+scp 192.168.0.10:id3_cache 192.168.0.11:id3_cache
