@@ -174,10 +174,11 @@ int id3_cache_load( ID3Cache *cache )
 		return 1;
 	}
 	// Versioning
-	sds version;
+	sds version = NULL;
 	res = read_str( fp, &version );
 	if( res ) {
 		LOG_ERROR( "unable to read version" );
+		return 1;
 	}
 	sdsfree(version);
 
