@@ -86,30 +86,33 @@ int playlist_manager_load( PlaylistManager *manager )
 		trim_suffix_newline( line );
 		LOG_DEBUG("line=s got line", line);
 
-		if( line[0] != ' ' ) {
+		// line must remain unchanged
+		char *s = line;
+
+		if( s[0] != ' ' ) {
 			// new playlist
 			if( root != NULL ) {
 				playlist_update( playlist, root );
 				root = NULL;
 			}
-			playlist_manager_new_playlist( manager, line, &playlist );
+			playlist_manager_new_playlist( manager, s, &playlist );
 		}
-		else if( line[0] == ' ') {
+		else if( s[0] == ' ') {
 			if( !playlist ) {
-				LOG_ERROR("line=s got track without playlist heading", line);
+				LOG_ERROR("line=s got track without playlist heading", s);
 				assert(0);
 			}
-			line++;
-			if( has_prefix( line, "http://" ) ) {
-				LOG_INFO("stream=s got stream", line);
+			s++;
+			if( has_prefix( s, "http://" ) ) {
+				LOG_INFO("stream=s got stream", s);
 				track = NULL;
-				stream = (char*) sdsnew( line );
+				stream = (char*) sdsnew( s );
 			} else {
 				stream = NULL;
-				LOG_INFO("stream=s got track", line);
-				res = library_get_track( manager->library, line, &track );
+				LOG_INFO("stream=s got track", s);
+				res = library_get_track( manager->library, s, &track );
 				if( res != 0 ) {
-					LOG_ERROR("res=d path=s failed to lookup track", res, line);
+					LOG_ERROR("res=d path=s failed to lookup track", res, s);
 					continue;
 				}
 			}
@@ -130,10 +133,14 @@ int playlist_manager_load( PlaylistManager *manager )
 			}
 			last = item;
 		} else {
-			if( line[0] ) {
-				LOG_ERROR("line=s skipping line while loading", line);
+			if( s[0] ) {
+				LOG_ERROR("line=s skipping line while loading", s);
 			}
 		}
+	}
+	if( line != NULL ) {
+		free(line);
+		line = NULL;
 	}
 	if( root != NULL ) {
 		playlist_update( playlist, root );
