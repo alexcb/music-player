@@ -154,7 +154,7 @@ int read_str( FILE *fp, sds *s )
 	if( res != 0 ) {
 		return 1;
 	}
-	*s = sdsnewlen( fp, n+1 );
+	*s = sdsnewlen( NULL, n+1 );
 	res = fread( *s, 1, n, fp );
 	if( res < 0 || res != n ) {
 		LOG_ERROR( "res=d unable to fread", res );
@@ -181,6 +181,7 @@ int id3_cache_load( ID3Cache *cache )
 		return 1;
 	}
 	sdsfree(version);
+	LOG_INFO("HERE");
 
 	ID3CacheItem *item;
 

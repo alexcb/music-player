@@ -7,13 +7,15 @@
 
 struct Track;
 struct Playlist;
+struct Stream;
 
 typedef struct PlaylistItem
 {
 	int id;
 	int ref_count;
 	const struct Track *track;
-	char *stream;
+	const struct Stream *stream;
+	float volume;
 	struct PlaylistItem *next;
 	struct Playlist *parent;
 } PlaylistItem;

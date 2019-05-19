@@ -119,7 +119,9 @@ void update_metadata_web_clients( bool playing, const PlaylistItem *item, int pl
 			json_object_object_add( state, "track", json_object_new_int( item->track->track ) );
 			json_object_object_add( state, "title", json_object_new_string( item->track->title ) );
 		} else if( item->stream ) {
-			json_object_object_add( state, "stream", json_object_new_string( item->stream ) );
+			char buf[1024];
+			sprintf(buf, "stream://%s", item->stream->name);
+			json_object_object_add( state, "stream", json_object_new_string( buf ) );
 		}
 		json_object_object_add( state, "id", json_object_new_int( item->id ) );
 	}
@@ -459,9 +461,13 @@ static int web_handler_playlists_load(
 		LOG_DEBUG("s=s id=d adding", s, track_id);
 
 		Track *track = NULL;
-		char *stream = NULL;
-		if( has_prefix(s, "http://") ) {
-			stream = sdsnew( s );
+		Stream *stream = NULL;
+		if( has_prefix(s, "stream://") ) {
+			res = get_stream( data->my_data->stream_list, s, &stream );
+			if( res != 0 ) {
+				LOG_ERROR("res=d path=s failed to lookup stream", res, s);
+				return error_handler( connection, MHD_HTTP_BAD_REQUEST, "failed to lookup stream" );
+			}
 		} else {
 			res = library_get_track( data->my_data->library, s, &track );
 			if( res != 0 ) {
@@ -592,10 +598,12 @@ static int web_handler_playlists(
 					json_object_object_add( item_obj, "path", json_object_new_string( item->track->path ) );
 					//json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
 					//json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
-					LOG_INFO("s=s trakc!", item->track);
+					LOG_INFO("s=s track!", item->track);
 				} else if( item->stream ) {
 					LOG_INFO("s=s stream!", item->stream);
-					json_object_object_add( item_obj, "stream", json_object_new_string( item->stream ) );
+					char buf[1024];
+					sprintf(buf, "stream://%s", item->stream->name);
+					json_object_object_add( item_obj, "stream", json_object_new_string( buf ) );
 				} else {
 					assert(0);
 				}
@@ -1138,7 +1146,9 @@ int get_library_json( StreamList *stream_list, Library *library, sds *output )
 
 	json_object *streams = json_object_new_array();
 	for( Stream *p = stream_list->p; p != NULL; p = p->next_ptr ) {
-		json_object_array_add( streams, json_object_new_string( p->name ) );
+		char buf[1024];
+		sprintf(buf, "stream://%s", p->name);
+		json_object_array_add( streams, json_object_new_string( buf ) );
 	}
 
 	json_object *root_obj = json_object_new_object();

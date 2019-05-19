@@ -13,6 +13,8 @@ typedef struct Stream
 	sds name;
 	sds url;
 
+	float volume;
+
     struct Stream *next_ptr;
 } Stream;
 
@@ -24,3 +26,6 @@ typedef struct StreamList
 #define STREAM_COMPARATOR(e1, e2) (strcmp(e1->name, e2->name))
 
 int parse_streams(const char *path, StreamList *sl);
+
+int get_stream(StreamList *sl, const char *name, Stream **stream );
+

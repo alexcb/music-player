@@ -3,6 +3,7 @@
 #include "library.h"
 #include "playlist.h"
 #include "sds.h"
+#include "streams.h"
 
 #include <stdio.h>
 
@@ -10,11 +11,12 @@ typedef struct PlaylistManager
 {
 	Playlist *root;
 	Library *library;
+	StreamList *streams;
 	sds playlistPath;
 	pthread_mutex_t lock;
 } PlaylistManager;
 
-int playlist_manager_init( PlaylistManager *manager, const char *path, Library *library );
+int playlist_manager_init( PlaylistManager *manager, const char *path, Library *library, StreamList *streams );
 
 int playlist_manager_new_playlist( PlaylistManager *manager, const char *name, Playlist **p );
 int playlist_manager_get_playlist( PlaylistManager *manager, const char *name, Playlist **p );

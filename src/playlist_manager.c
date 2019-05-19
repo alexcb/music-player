@@ -5,6 +5,7 @@
 #include "errors.h"
 #include "log.h"
 #include "sglib.h"
+#include "streams.h"
 
 #include <dirent.h> 
 #include <string.h>
@@ -18,7 +19,7 @@
 
 
 
-int playlist_manager_init( PlaylistManager *manager, const char *path, Library *library )
+int playlist_manager_init( PlaylistManager *manager, const char *path, Library *library, StreamList *streams )
 {
 	//int res;
 
@@ -29,6 +30,7 @@ int playlist_manager_init( PlaylistManager *manager, const char *path, Library *
 	manager->playlistPath = sdsnew( path );
 	manager->root = NULL;
 	manager->library = library;
+	manager->streams = streams;
 	return 0;
 }
 
@@ -45,7 +47,7 @@ int playlist_manager_save( PlaylistManager *manager )
 			if( i->track ) {
 				fprintf( fp, " %s\n", i->track->path );
 			} else if( i->stream ) {
-				fprintf( fp, " %s\n", i->stream );
+				fprintf( fp, " %s\n", i->stream->url );
 			} else {
 				assert(0);
 			}
@@ -68,6 +70,7 @@ int playlist_manager_load( PlaylistManager *manager )
 {
 	int res;
 	Track *track;
+	Stream *stream;
 	Playlist *playlist = NULL;
 	PlaylistItem *root = NULL;
 	PlaylistItem *item = NULL;
@@ -79,7 +82,6 @@ int playlist_manager_load( PlaylistManager *manager )
 		return 1;
 	}
 
-	char *stream = NULL;
 	char *line = NULL;
 	size_t len = 0;
 	while( getline( &line, &len, fp ) != -1 ) {
@@ -103,13 +105,22 @@ int playlist_manager_load( PlaylistManager *manager )
 				assert(0);
 			}
 			s++;
-			if( has_prefix( s, "http://" ) ) {
-				LOG_INFO("stream=s got stream", s);
+			if( has_prefix( s, "stream://" ) ) {
+				LOG_INFO("stream=s got library stream", s);
+
+				res = get_stream( manager->streams, s+9, &stream );
+				if( res != 0 ) {
+					LOG_ERROR("res=d path=s failed to lookup track", res, s);
+					continue;
+				}
+				assert(stream);
 				track = NULL;
-				stream = (char*) sdsnew( s );
+			} else if( has_prefix( s, "http://" ) ) {
+				LOG_ERROR("stream=s stream http no longer supported", s);
+				assert(0);
 			} else {
 				stream = NULL;
-				LOG_INFO("stream=s got track", s);
+				LOG_INFO("track=s got track", s);
 				res = library_get_track( manager->library, s, &track );
 				if( res != 0 ) {
 					LOG_ERROR("res=d path=s failed to lookup track", res, s);

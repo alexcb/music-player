@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 	
 	LOG_DEBUG("calling manager init");
 	PlaylistManager playlist_manager;
-	playlist_manager_init( &playlist_manager, playlist_path, &library );
+	playlist_manager_init( &playlist_manager, playlist_path, &library, &stream_list );
 	player.playlist_manager = &playlist_manager;
 
 	LOG_DEBUG("calling load");

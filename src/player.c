@@ -351,7 +351,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 	if( item->track != NULL ) {
 		path = sdscatfmt( NULL, "%s/%s", player->library_path, item->track->path);
 	} else if( item->stream != NULL ) {
-		path = item->stream;
+		path = item->stream->url;
 		is_stream = true;
 	} else {
 		assert(0);
