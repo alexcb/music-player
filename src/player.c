@@ -347,11 +347,15 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 	
 	PlayQueueItem *pqi = NULL;
 	const char *path;
+
+	float volume = 1.0f;
    
 	if( item->track != NULL ) {
 		path = sdscatfmt( NULL, "%s/%s", player->library_path, item->track->path);
+		volume = 1.0f;
 	} else if( item->stream != NULL ) {
 		path = item->stream->url;
+		volume = item->stream->volume;
 		is_stream = true;
 	} else {
 		assert(0);
@@ -481,6 +485,22 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 					//strcpy( track_info->icy_name, icy_name );
 					free( icy_title );
 				}
+			}
+		}
+
+		if( volume != 1.0f ) {
+			bool clipped = false;
+			// only supports 16bit
+			for( int i = 0; i < decoded_size; i += 2 ) {
+				int16_t *p = (int16_t*) (player->decode_buffer + i);
+				float y = ((float) *p) * volume;
+				if( y > 32760 ) {
+					clipped = true;
+				}
+				*p = y;
+			}
+			if( clipped ) {
+				LOG_WARN("clipped audio, volume is too high");
 			}
 		}
 

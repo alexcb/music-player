@@ -33,6 +33,7 @@ int parse_streams(const char *path, StreamList *sl)
 		entry = malloc(sizeof(Stream));
 		s = strstr( line, " " );
 		entry->url = sdsnewlen( line, s - line );
+		entry->volume = 1.0f;
 
 		s++;
 		bool keep_going = true;

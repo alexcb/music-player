@@ -47,7 +47,7 @@ int playlist_manager_save( PlaylistManager *manager )
 			if( i->track ) {
 				fprintf( fp, " %s\n", i->track->path );
 			} else if( i->stream ) {
-				fprintf( fp, " %s\n", i->stream->url );
+				fprintf( fp, " stream://%s\n", i->stream->name );
 			} else {
 				assert(0);
 			}

@@ -598,7 +598,7 @@ static int web_handler_playlists(
 					json_object_object_add( item_obj, "path", json_object_new_string( item->track->path ) );
 					//json_object_object_add( item_obj, "artist", json_object_new_string( item->track->artist ) );
 					//json_object_object_add( item_obj, "title", json_object_new_string( item->track->title ) );
-					LOG_INFO("s=s track!", item->track);
+					LOG_INFO("s=s track!", item->track->path);
 				} else if( item->stream ) {
 					LOG_INFO("s=s stream!", item->stream);
 					char buf[1024];
