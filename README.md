@@ -31,7 +31,7 @@ config settings:
   # set audio to analog out
   sudo amixer cset numid=3 2
   # set volume to 100%
-  sudo amixer cset numid=1 400
+  sudo amixer cset numid=1 0
 
 Notes about amixer, one can call `sudo amixer cget numid=<any ID here>` to get a description and current value of audio settings
 
