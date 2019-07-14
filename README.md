@@ -20,7 +20,7 @@ dependencies:
  libwiringPi (see http://wiringpi.com/download-and-install/)
  libasound2-dev
 
-libao-dev libmpg123-dev libjson-c-dev libmicrohttpd-dev
+libao-dev libmpg123-dev libjson-c-dev libmicrohttpd-dev libttspico-dev
 
 todo:
  remove wiringPi as a dependency; just read/write to the memory addresses instead maybe? or find a different lib that's
