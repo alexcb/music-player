@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "voice_synth.h"
 
 #define RATE 44100
 
@@ -50,6 +51,10 @@ int init_player( Player *player, const char *library_path )
 	LOG_INFO("using pulseaudio");
 	player->audio_consumer = &consume_pa;
 #endif
+
+	player->meta_audio_max = 5*1024*1024;
+	player->meta_audio = malloc(player->meta_audio_max);
+	init_pico();
 
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
@@ -735,6 +740,13 @@ void* player_audio_thread_run( void *data )
 				//player->current_track.playlist_item->parent->current = player->current_track.playlist_item;
 				call_observers( player );
 				buffer_mark_read( &player->circular_buffer, num_read );
+
+				if( player->current_track && player->current_track->track ) {
+					char audio_text[1024];
+					sprintf(audio_text, "%s by %s", player->current_track->track->title, player->current_track->track->artist);
+					player->meta_audio_n = synth_text( audio_text, player->meta_audio, player->meta_audio_max );
+				}
+
 				continue;
 			}
 
@@ -773,6 +785,13 @@ void* player_audio_thread_run( void *data )
 				if( first_start ) {
 					LOG_INFO("first consume");
 					first_start = false;
+				}
+
+				if( player->meta_audio_n > 0 ) {
+					LOG_INFO("playing synth");
+					player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
+					player->meta_audio_n = 0;
+					LOG_INFO("playing synth done");
 				}
 
 				player->audio_consumer( player, p, n );

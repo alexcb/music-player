@@ -81,6 +81,10 @@ struct Player
 	//bool next_track;
 	int control; // bitmask of PLAYER_CONTROL_* flags
 
+	size_t meta_audio_max;
+	size_t meta_audio_n;
+	char *meta_audio;
+
 	// control over changing tracks
 	//pthread_mutex_t change_track_lock;
 	bool load_in_progress;
