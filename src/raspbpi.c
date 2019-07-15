@@ -67,10 +67,10 @@ struct gpio_switch switches[] = {
 	{0, 0, 0, 0, 0, 0, &next_playlist, &player_say_what},
 
 	// middle button
-	{8, 0, 0, 0, 0, 0, &next_track, &player_say_what},
+	{8, 0, 0, 0, 0, 0, &next_album, &player_say_what},
 	
 	// right button
-	{9, 0, 0, 0, 0, 0, &next_album, &player_say_what}
+	{9, 0, 0, 0, 0, 0, &next_track, &player_say_what}
 #else
 	// right up
 	{9, 0, 0, 0, 0, 0, &next_album, 0},
