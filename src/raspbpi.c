@@ -144,6 +144,7 @@ void* gpio_input_thread_run( void *p )
 				}
 				if( switches[i].on_hold && switches[i].changed_at ) {
 					time_t elapsed_time = now - switches[i].changed_at;
+					LOG_INFO("elapsed=d on hold?", elapsed_time);
 					if( elapsed_time >= 2 ) {
 						switches[i].on_hold( player );
 					}
