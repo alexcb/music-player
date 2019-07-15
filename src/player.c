@@ -767,7 +767,14 @@ void* player_audio_thread_run( void *data )
 				LOG_INFO("text=s n=d synth start", audio_text, player->meta_audio_n);
 
 				player->meta_audio_n = synth_text( audio_text, player->meta_audio, player->meta_audio_max );
-				player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
+				char *p = player->meta_audio;
+				while( player->meta_audio_n > 0 ) {
+					size_t n = player->meta_audio_n;
+					if( n > 1024 ) { n = 1024; }
+					player->audio_consumer( player, p, n );
+					player->meta_audio_n -= n;
+					p += n;
+				}
 
 				player->say_track_info = false;
 			}
