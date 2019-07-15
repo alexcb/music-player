@@ -157,7 +157,7 @@ int consume_alsa( Player *player, const char *p, size_t n )
 		} else if( res == 0 ) {
 			usleep( 1000 );
 		} else {
-			ptr += res*4;
+			p += res*4;
 			frames -= res;
 		}
 	}
