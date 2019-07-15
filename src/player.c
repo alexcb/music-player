@@ -764,8 +764,9 @@ void* player_audio_thread_run( void *data )
 				} else {
 					sprintf(audio_text, "I have no clue, just enjoy it.");
 				}
+				LOG_INFO("text=s n=d synth start", audio_text, player->meta_audio_n);
 				player->meta_audio_n = synth_text( audio_text, player->meta_audio, player->meta_audio_max );
-				LOG_INFO("text=s n=d synth", audio_text, player->meta_audio_n);
+				LOG_INFO("text=s n=d synth done", audio_text, player->meta_audio_n);
 				player->say_track_info = false;
 			}
 
