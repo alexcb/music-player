@@ -84,6 +84,7 @@ struct Player
 	size_t meta_audio_max;
 	size_t meta_audio_n;
 	char *meta_audio;
+	bool say_track_info;
 
 	// control over changing tracks
 	//pthread_mutex_t change_track_lock;
@@ -125,6 +126,7 @@ int player_change_next_album( Player *player, int when );
 int player_change_prev_track( Player *player, int when );
 int player_change_next_track( Player *player, int when );
 int player_change_next_playlist( Player *player, int when );
+int player_say_what( Player *player );
 
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item );
 

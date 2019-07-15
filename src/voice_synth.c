@@ -74,10 +74,11 @@ max_samples = 160000;
 // convert 16bit mono 16000rate to 16bit stereo 44100rate
 size_t convert_format(const char *buf, size_t num_samples, char *out)
 {
+	int multiplier = 3;
 	for( int i = 0; i < num_samples; i++ ) {
 		uint16_t x = *(uint16_t*)(buf+i*2);
-		for( int j = 0; j < 3*2; j++ ) {
-			*(uint16_t*)(out + i*12 + j*2) = x;
+		for( int j = 0; j < multiplier*2; j++ ) {
+			*(uint16_t*)(out + i*2*2*multiplier + j*2) = x;
 		}
 	}
 	return num_samples*6;

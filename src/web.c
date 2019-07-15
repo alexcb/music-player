@@ -895,6 +895,26 @@ static int web_handler_next_album(
 	return ret;
 }
 
+static int web_handler_say_what(
+		WebHandlerData *data,
+		struct MHD_Connection *connection,
+		const char *url,
+		const char *method,
+		const char *version,
+		const sds request_body,
+		void **con_cls)
+{
+	int ret;
+	struct MHD_Response *response;
+
+	player_say_what( data->my_data->player );
+
+	response = MHD_create_response_from_buffer( 2, "ok", MHD_RESPMEM_PERSISTENT );
+	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+	MHD_destroy_response(response);
+	return ret;
+}
+
 static int web_handler_pause(
 		WebHandlerData *data,
 		struct MHD_Connection *connection,
@@ -1025,6 +1045,10 @@ static int web_handler(
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/next-album") == 0 ) {
 		return web_handler_next_album( data, connection, url, method, version, request_session->body, con_cls );
+	}
+
+	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/say-what") == 0 ) {
+		return web_handler_say_what( data, connection, url, method, version, request_session->body, con_cls );
 	}
 
 	if( strcmp( method, "POST" ) == 0 && strcmp(url, "/pause") == 0 ) {

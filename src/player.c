@@ -282,6 +282,17 @@ error:
 	return res;
 }
 
+int player_say_what( Player *player )
+{
+	pthread_mutex_lock( &player->the_lock );
+
+	player->say_track_info = true;
+
+	pthread_mutex_unlock( &player->the_lock );
+	return 0;
+}
+
+
 int player_change_track( Player *player, PlaylistItem *playlist_item, int when )
 {
 	int res;
@@ -740,15 +751,26 @@ void* player_audio_thread_run( void *data )
 				//player->current_track.playlist_item->parent->current = player->current_track.playlist_item;
 				call_observers( player );
 				buffer_mark_read( &player->circular_buffer, num_read );
-
-				if( player->current_track && player->current_track->track ) {
-					char audio_text[1024];
-					sprintf(audio_text, "%s by %s", player->current_track->track->title, player->current_track->track->artist);
-					player->meta_audio_n = synth_text( audio_text, player->meta_audio, player->meta_audio_max );
-				}
-
 				continue;
 			}
+
+			if( player->say_track_info ) {
+				char audio_text[1024];
+				if( player->current_track && player->current_track->track ) {
+					sprintf(audio_text, "the artist is %s. the album is %s'. the track is %s", 
+							player->current_track->track->artist,
+							player->current_track->track->album,
+							player->current_track->track->title
+							);
+				} else {
+					sprintf(audio_text, "I have no clue, just enjoy it.");
+				}
+				player->meta_audio_n = synth_text( audio_text, player->meta_audio, player->meta_audio_max );
+				LOG_INFO("text=s n=d synth", audio_text, player->meta_audio_n);
+				player->say_track_info = false;
+			}
+
+
 
 			// otherwise it must be audio data
 			assert( payload_id == AUDIO_DATA );
