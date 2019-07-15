@@ -82,24 +82,6 @@ struct gpio_switch switches[] = {
 };
 int num_switches = sizeof(switches)/sizeof(struct gpio_switch);
 
-//#ifdef KITCHEN
-//		// push/play is a switch
-//		if( cur_switch_left_down != last_switch_left_down ) {
-//			LOG_DEBUG("val=d play switch changed", cur_switch_left_down);
-//			player_set_playing( player, cur_switch_left_down );
-//			last_switch_left_down = cur_switch_left_down;
-//		}
-//#else
-//		// push/play is a button
-//		if( cur_switch_left_down != last_switch_left_down ) {
-//			LOG_DEBUG("TOGGLE left down");
-//			last_switch_left_down = cur_switch_left_down;
-//			if( cur_switch_left_down ) {
-//				player_pause( player );
-//			}
-//		}
-//
-
 pthread_t gpio_input_thread;
 pthread_cond_t gpio_input_changed_cond;
 
