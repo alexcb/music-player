@@ -20,15 +20,13 @@ struct gpio_switch {
 	int last_state;
 	int current_state;
 	int changed_at;
+	int held;
 
 	// immediately called on down
 	void (*on_down)(Player* p);
 
 	// immediately called on up
 	void (*on_up)(Player* p);
-	
-	// called on a quick press
-	void (*on_toggle)(Player* p);
 
 	// called if held down for 2 seconds
 	void (*on_hold)(Player* p);
@@ -72,7 +70,7 @@ struct gpio_switch switches[] = {
 	{9, 0, 0, 0, 0, 0, &next_album, &player_say_what},
 	{8, 0, 0, 0, 0, 0, &next_track, &player_say_what},
 	{0, 0, 0, 0, 0, 0, &next_playlist, &player_say_what},
-	{2, 0, 0, 0, &do_play, &do_pause, 0, 0}
+	{2, 0, 0, 0, 0, &do_play, &do_pause, 0}
 #else
 	{9, 0, 0, 0, 0, 0, &next_album, 0},
 	{8, 0, 0, 0, 0, 0, &next_track, 0},
@@ -131,6 +129,7 @@ void* gpio_input_thread_run( void *p )
 		for(int i = 0; i < num_switches; i++ ) {
 			int current_state = switches[i].current_state;
 			if( switches[i].last_state != current_state ) {
+				LOG_INFO("switch=d state=d msg", i, current_state);
 				switches[i].last_state = current_state;
 				switches[i].changed_at = now;
 				if( current_state ) {
@@ -138,24 +137,21 @@ void* gpio_input_thread_run( void *p )
 						switches[i].on_down( player );
 					}
 				} else {
-					if( switches[i].on_up ) {
+					if( switches[i].on_up && switches[i].held == 0) {
 						switches[i].on_up( player );
 					}
-					if( switches[i].on_toggle ) {
-						switches[i].on_toggle( player );
-					}
-				}
-				if( !current_state && switches[i].on_up ) {
-					switches[i].on_up( player );
+					switches[i].held = 0;
 				}
 			}
-			if( switches[i].on_hold && current_state && switches[i].changed_at ) {
+			if( current_state && switches[i].changed_at ) {
 				time_t elapsed_time = now - switches[i].changed_at;
 				LOG_INFO("elapsed=d on hold?", elapsed_time);
-				if( elapsed_time >= 2 ) {
-					switches[i].on_hold( player );
+				if( elapsed_time >= 2 && switches[i].held == 0) {
+					if( switches[i].on_hold ) {
+						switches[i].on_hold( player );
+						switches[i].held = 1; // stop further triggers
+					}
 				}
-				switches[i].changed_at = 0; // stop further triggers
 			}
 			
 		}
