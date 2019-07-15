@@ -5,11 +5,6 @@
 #include <stdint.h>
 #include "log.h"
 
-//		char s[1024];
-//		sprintf(s, "%c ", randomletter);
-//		buf_len = synth_text( &engine, s, buf, max_samples );
-//		assert( buf_len > 0 );
-
 static pico_System sys;
 static pico_Engine engine;
 
