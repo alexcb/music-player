@@ -145,7 +145,7 @@ void* gpio_input_thread_run( void *p )
 			}
 			if( current_state && switches[i].changed_at ) {
 				time_t elapsed_time = now - switches[i].changed_at;
-				LOG_INFO("elapsed=d on hold?", elapsed_time);
+				LOG_INFO("switch=d elapsed=d on hold?", i, elapsed_time);
 				if( elapsed_time >= 2 && switches[i].held == 0) {
 					if( switches[i].on_hold ) {
 						switches[i].on_hold( player );
@@ -265,13 +265,18 @@ int init_rasp_pi(Player *player) {
 	last_switch_left_down  = cur_switch_left_down  = digitalRead( PIN_LEFT_DOWN  );
 	last_switch_right_up   = cur_switch_right_up   = digitalRead( PIN_RIGHT_UP   );
 	last_switch_right_down = cur_switch_right_down = digitalRead( PIN_RIGHT_DOWN );
-	//
-	//last_play_switch = cur_play_switch = digitalRead( PIN_SWITCH );
 
 	wiringPiISR( PIN_RIGHT_UP,   INT_EDGE_BOTH, switchIntHandler);
 	wiringPiISR( PIN_RIGHT_DOWN, INT_EDGE_BOTH, switchIntHandler);
 	wiringPiISR( PIN_LEFT_UP,    INT_EDGE_BOTH, switchIntHandler);
 	wiringPiISR( PIN_LEFT_DOWN,  INT_EDGE_BOTH, switchIntHandler);
+
+	for(int i = 0; i < num_switches; i++ ) {
+		pinMode( switches[i].gpio_pin, INPUT );
+		pullUpDnControl( switches[i].gpio_pin, PUD_UP );
+		switches[i].last_state = switches[i].current_state = digitalRead( switches[i].gpio_pin );
+		wiringPiISR( switches[i].gpio_pin,  INT_EDGE_BOTH, switchIntHandler);
+	}
 
 	return 0;
 }
