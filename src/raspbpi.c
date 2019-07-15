@@ -57,15 +57,48 @@ void next_playlist(Player *player)
 	player_change_next_playlist( player, TRACK_CHANGE_IMMEDIATE );
 }
 
+void do_play(Player *player)
+{
+	player_set_playing( player, 1 );
+}
+
+void do_pause(Player *player)
+{
+	player_set_playing( player, 0 );
+}
 
 struct gpio_switch switches[] = {
+#ifdef KITCHEN
+	{9, 0, 0, 0, 0, 0, &next_album, &player_say_what},
+	{8, 0, 0, 0, 0, 0, &next_track, &player_say_what},
+	{0, 0, 0, 0, 0, 0, &next_playlist, &player_say_what},
+	{2, 0, 0, 0, &do_play, &do_pause, 0, 0}
+#else
 	{9, 0, 0, 0, 0, 0, &next_album, 0},
 	{8, 0, 0, 0, 0, 0, &next_track, 0},
 	{0, 0, 0, 0, 0, 0, &next_playlist, 0},
 	{2, 0, 0, 0, 0, 0, &player_pause, &player_say_what}
+#endif // KITCHEN
 };
 int num_switches = sizeof(switches)/sizeof(struct gpio_switch);
 
+//#ifdef KITCHEN
+//		// push/play is a switch
+//		if( cur_switch_left_down != last_switch_left_down ) {
+//			LOG_DEBUG("val=d play switch changed", cur_switch_left_down);
+//			player_set_playing( player, cur_switch_left_down );
+//			last_switch_left_down = cur_switch_left_down;
+//		}
+//#else
+//		// push/play is a button
+//		if( cur_switch_left_down != last_switch_left_down ) {
+//			LOG_DEBUG("TOGGLE left down");
+//			last_switch_left_down = cur_switch_left_down;
+//			if( cur_switch_left_down ) {
+//				player_pause( player );
+//			}
+//		}
+//
 
 pthread_t gpio_input_thread;
 pthread_cond_t gpio_input_changed_cond;
