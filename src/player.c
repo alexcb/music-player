@@ -766,11 +766,17 @@ void* player_audio_thread_run( void *data )
 				}
 				LOG_INFO("text=s n=d synth start", audio_text, player->meta_audio_n);
 				player->meta_audio_n = synth_text( audio_text, player->meta_audio, player->meta_audio_max );
+
+				if( player->meta_audio_n > 0 ) {
+					LOG_INFO("playing synth");
+					player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
+					player->meta_audio_n = 0;
+					LOG_INFO("playing synth done");
+				}
+
 				LOG_INFO("text=s n=d synth done", audio_text, player->meta_audio_n);
 				player->say_track_info = false;
 			}
-
-
 
 			// otherwise it must be audio data
 			assert( payload_id == AUDIO_DATA );
