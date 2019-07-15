@@ -133,10 +133,9 @@ void init_alsa( Player *player )
 int consume_alsa( Player *player, const char *p, size_t n )
 {
 	int res;
-	signed short *ptr = (signed short*) p;
 	int frames = n / (2 * 2); //channels*16bits
 	while( frames > 0 ) {
-		res = snd_pcm_writei(player->alsa_handle, ptr, frames);
+		res = snd_pcm_writei(player->alsa_handle, (signed short*) p, frames);
 		if (res == -EAGAIN) {
 			LOG_DEBUG("got EAGAIN");
 			continue;
@@ -158,7 +157,7 @@ int consume_alsa( Player *player, const char *p, size_t n )
 		} else if( res == 0 ) {
 			usleep( 1000 );
 		} else {
-			ptr += res;
+			ptr += res*4;
 			frames -= res;
 		}
 	}
