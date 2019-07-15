@@ -114,8 +114,13 @@ void* gpio_input_thread_run( void *p )
 	pthread_mutex_init( &mutex, NULL );
 	pthread_mutex_lock( &mutex );
 	LOG_DEBUG("gpio_input_thread_run started");
+
+    struct timespec wait_time;
+    wait_time.tv_sec = 0;
+    wait_time.tv_nsec = 100*1000; //100ms
+
 	for(;;) {
-		res = pthread_cond_wait( &gpio_input_changed_cond, &mutex );
+		res = pthread_cond_timedwait( &gpio_input_changed_cond, &mutex, &wait_time );
 		if( res ) {
 			LOG_ERROR("pthread returned error");
 			return NULL;
@@ -127,6 +132,7 @@ void* gpio_input_thread_run( void *p )
 			int current_state = switches[i].current_state;
 			if( switches[i].last_state != current_state ) {
 				switches[i].last_state = current_state;
+				switches[i].changed_at = now;
 				if( current_state ) {
 					if( switches[i].on_down ) {
 						switches[i].on_down( player );
@@ -142,15 +148,16 @@ void* gpio_input_thread_run( void *p )
 				if( !current_state && switches[i].on_up ) {
 					switches[i].on_up( player );
 				}
-				if( switches[i].on_hold && switches[i].changed_at ) {
-					time_t elapsed_time = now - switches[i].changed_at;
-					LOG_INFO("elapsed=d on hold?", elapsed_time);
-					if( elapsed_time >= 2 ) {
-						switches[i].on_hold( player );
-					}
-				}
-				switches[i].changed_at = now;
 			}
+			if( switches[i].on_hold && current_state && switches[i].changed_at ) {
+				time_t elapsed_time = now - switches[i].changed_at;
+				LOG_INFO("elapsed=d on hold?", elapsed_time);
+				if( elapsed_time >= 2 ) {
+					switches[i].on_hold( player );
+				}
+				switches[i].changed_at = 0; // stop further triggers
+			}
+			
 		}
 
 
