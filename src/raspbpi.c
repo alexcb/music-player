@@ -251,31 +251,12 @@ int init_rasp_pi(Player *player) {
 		return 1;
 	}
 
-	// on/off switch
-	pinMode( PIN_RIGHT_DOWN, INPUT );
-	pinMode( PIN_RIGHT_UP,   INPUT );
-	pinMode( PIN_LEFT_DOWN,  INPUT );
-	pinMode( PIN_LEFT_UP,    INPUT );
-	pullUpDnControl( PIN_RIGHT_DOWN, PUD_UP );
-	pullUpDnControl( PIN_RIGHT_UP,   PUD_UP );
-	pullUpDnControl( PIN_LEFT_DOWN,  PUD_UP );
-	pullUpDnControl( PIN_LEFT_UP,    PUD_UP );
-	
-	last_switch_left_up    = cur_switch_left_up    = digitalRead( PIN_LEFT_UP    );
-	last_switch_left_down  = cur_switch_left_down  = digitalRead( PIN_LEFT_DOWN  );
-	last_switch_right_up   = cur_switch_right_up   = digitalRead( PIN_RIGHT_UP   );
-	last_switch_right_down = cur_switch_right_down = digitalRead( PIN_RIGHT_DOWN );
-
-	wiringPiISR( PIN_RIGHT_UP,   INT_EDGE_BOTH, switchIntHandler);
-	wiringPiISR( PIN_RIGHT_DOWN, INT_EDGE_BOTH, switchIntHandler);
-	wiringPiISR( PIN_LEFT_UP,    INT_EDGE_BOTH, switchIntHandler);
-	wiringPiISR( PIN_LEFT_DOWN,  INT_EDGE_BOTH, switchIntHandler);
-
 	for(int i = 0; i < num_switches; i++ ) {
 		pinMode( switches[i].gpio_pin, INPUT );
 		pullUpDnControl( switches[i].gpio_pin, PUD_UP );
 		switches[i].last_state = switches[i].current_state = digitalRead( switches[i].gpio_pin );
 		wiringPiISR( switches[i].gpio_pin,  INT_EDGE_BOTH, switchIntHandler);
+		LOG_INFO("switch=d init state", switches[i].last_state);
 	}
 
 	return 0;
