@@ -132,18 +132,20 @@ void* gpio_input_thread_run( void *p )
 				LOG_INFO("switch=d state=d msg", i, current_state);
 				switches[i].last_state = current_state;
 				switches[i].changed_at = now;
-				if( current_state ) {
+				if( !current_state ) {
+					// 0 = switch has been closed (i.e. pressed)
 					if( switches[i].on_down ) {
 						switches[i].on_down( player );
 					}
 				} else {
+					// 1 = switch is open (i.e. not pressed)
 					if( switches[i].on_up && switches[i].held == 0) {
 						switches[i].on_up( player );
 					}
 					switches[i].held = 0;
 				}
 			}
-			if( current_state && switches[i].changed_at ) {
+			if( !current_state && switches[i].changed_at ) {
 				time_t elapsed_time = now - switches[i].changed_at;
 				LOG_INFO("switch=d elapsed=d on hold?", i, elapsed_time);
 				if( elapsed_time >= 2 && switches[i].held == 0) {
