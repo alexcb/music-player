@@ -256,7 +256,7 @@ int init_rasp_pi(Player *player) {
 		pullUpDnControl( switches[i].gpio_pin, PUD_UP );
 		switches[i].last_state = switches[i].current_state = digitalRead( switches[i].gpio_pin );
 		wiringPiISR( switches[i].gpio_pin,  INT_EDGE_BOTH, switchIntHandler);
-		LOG_INFO("switch=d init state", switches[i].last_state);
+		LOG_INFO("switch=d state=d init state", i, switches[i].last_state);
 	}
 
 	return 0;
