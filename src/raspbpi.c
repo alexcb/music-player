@@ -59,10 +59,10 @@ void next_playlist(Player *player)
 
 
 struct gpio_switch switches[] = {
-	{9, 0, 0, 0, 0, 0, next_album, 0},
-	{8, 0, 0, 0, 0, 0, next_track, 0},
-	{0, 0, 0, 0, 0, 0, next_playlist, 0},
-	{2, 0, 0, 0, 0, 0, player_pause, player_say_what}
+	{9, 0, 0, 0, 0, 0, &next_album, 0},
+	{8, 0, 0, 0, 0, 0, &next_track, 0},
+	{0, 0, 0, 0, 0, 0, &next_playlist, 0},
+	{2, 0, 0, 0, 0, 0, &player_pause, &player_say_what}
 };
 int num_switches = sizeof(switches)/sizeof(struct gpio_switch);
 
