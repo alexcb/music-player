@@ -121,8 +121,8 @@ void* gpio_input_thread_run( void *p )
 
 	for(;;) {
 		res = pthread_cond_timedwait( &gpio_input_changed_cond, &mutex, &wait_time );
-		if( res ) {
-			LOG_ERROR("pthread returned error");
+		if( res && res != ETIMEDOUT) {
+			LOG_ERROR("res=d pthread returned error", res);
 			return NULL;
 		}
 
