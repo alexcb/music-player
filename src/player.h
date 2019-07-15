@@ -126,11 +126,11 @@ int player_change_next_album( Player *player, int when );
 int player_change_prev_track( Player *player, int when );
 int player_change_next_track( Player *player, int when );
 int player_change_next_playlist( Player *player, int when );
-int player_say_what( Player *player );
 
 int player_notify_item_change( Player *player, PlaylistItem *playlist_item );
 
 void player_set_playing( Player *player, bool playing );
 void player_pause( Player *player );
+void player_say_what( Player *player );
 
 int player_get_control( Player *player );

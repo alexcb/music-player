@@ -282,14 +282,13 @@ error:
 	return res;
 }
 
-int player_say_what( Player *player )
+void player_say_what( Player *player )
 {
 	pthread_mutex_lock( &player->the_lock );
 
 	player->say_track_info = true;
 
 	pthread_mutex_unlock( &player->the_lock );
-	return 0;
 }
 
 
