@@ -767,11 +767,13 @@ void* player_audio_thread_run( void *data )
 				LOG_INFO("text=s n=d synth start", audio_text, player->meta_audio_n);
 				player->meta_audio_n = synth_text( audio_text, player->meta_audio, player->meta_audio_max );
 
-				if( player->meta_audio_n > 0 ) {
-					LOG_INFO("playing synth");
-					player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
-					player->meta_audio_n = 0;
-					LOG_INFO("playing synth done");
+				while( player->meta_audio_n > 0 ) {
+					size_t n = player->meta_audio_n;
+					if( n > 256*8 ) {
+						n = 256*8;
+					}
+					player->audio_consumer( player, player->meta_audio, n );
+					player->meta_audio_n -= n;
 				}
 
 				LOG_INFO("text=s n=d synth done", audio_text, player->meta_audio_n);
