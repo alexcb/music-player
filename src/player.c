@@ -765,18 +765,10 @@ void* player_audio_thread_run( void *data )
 					sprintf(audio_text, "I have no clue, just enjoy it.");
 				}
 				LOG_INFO("text=s n=d synth start", audio_text, player->meta_audio_n);
+
 				player->meta_audio_n = synth_text( audio_text, player->meta_audio, player->meta_audio_max );
+				player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
 
-				while( player->meta_audio_n > 0 ) {
-					size_t n = player->meta_audio_n;
-					if( n > 256*8 ) {
-						n = 256*8;
-					}
-					player->audio_consumer( player, player->meta_audio, n );
-					player->meta_audio_n -= n;
-				}
-
-				LOG_INFO("text=s n=d synth done", audio_text, player->meta_audio_n);
 				player->say_track_info = false;
 			}
 
@@ -817,8 +809,8 @@ void* player_audio_thread_run( void *data )
 					first_start = false;
 				}
 
-				player->meta_audio_n = synth_text( "hello, this is a test.", player->meta_audio, player->meta_audio_max );
-				player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
+				//player->meta_audio_n = synth_text( "hello, this is a test.", player->meta_audio, player->meta_audio_max );
+				//player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
 
 				player->audio_consumer( player, p, n );
 				p += n;

@@ -37,7 +37,6 @@ int init_pico() {
 size_t synth_text_( const char *s, char *buf, int max_samples )
 {
 	assert( buf );
-	assert( max_samples > 1024*1024 );
 	pico_Status status;
 	pico_Int16 textLeft = strlen(s) + 1;
 	pico_Int16 textRead = 0;
@@ -49,7 +48,8 @@ size_t synth_text_( const char *s, char *buf, int max_samples )
 	}
 
 
-max_samples = 160000;
+	// TODO figure out what this really should be
+	max_samples = 14464;
 
 	size_t total_bytes = 0;
 	pico_Int16 n;
@@ -57,7 +57,7 @@ max_samples = 160000;
 	do {
 		n = 0;
 		type = 0;
-		status = pico_getData( engine, (void*)buf, max_samples/2, &n, &type);
+		status = pico_getData( engine, (void*)buf, max_samples, &n, &type);
 		assert( status >= 0 );
 		buf += n;
 		total_bytes += n;
