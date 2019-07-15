@@ -808,12 +808,8 @@ void* player_audio_thread_run( void *data )
 					first_start = false;
 				}
 
-				if( player->meta_audio_n > 0 ) {
-					LOG_INFO("playing synth");
-					player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
-					player->meta_audio_n = 0;
-					LOG_INFO("playing synth done");
-				}
+				player->meta_audio_n = synth_text( "hello, this is a test.", player->meta_audio, player->meta_audio_max );
+				player->audio_consumer( player, player->meta_audio, player->meta_audio_n );
 
 				player->audio_consumer( player, p, n );
 				p += n;
