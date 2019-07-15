@@ -8,13 +8,6 @@
 #include <pthread.h>
 #include <wiringPi.h>
 
-#define PIN_RIGHT_UP   9
-#define PIN_RIGHT_DOWN 8
-
-#define PIN_LEFT_UP   0
-#define PIN_LEFT_DOWN 2
-
-
 struct gpio_switch {
 	int gpio_pin;
 	int last_state;
@@ -67,14 +60,28 @@ void do_pause(Player *player)
 
 struct gpio_switch switches[] = {
 #ifdef KITCHEN
-	{9, 0, 0, 0, 0, 0, &next_album, &player_say_what},
-	{8, 0, 0, 0, 0, 0, &next_track, &player_say_what},
+	// switch
+	{2, 0, 0, 0, 0, &do_pause, &do_play, 0},
+
+	// left button
 	{0, 0, 0, 0, 0, 0, &next_playlist, &player_say_what},
-	{2, 0, 0, 0, 0, &do_play, &do_pause, 0}
+
+	// middle button
+	{8, 0, 0, 0, 0, 0, &next_track, &player_say_what},
+	
+	// right button
+	{9, 0, 0, 0, 0, 0, &next_album, &player_say_what}
 #else
+	// right up
 	{9, 0, 0, 0, 0, 0, &next_album, 0},
+
+	//right down
 	{8, 0, 0, 0, 0, 0, &next_track, 0},
+
+	// left up
 	{0, 0, 0, 0, 0, 0, &next_playlist, 0},
+
+	// left down
 	{2, 0, 0, 0, 0, 0, &player_pause, &player_say_what}
 #endif // KITCHEN
 };
