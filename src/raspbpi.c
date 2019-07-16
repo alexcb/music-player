@@ -121,12 +121,19 @@ void* gpio_input_thread_run( void *p )
 	LOG_DEBUG("gpio_input_thread_run started");
 
     struct timespec wait_time;
-    wait_time.tv_sec = 0;
-    wait_time.tv_nsec = 100*1000; //100ms
+    wait_time.tv_sec = time(NULL);
+    wait_time.tv_nsec = 0; //100*1000//100ms
 
 	for(;;) {
 		res = pthread_cond_timedwait( &gpio_input_changed_cond, &mutex, &wait_time );
-		if( res && res != ETIMEDOUT) {
+		if( res == ETIMEDOUT ) {
+			if( wait_time.tv_nsec >= 900000 ) {
+				wait_time.tv_nsec = 0;
+				wait_time.tv_sec++;
+			} else {
+				wait_time.tv_nsec += 50000;
+			}
+		} else if( res ) {
 			LOG_ERROR("res=d pthread returned error", res);
 			return NULL;
 		}
