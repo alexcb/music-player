@@ -120,32 +120,33 @@ void* gpio_input_thread_run( void *p )
 	pthread_mutex_lock( &mutex );
 	LOG_DEBUG("gpio_input_thread_run started");
 
+    struct timespec now;
     struct timespec wait_time;
     wait_time.tv_sec = time(NULL);
     wait_time.tv_nsec = 0; //100*1000//100ms
 
 	for(;;) {
 		res = pthread_cond_timedwait( &gpio_input_changed_cond, &mutex, &wait_time );
-		if( res == ETIMEDOUT ) {
-			if( wait_time.tv_nsec >= 900000 ) {
-				wait_time.tv_nsec = 0;
-				wait_time.tv_sec++;
-			} else {
-				wait_time.tv_nsec += 50000;
-			}
-		} else if( res ) {
+		if( res && res != ETIMEDOUT) {
 			LOG_ERROR("res=d pthread returned error", res);
 			return NULL;
 		}
 
-		time_t now = time( NULL );
+		assert( clock_gettime( CLOCK_PROCESS_CPUTIME_ID, &now ) == 0);
+		if( now.tv_nsec > 950000 ) {
+			wait_time.tv_sec = now.tv_sec + 1;
+			wait_time.tv_nsec = 0;
+		} else {
+			wait_time.tv_sec = now.tv_sec;
+			wait_time.tv_nsec = wait_time.tv_nsec + 49999;
+		}
 
 		for(int i = 0; i < num_switches; i++ ) {
 			int current_state = switches[i].current_state;
 			if( switches[i].last_state != current_state ) {
 				LOG_INFO("switch=d state=d msg", i, current_state);
 				switches[i].last_state = current_state;
-				switches[i].changed_at = now;
+				switches[i].changed_at = now.tv_sec;
 				if( !current_state ) {
 					// 0 = switch has been closed (i.e. pressed)
 					LOG_INFO("switch=d on_down", i);
@@ -162,7 +163,7 @@ void* gpio_input_thread_run( void *p )
 				}
 			}
 			if( !current_state && switches[i].changed_at ) {
-				time_t elapsed_time = now - switches[i].changed_at;
+				time_t elapsed_time = now.tv_sec - switches[i].changed_at;
 				//LOG_INFO("switch=d elapsed=d on hold?", i, elapsed_time);
 				if( elapsed_time >= 2 && switches[i].held == 0) {
 					LOG_INFO("switch=d on_hold", i);
