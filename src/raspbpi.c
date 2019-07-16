@@ -133,6 +133,9 @@ void* gpio_input_thread_run( void *p )
 		}
 
 		assert( clock_gettime( CLOCK_PROCESS_CPUTIME_ID, &now ) == 0);
+
+		// TODO there's gotta be a function to do this.
+		// something like? https://lists.freedesktop.org/archives/wayland-devel/2017-December/036174.html
 		if( now.tv_nsec > 950000 ) {
 			wait_time.tv_sec = now.tv_sec + 1;
 			wait_time.tv_nsec = 0;
