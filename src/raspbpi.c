@@ -110,6 +110,15 @@ void switchIntHandler()
 	pthread_cond_signal( &gpio_input_changed_cond );
 }
 
+#define NSEC_PER_SEC 1000000000
+void add_ms(struct timespec *ts, ms int)
+{
+	ts->tv_nsec += ms * 1000;
+
+	ts->tv_sec += ts->tv_nsec / NSEC_PER_SEC;
+	ts->tv_nsec += ts->tv_nsec % NSEC_PER_SEC
+}
+
 void* gpio_input_thread_run( void *p )
 {
 	//long current_time;
@@ -123,7 +132,7 @@ void* gpio_input_thread_run( void *p )
     struct timespec now;
     struct timespec wait_time;
     wait_time.tv_sec = time(NULL);
-    wait_time.tv_nsec = 0; //100*1000//100ms
+    wait_time.tv_nsec = 0;
 
 	for(;;) {
 		res = pthread_cond_timedwait( &gpio_input_changed_cond, &mutex, &wait_time );
@@ -134,15 +143,8 @@ void* gpio_input_thread_run( void *p )
 
 		assert( clock_gettime( CLOCK_PROCESS_CPUTIME_ID, &now ) == 0);
 
-		// TODO there's gotta be a function to do this.
-		// something like? https://lists.freedesktop.org/archives/wayland-devel/2017-December/036174.html
-		if( now.tv_nsec > 950000 ) {
-			wait_time.tv_sec = now.tv_sec + 1;
-			wait_time.tv_nsec = 0;
-		} else {
-			wait_time.tv_sec = now.tv_sec;
-			wait_time.tv_nsec = wait_time.tv_nsec + 49999;
-		}
+		wait_time = now;
+		add_ms( &wait_time, 25 );
 
 		for(int i = 0; i < num_switches; i++ ) {
 			int current_state = switches[i].current_state;
