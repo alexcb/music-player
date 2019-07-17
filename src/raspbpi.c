@@ -111,7 +111,7 @@ void switchIntHandler()
 }
 
 #define NSEC_PER_SEC 1000000000
-void add_ms(struct timespec *ts, ms int)
+void add_ms(struct timespec *ts, int ms)
 {
 	ts->tv_nsec += ms * 1000;
 
