@@ -157,14 +157,14 @@ void* gpio_input_thread_run( void *p )
 				switches[i].changed_at = now.tv_sec;
 				if( !current_state ) {
 					// 0 = switch has been closed (i.e. pressed)
-					LOG_INFO("switch=d on_down", i);
 					if( switches[i].on_down ) {
+						LOG_INFO("switch=d on_down", i);
 						switches[i].on_down( player );
 					}
 				} else {
 					// 1 = switch is open (i.e. not pressed)
-					LOG_INFO("switch=d on_up", i);
 					if( switches[i].on_up && switches[i].held == 0) {
+						LOG_INFO("switch=d on_up", i);
 						switches[i].on_up( player );
 					}
 					switches[i].held = 0;
@@ -174,8 +174,8 @@ void* gpio_input_thread_run( void *p )
 				time_t elapsed_time = now.tv_sec - switches[i].changed_at;
 				//LOG_INFO("switch=d elapsed=d on hold?", i, elapsed_time);
 				if( elapsed_time >= 2 && switches[i].held == 0) {
-					LOG_INFO("switch=d on_hold", i);
 					if( switches[i].on_hold ) {
+						LOG_INFO("switch=d on_hold", i);
 						switches[i].on_hold( player );
 						switches[i].held = 1; // stop further triggers
 					}
