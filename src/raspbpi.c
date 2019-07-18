@@ -113,7 +113,7 @@ void switchIntHandler()
 #define NSEC_PER_SEC 1000000000
 void add_ms(struct timespec *ts, int ms)
 {
-	ts->tv_nsec += ms * 1000;
+	ts->tv_nsec += ms * 1000000;
 
 	ts->tv_sec += ts->tv_nsec / NSEC_PER_SEC;
 	ts->tv_nsec += ts->tv_nsec % NSEC_PER_SEC;
