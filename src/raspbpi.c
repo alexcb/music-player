@@ -141,7 +141,7 @@ void* gpio_input_thread_run( void *p )
 			return NULL;
 		}
 
-		if( res = clock_gettime( CLOCK_PROCESS_CPUTIME_ID, &now ) ) {
+		if( (res = clock_gettime( CLOCK_PROCESS_CPUTIME_ID, &now ) ) ) {
 			LOG_ERROR("res=d clock_gettime failed");
 			assert(0);
 		}
