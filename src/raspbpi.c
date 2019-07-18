@@ -116,7 +116,7 @@ void add_ms(struct timespec *ts, int ms)
 	ts->tv_nsec += ms * 1000000;
 
 	ts->tv_sec += ts->tv_nsec / NSEC_PER_SEC;
-	ts->tv_nsec += ts->tv_nsec % NSEC_PER_SEC;
+	ts->tv_nsec = ts->tv_nsec % NSEC_PER_SEC;
 }
 
 void* gpio_input_thread_run( void *p )
@@ -137,7 +137,7 @@ void* gpio_input_thread_run( void *p )
 	for(;;) {
 		res = pthread_cond_timedwait( &gpio_input_changed_cond, &mutex, &wait_time );
 		if( res && res != ETIMEDOUT) {
-			LOG_ERROR("res=d pthread returned error", res);
+			LOG_ERROR("res=d pthread_cond_timedwait returned error", res);
 			return NULL;
 		}
 
