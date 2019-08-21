@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mpg123.h>
+
 /*
 	resolver.c: TCP network stuff, for IPv4 and IPv6
 
