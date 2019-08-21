@@ -158,7 +158,8 @@ int playlist_manager_load( PlaylistManager* manager )
 		}
 	}
 	if( line != NULL ) {
-		my_free( line );
+		// line is allocated via getline; it does not use my_malloc
+		free( line );
 		line = NULL;
 	}
 	if( root != NULL ) {
