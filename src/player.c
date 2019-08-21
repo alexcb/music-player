@@ -3,6 +3,7 @@
 #include "log.h"
 #include "io_utils.h"
 #include "library.h"
+#include "my_malloc.h"
 
 #include <assert.h>
 #include <err.h>
@@ -53,7 +54,7 @@ int init_player( Player *player, const char *library_path )
 #endif
 
 	player->meta_audio_max = 5*1024*1024;
-	player->meta_audio = malloc(player->meta_audio_max);
+	player->meta_audio = my_malloc(player->meta_audio_max);
 	init_pico();
 
 	mpg123_init();
@@ -62,7 +63,7 @@ int init_player( Player *player, const char *library_path )
 	mpg123_format( player->mh, RATE, MPG123_STEREO, MPG123_ENC_SIGNED_16 );
 
 	player->decode_buffer_size = mpg123_outblock( player->mh );
-	player->decode_buffer = malloc(player->decode_buffer_size);
+	player->decode_buffer = my_malloc(player->decode_buffer_size);
 
 	// TODO ensure that ID_DATA_START messages are smaller than this
 	player->max_payload_size = mpg123_outblock( player->mh ) + 1 + sizeof(size_t);
@@ -84,18 +85,18 @@ int init_player( Player *player, const char *library_path )
 
 	player->metadata_observers_num = 0;
 	player->metadata_observers_cap = 2;
-	player->metadata_observers = (MetadataObserver*) malloc(sizeof(MetadataObserver) * player->metadata_observers_cap);
+	player->metadata_observers = (MetadataObserver*) my_malloc(sizeof(MetadataObserver) * player->metadata_observers_cap);
 	if( player->metadata_observers == NULL ) {
 		goto error;
 	}
-	player->metadata_observers_data = (void**) malloc(sizeof(void*) * player->metadata_observers_cap);
+	player->metadata_observers_data = (void**) my_malloc(sizeof(void*) * player->metadata_observers_cap);
 	if( player->metadata_observers_data == NULL ) {
 		goto error;
 	}
 	return 0;
 
 error:
-	//free( player->buffer );
+	//my_free( player->buffer );
 	//mpg123_exit();
 	//ao_shutdown();
 	return 1;
@@ -498,7 +499,7 @@ void player_load_into_buffer( Player *player, PlaylistItem *item )
 					//strcpy( track_info->artist, "" );
 					//strcpy( track_info->title, icy_title );
 					//strcpy( track_info->icy_name, icy_name );
-					free( icy_title );
+					my_free( icy_title );
 				}
 			}
 		}

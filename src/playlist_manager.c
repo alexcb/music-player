@@ -6,6 +6,7 @@
 #include "log.h"
 #include "sglib.h"
 #include "streams.h"
+#include "my_malloc.h"
 
 #include <dirent.h> 
 #include <string.h>
@@ -128,7 +129,7 @@ int playlist_manager_load( PlaylistManager *manager )
 				}
 			}
 
-			item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
+			item = (PlaylistItem*) my_malloc( sizeof(PlaylistItem) );
 			item->track = track;
 			item->stream = stream;
 			item->id = 0;
@@ -150,7 +151,7 @@ int playlist_manager_load( PlaylistManager *manager )
 		}
 	}
 	if( line != NULL ) {
-		free(line);
+		my_free(line);
 		line = NULL;
 	}
 	if( root != NULL ) {

@@ -18,6 +18,10 @@ my123: $(OBJ)
 test: $(OBJWITHOUTMAIN) $(TESTOBJ)
 	$(CC) $(CCFLAGS) -o test $^ $(LDFLAGS)
 
+.PHONY: reformat
+reformat:
+	find -regex '.*/.*\.\(c\|h\)$$' -exec clang-format-7 -i {} \;
+
 # To obtain object files
 %.o: %.c
 	$(CC) -c $(CCFLAGS) $< -o $@

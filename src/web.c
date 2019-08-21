@@ -9,6 +9,7 @@
 #include "errors.h"
 #include "my_data.h"
 #include "base64.h"
+#include "my_malloc.h"
 
 #include <string.h>
 #include <assert.h>
@@ -63,7 +64,7 @@ int send_all( int sockfd, const char *buf, size_t len )
 void clear_websocket_input( WebsocketData *ws )
 {
 	if( ws->extra_in ) {
-		free( ws->extra_in );
+		my_free( ws->extra_in );
 		ws->extra_in = NULL;
 	}
 }
@@ -315,12 +316,12 @@ static void websocket_upgrade_handler(
 	LOG_DEBUG("websocket_upgrade_handler called");
 	WebHandlerData *data = (WebHandlerData*) cls;
 
-	WebsocketData *ws = (WebsocketData*) malloc( sizeof(WebsocketData) );
+	WebsocketData *ws = (WebsocketData*) my_malloc( sizeof(WebsocketData) );
 	if( ws == NULL ) {
 		abort();
 	}
 	if( extra_in_size > 0) {
-		ws->extra_in = malloc( extra_in_size );
+		ws->extra_in = my_malloc( extra_in_size );
 		if( ws->extra_in == NULL )
 			abort ();
 		memcpy( ws->extra_in, extra_in, extra_in_size );
@@ -336,7 +337,7 @@ static void websocket_upgrade_handler(
 
 	res = register_websocket( data, ws );
 	if( res ) {
-		free( ws );
+		my_free( ws );
 		abort();
 	}
 }
@@ -476,7 +477,7 @@ static int web_handler_playlists_load(
 			}
 		}
 
-		item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
+		item = (PlaylistItem*) my_malloc( sizeof(PlaylistItem) );
 		item->track = track;
 		item->stream = stream;
 		item->id = track_id;
@@ -979,7 +980,7 @@ static int web_handler(
 
 	RequestSession *request_session;
 	if( *con_cls == NULL ) {
-		request_session = malloc(sizeof(RequestSession));
+		request_session = my_malloc(sizeof(RequestSession));
 		request_session->body = sdsempty();
 		*con_cls = (void*) request_session;
 		return MHD_YES;

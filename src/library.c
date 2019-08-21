@@ -15,6 +15,7 @@
 
 #include "id3.h"
 #include "log.h"
+#include "my_malloc.h"
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(Album,  left, right, color_field, ALBUM_CMPARATOR)
 SGLIB_DEFINE_RBTREE_FUNCTIONS(Track,  left, right, color_field, TRACK_PATH_COMPARATOR)
@@ -50,7 +51,7 @@ int library_add_track( Library *library, Artist *artist, Album *album, const cha
 	track = sglib_Track_find_member( library->root_track, &track_to_find );
 	if( !track ) {
 		LOG_INFO( "path=s adding new track", relative_track_path );
-		track = malloc(sizeof(Track));
+		track = my_malloc(sizeof(Track));
 		track->artist = artist->artist;
 		track->album = album->album;
 		safe_basename( relative_track_path, &(track->title) );
@@ -96,7 +97,7 @@ int library_add_album( Library *library, Artist *artist, const char *relative_al
 	album = sglib_Album_find_member( artist->albums, &album_to_find );
 	if( !album ) {
 		LOG_INFO( "path=s adding new album", relative_album_path );
-		album = (Album*) malloc(sizeof(Album));
+		album = (Album*) my_malloc(sizeof(Album));
 		album->artist = artist->artist;
 		safe_basename( relative_album_path, &(album->album) );
 		album->path = sdsnew( relative_album_path );
@@ -163,7 +164,7 @@ int library_add_artist( Library *library, const char *relative_artist_path )
 	artist = sglib_Artist_find_member( library->artists, &artist_to_find );
 	if( !artist ) {
 		LOG_INFO( "path=s adding new artist", relative_artist_path );
-		artist = (Artist*) malloc(sizeof(Artist));
+		artist = (Artist*) my_malloc(sizeof(Artist));
 		safe_basename( relative_artist_path, &(artist->artist) );
 		artist->path = sdsnew( relative_artist_path );
 		artist->albums = NULL;

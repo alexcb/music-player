@@ -30,6 +30,7 @@
 #include <signal.h>
 
 #include "id3.h"
+#include "my_malloc.h"
 
 struct httpdata hd;
 
@@ -56,9 +57,11 @@ PlaylistItem* get_random_track(PlaylistItem *p) {
 
 int main(int argc, char *argv[])
 {
+	my_malloc_init();
+
 	char* log_level = (char*) sdsnew(getenv("LOG_LEVEL"));
 	str_to_upper( log_level );
-	set_log_level_string( log_level ? log_level : "INFO" );
+	set_log_level_from_string( log_level ? log_level : "INFO" );
 
 	bool auto_play = false;
 	char* auto_start = (char*) sdsnew(getenv("MUSIC_AUTO_PLAY"));

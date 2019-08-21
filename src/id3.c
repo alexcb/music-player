@@ -7,6 +7,7 @@
 #include "log.h"
 #include "io_utils.h"
 #include "string_utils.h"
+#include "my_malloc.h"
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -186,10 +187,10 @@ int id3_cache_load( ID3Cache *cache )
 	ID3CacheItem *item;
 
 	for(;;) {
-		item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
+		item = (ID3CacheItem*) my_malloc(sizeof(ID3CacheItem));
 		res = read_str( fp, &item->path);
 		if( res ) {
-			free(item);
+			my_free(item);
 			break;
 		}
 
@@ -212,7 +213,7 @@ int id3_cache_load( ID3Cache *cache )
 
 int id3_cache_new( ID3Cache **cache, const char *cache_path, mpg123_handle *mh )
 {
-	*cache = (ID3Cache*) malloc(sizeof(ID3Cache));
+	*cache = (ID3Cache*) my_malloc(sizeof(ID3Cache));
 	(*cache)->root = NULL;
 	(*cache)->mh = mh;
 	(*cache)->path = cache_path;
@@ -239,13 +240,13 @@ int id3_cache_get( ID3Cache *cache, const char *library_path, const char *path, 
 	*item = sglib_ID3CacheItem_find_member( cache->root, &id );
 	if( *item == NULL ) {
 		LOG_INFO( "path=s item was not found in cache", path );
-		*item = (ID3CacheItem*) malloc(sizeof(ID3CacheItem));
+		*item = (ID3CacheItem*) my_malloc(sizeof(ID3CacheItem));
 		memset( *item, 0, sizeof(ID3CacheItem) );
 		(*item)->mod_time = st.st_mtim.tv_sec;
 		res = id3_get( cache, library_path, path, *item );
 		if( res ) {
 			LOG_INFO( "path=s failed to read mp3 id3", full_path );
-			free( *item );
+			my_free( *item );
 			return 1;
 		}
 		sglib_ID3CacheItem_add( &(cache->root), *item );
@@ -259,7 +260,7 @@ int id3_cache_get( ID3Cache *cache, const char *library_path, const char *path, 
 		res = id3_get( cache, library_path, path, *item );
 		if( res ) {
 			LOG_INFO( "path=s failed to read mp3 id3", full_path );
-			free( *item );
+			my_free( *item );
 			return 1;
 		}
 		(*item)->mod_time = st.st_mtim.tv_sec;

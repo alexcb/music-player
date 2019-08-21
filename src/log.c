@@ -1,45 +1,24 @@
 #include "log.h"
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <assert.h>
-#include <string.h>
-#include <stdbool.h>
-#include <time.h>
+#include "my_malloc.h"
 
+#include <assert.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
 #define LOG_BUF_SIZE 1024
 
+int menoetius_log_level = LOG_LEVEL_INFO;
 
+struct log_context
+{
+	char s[LOG_BUF_SIZE];
+	struct log_context* next;
+};
 
-int log_level = LOG_LEVEL_INFO;
-
-void set_log_level( int level ) {
-	log_level = level;
-}
-
-int set_log_level_string( const char *s ) {
-	if( strcmp( s, "CRITICAL" ) == 0 ) {
-		log_level = LOG_LEVEL_CRITICAL;
-	}
-	else if( strcmp( s, "ERROR" ) == 0 ) {
-		log_level = LOG_LEVEL_ERROR;
-	}
-	else if( strcmp( s, "WARN" ) == 0 ) {
-		log_level = LOG_LEVEL_WARN;
-	}
-	else if( strcmp( s, "INFO" ) == 0 ) {
-		log_level = LOG_LEVEL_INFO;
-	}
-	else if( strcmp( s, "DEBUG" ) == 0 ) {
-		log_level = LOG_LEVEL_DEBUG;
-	} else {
-		return 1;
-	}
-	return 0;
-}
-
-bool needs_quotes( const char *s, int n )
+bool needs_quotes( const char* s, int n )
 {
 	for( int i = 0; i < n; i++ ) {
 		if( s[i] == '\0' ) {
@@ -52,9 +31,10 @@ bool needs_quotes( const char *s, int n )
 	return false;
 }
 
-int escape_binary( char *buf, int buf_size, const char *s, int n, int *num_written, bool escape_doublequote )
+int escape_binary(
+	char* buf, int buf_size, const char* s, int n, int* num_written, bool escape_doublequote )
 {
-	char *start = buf;
+	char* start = buf;
 	for( int i = 0; i < n; i++ ) {
 		char c = s[i];
 		if( c == '\\' ) {
@@ -64,28 +44,32 @@ int escape_binary( char *buf, int buf_size, const char *s, int n, int *num_writt
 			}
 			buf[0] = '\\';
 			buf[1] = '\\';
-		} else if( c == '\t' ) {
+		}
+		else if( c == '\t' ) {
 			if( buf_size <= 1 ) {
 				*num_written = buf - start;
 				return LOG_ERROR_OUT_OF_SPACE;
 			}
 			buf[0] = '\\';
 			buf[1] = 't';
-		} else if( c == '\n' ) {
+		}
+		else if( c == '\n' ) {
 			if( buf_size <= 1 ) {
 				*num_written = buf - start;
 				return LOG_ERROR_OUT_OF_SPACE;
 			}
 			buf[0] = '\\';
 			buf[1] = 'n';
-		} else if( c == '"' && escape_doublequote ) {
+		}
+		else if( c == '"' && escape_doublequote ) {
 			if( buf_size <= 1 ) {
 				*num_written = buf - start;
 				return LOG_ERROR_OUT_OF_SPACE;
 			}
 			buf[0] = '\\';
 			buf[1] = 'n';
-		} else if( 32 <= c && c <= 126 ) {
+		}
+		else if( 32 <= c && c <= 126 ) {
 			buf[0] = c;
 			buf++;
 			buf_size--;
@@ -93,14 +77,15 @@ int escape_binary( char *buf, int buf_size, const char *s, int n, int *num_writt
 				*num_written = buf - start;
 				return LOG_ERROR_OUT_OF_SPACE;
 			}
-		} else {
+		}
+		else {
 			if( buf_size <= 4 ) {
 				*num_written = buf - start;
 				return LOG_ERROR_OUT_OF_SPACE;
 			}
 			buf[0] = '\\';
 			buf[1] = 'x';
-			sprintf(&buf[2], "%02hhX", c);
+			sprintf( &buf[2], "%02hhX", c );
 			buf += 4;
 			buf_size -= 4;
 		}
@@ -109,13 +94,30 @@ int escape_binary( char *buf, int buf_size, const char *s, int n, int *num_writt
 	return LOG_OK;
 }
 
-int tokenize_key(const char *s, const char **tok, int *n)
+int tokenize_ctx( const char* s, const char** tok, int* n )
 {
-	const char *start = s;
-	while( *start && (*start == ' ' || *start == '\t') ) {
+	const char* start = s;
+	while( *start && ( *start == ' ' || *start == '\t' ) ) {
 		start++;
 	}
-	const char *p = start;
+	printf( "===== %s ====\n", start );
+	if( strcmp( start, "ctx" ) == 0 ) {
+		*tok = start;
+		*n = 3;
+		return LOG_OK;
+	}
+	*tok = NULL;
+	*n = 0;
+	return LOG_OK;
+}
+
+int tokenize_key( const char* s, const char** tok, int* n )
+{
+	const char* start = s;
+	while( *start && ( *start == ' ' || *start == '\t' ) ) {
+		start++;
+	}
+	const char* p = start;
 	while( *p ) {
 		if( *p == ' ' ) {
 			return LOG_ERROR_UNEXPECTED_CHAR;
@@ -133,14 +135,14 @@ int tokenize_key(const char *s, const char **tok, int *n)
 	return LOG_ERROR_UNEXPECTED_CHAR;
 }
 
-int tokenize_value_fmt(const char *s, const char **tok, int *n)
+int tokenize_value_fmt( const char* s, const char** tok, int* n )
 {
-	//if( s != '%' ) {
+	// if( s != '%' ) {
 	//	return ERROR_UNEXPECTED_CHAR;
 	//}
-	//s++;
+	// s++;
 
-	const char *p = s;
+	const char* p = s;
 	while( *p != ' ' && *p ) {
 		p++;
 	}
@@ -152,7 +154,7 @@ int tokenize_value_fmt(const char *s, const char **tok, int *n)
 	return LOG_OK;
 }
 
-int append_quoted_string_n( char *buf, int buf_size, const char *s, int n, int *num_written )
+int append_quoted_string_n( char* buf, int buf_size, const char* s, int n, int* num_written )
 {
 	int m;
 	int err;
@@ -164,15 +166,15 @@ int append_quoted_string_n( char *buf, int buf_size, const char *s, int n, int *
 			n = buf_size;
 		}
 
-		return escape_binary( buf, buf_size, s, n, num_written, false);
+		return escape_binary( buf, buf_size, s, n, num_written, false );
 	}
 
-	char *start = buf;
+	char* start = buf;
 	buf[0] = '"';
 	buf++;
 	buf_size--;
 	m = 0;
-	err = escape_binary( buf, buf_size, s, n, &m, true);
+	err = escape_binary( buf, buf_size, s, n, &m, true );
 	assert( buf_size >= m );
 	buf += m;
 	buf_size -= m;
@@ -187,12 +189,12 @@ int append_quoted_string_n( char *buf, int buf_size, const char *s, int n, int *
 	return 0;
 }
 
-int append_quoted_string( char *buf, int buf_size, const char *s, int *num_written )
+int append_quoted_string( char* buf, int buf_size, const char* s, int* num_written )
 {
-	return append_quoted_string_n( buf, buf_size, s, strlen(s), num_written );
+	return append_quoted_string_n( buf, buf_size, s, strlen( s ), num_written );
 }
 
-int _slog_args(char *buf, size_t buf_size, const char *fmt, va_list arguments)
+int _slog_args( char* buf, size_t buf_size, const char* fmt, va_list arguments )
 {
 	int res;
 	int key_n, val_fmt_n;
@@ -208,7 +210,8 @@ int _slog_args(char *buf, size_t buf_size, const char *fmt, va_list arguments)
 	// reserve spaces for "\n\0" at the end
 	buf_size -= 2;
 
-	const char *p = fmt;
+	const char* p = fmt;
+
 	while( 1 ) {
 		res = tokenize_key( p, &key, &key_n );
 		if( res != LOG_OK ) {
@@ -224,54 +227,80 @@ int _slog_args(char *buf, size_t buf_size, const char *fmt, va_list arguments)
 		p = val_fmt + val_fmt_n;
 
 		if( buf_size - buf_i > key_n + 1 ) {
-			strncpy( buf+buf_i, key, key_n );
-			buf_i += key_n;
-			buf[buf_i] = '=';
-			buf_i++;
+			if( key_n == 3 && memcmp( key, "ctx", 3 ) == 0 ) {
+				// ignore the key
+			}
+			else {
+				strncpy( buf + buf_i, key, key_n );
+				buf_i += key_n;
+				buf[buf_i] = '=';
+				buf_i++;
+			}
 		}
 
 		if( val_fmt_n == 1 && val_fmt[0] == 's' ) {
-			const char *val = va_arg( arguments, const char* );
-			err = append_quoted_string( buf+buf_i, buf_size - buf_i, val, &m );
+			const char* val = va_arg( arguments, const char* );
+			if( val == NULL ) {
+				val = "<NULL>";
+			}
+
+			err = append_quoted_string( buf + buf_i, buf_size - buf_i, val, &m );
 			if( err == LOG_ERROR_OUT_OF_SPACE ) {
 				buf_i += m;
 				err = 1;
 				goto error;
-			} else if( err != LOG_OK ) {
+			}
+			else if( err != LOG_OK ) {
 				return 1;
 			}
+
 			buf_i += m;
-		} else if( val_fmt_n == 1 && val_fmt[0] == 'd' ) {
-			int val = va_arg( arguments, int );
-			snprintf( buf+buf_i, buf_size - buf_i, "%d", val );
-			buf_i += strlen(buf+buf_i);
-		} else if( val_fmt_n == 1 && val_fmt[0] == 'f' ) {
+		}
+		else if( val_fmt_n == 1 && val_fmt[0] == 'f' ) {
 			double val = va_arg( arguments, double );
-			snprintf( buf+buf_i, buf_size - buf_i, "%f", val );
-			buf_i += strlen(buf+buf_i);
-		} else if( val_fmt_n == 1 && val_fmt[0] == 'p' ) {
+			snprintf( buf + buf_i, buf_size - buf_i, "%lf", val );
+			buf_i += strlen( buf + buf_i );
+		}
+		else if( val_fmt_n == 1 && val_fmt[0] == 'd' ) {
+			int val = va_arg( arguments, int );
+			snprintf( buf + buf_i, buf_size - buf_i, "%d", val );
+			buf_i += strlen( buf + buf_i );
+		}
+		else if( val_fmt_n == 1 && val_fmt[0] == 'p' ) {
 			void* val = va_arg( arguments, void* );
-			snprintf( buf+buf_i, buf_size - buf_i, "%p", val );
-			buf_i += strlen(buf+buf_i);
-		} else if( val_fmt_n == 2 && val_fmt[0] == '*' && val_fmt[1] == 's' ) {
+			snprintf( buf + buf_i, buf_size - buf_i, "%p", val );
+			buf_i += strlen( buf + buf_i );
+		}
+		else if( val_fmt_n == 2 && val_fmt[0] == '*' && val_fmt[1] == 's' ) {
 			int n = va_arg( arguments, int );
-			const char *val = va_arg( arguments, const char* );
+			const char* val = va_arg( arguments, const char* );
 			m = 0;
-			err = append_quoted_string_n( buf+buf_i, buf_size - buf_i, val, n, &m );
+			err = append_quoted_string_n( buf + buf_i, buf_size - buf_i, val, n, &m );
 			if( err == LOG_ERROR_OUT_OF_SPACE ) {
 				buf_i += m;
 				err = 1;
 				goto error;
-			} else if( err != LOG_OK ) {
+			}
+			else if( err != LOG_OK ) {
 				return 1;
 			}
 			buf_i += m;
-		} else {
-			printf("Unhandled format: %.*s=%.*s\n", key_n, key, val_fmt_n, val_fmt);
+		}
+		else if( key_n == 3 && memcmp( key, "ctx", 3 ) == 0 ) {
+			// has context
+			const log_context* ctx = va_arg( arguments, const log_context* );
+			while( ctx != NULL ) {
+				snprintf( buf + buf_i, buf_size - buf_i, "%s", ctx->s );
+				buf_i += strlen( buf + buf_i );
+				ctx = ctx->next;
+			}
+		}
+		else {
+			printf( "Unhandled format: %.*s=%.*s\n", key_n, key, val_fmt_n, val_fmt );
 			assert( 0 );
 		}
 
-		if( (buf_size - buf_i) > 1 ) {
+		if( ( buf_size - buf_i ) > 1 ) {
 			buf[buf_i] = ' ';
 			buf_i++;
 		}
@@ -280,13 +309,13 @@ int _slog_args(char *buf, size_t buf_size, const char *fmt, va_list arguments)
 		p++;
 	}
 	if( *p ) {
-		err = append_quoted_string( buf+buf_i, buf_size - buf_i, "msg=", &m );
+		err = append_quoted_string( buf + buf_i, buf_size - buf_i, "msg=", &m );
 		if( err != LOG_OK && err != LOG_ERROR_OUT_OF_SPACE ) {
 			return 1;
 		}
 		buf_i += m;
 
-		err = append_quoted_string( buf+buf_i, buf_size - buf_i, p, &m );
+		err = append_quoted_string( buf + buf_i, buf_size - buf_i, p, &m );
 		if( err != LOG_OK && err != LOG_ERROR_OUT_OF_SPACE ) {
 			return 1;
 		}
@@ -296,40 +325,101 @@ int _slog_args(char *buf, size_t buf_size, const char *fmt, va_list arguments)
 	err = 0;
 error:
 	// two bytes were initially reserved at the top of this function
-	assert( (buf_i+1) < (buf_size+2) );
+	assert( ( buf_i + 1 ) < ( buf_size + 2 ) );
 	buf[buf_i] = '\n';
-	buf[buf_i+1] = '\0';
+	buf[buf_i + 1] = '\0';
 
 	return err;
 }
 
-void _slog(char *buf, size_t buf_size, const char *fmt, ...)
+void _slog( char* buf, size_t buf_size, const char* fmt, ... )
 {
 	va_list arguments;
 	va_start( arguments, fmt );
-	_slog_args(buf, buf_size, fmt, arguments);
+	_slog_args( buf, buf_size, fmt, arguments );
 	va_end( arguments );
 }
 
-void _log(int level, const char *fmt, ...)
+void _log( int level_num, const char* fmt, ... )
 {
-	if( level > log_level ) {
-		return;
-	}
-
-	// TODO convert this to something easier to read
-	struct timespec ts;
-	clock_gettime(CLOCK_REALTIME, &ts);
-	fprintf( stderr, "%lld.%.9ld ", (long long)ts.tv_sec, ts.tv_nsec );
-
-
 	char buf[LOG_BUF_SIZE];
 
 	va_list arguments;
 	va_start( arguments, fmt );
-	_slog_args(buf, LOG_BUF_SIZE, fmt, arguments);
+	_slog_args( buf, LOG_BUF_SIZE, fmt, arguments );
 	va_end( arguments );
 
 	fputs( buf, stderr );
 	fflush( stderr );
+}
+
+void set_log_level( int level )
+{
+	LOG_INFO( "level=d setting log level", level );
+	menoetius_log_level = level;
+}
+
+void set_log_level_from_string( const char* s )
+{
+	if( strcasecmp( s, "TRACE" ) == 0 ) {
+		set_log_level( LOG_LEVEL_TRACE );
+	}
+	else if( strcasecmp( s, "DEBUG" ) == 0 ) {
+		set_log_level( LOG_LEVEL_DEBUG );
+	}
+	else if( strcasecmp( s, "INFO" ) == 0 ) {
+		set_log_level( LOG_LEVEL_INFO );
+	}
+	else if( strcasecmp( s, "WARN" ) == 0 || strcmp( s, "WARNING" ) == 0 ) {
+		set_log_level( LOG_LEVEL_WARNING );
+	}
+	else if( strcasecmp( s, "ERROR" ) == 0 ) {
+		set_log_level( LOG_LEVEL_ERROR );
+	}
+	else if( strcasecmp( s, "CRIT" ) == 0 || strcasecmp( s, "CRITICAL" ) == 0 ) {
+		set_log_level( LOG_LEVEL_CRITICAL );
+	}
+	else {
+		LOG_WARN( "requested_level=s unknown log level; defaulting to INFO", s );
+		set_log_level( LOG_LEVEL_INFO );
+	}
+}
+
+void set_log_level_from_env_variables( const char** env )
+{
+	while( *env ) {
+		if( strncmp( *env, "LOG_LEVEL=", 10 ) == 0 ) {
+			set_log_level_from_string( ( *env ) + 10 );
+			break;
+		}
+		env++;
+	}
+}
+
+log_context* new_log_context( log_context* ctx, const char* fmt, ... )
+{
+	log_context* new_ctx = (log_context*)my_malloc( sizeof( log_context ) );
+	new_ctx->next = ctx;
+
+	va_list arguments;
+	va_start( arguments, fmt );
+	_slog_args( new_ctx->s, LOG_BUF_SIZE, fmt, arguments );
+	va_end( arguments );
+
+	int n = strlen( new_ctx->s );
+	if( n > 1 ) {
+		new_ctx->s[n - 2] = '\0'; // remove newline and space
+	}
+
+	return new_ctx;
+}
+
+void free_log_context( log_context* ctx )
+{
+	log_context* p;
+	while( ctx != NULL ) {
+		p = ctx->next;
+		my_free( ctx );
+		ctx = p;
+	}
 }

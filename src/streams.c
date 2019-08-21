@@ -10,6 +10,7 @@
 
 #include "string_utils.h"
 #include "log.h"
+#include "my_malloc.h"
 
 int parse_streams(const char *path, StreamList *sl)
 {
@@ -30,7 +31,7 @@ int parse_streams(const char *path, StreamList *sl)
 		LOG_DEBUG("line=s got line", line);
 		if( !line[0] )
 			continue;
-		entry = malloc(sizeof(Stream));
+		entry = my_malloc(sizeof(Stream));
 		s = strstr( line, " " );
 		entry->url = sdsnewlen( line, s - line );
 		entry->volume = 1.0f;

@@ -40,6 +40,7 @@
 
 #include <ctype.h>
 #include "true.h"
+#include "my_malloc.h"
 
 #define SIZE_MAX 1024 * 64
 
@@ -275,7 +276,7 @@ int translate_url(const char *url, mpg123_string *purl)
 		//error("URL too long. Skipping...");
 		return FALSE;
 	}
-	/* Prepare purl in one chunk, to minimize mallocs. */
+	/* Prepare purl in one chunk, to minimize my_mallocs. */
 	if(!mpg123_resize_string(purl, strlen(url) + 31)) return FALSE;
 	/*
 	 * 2000-10-21:
@@ -349,20 +350,20 @@ int fill_request(mpg123_string *request, mpg123_string *host, mpg123_string *por
 		if(httpauth1->fill) {
 			if(httpauth1->fill > SIZE_MAX / 4) return FALSE;
 
-			buf=(char *)malloc(httpauth1->fill * 4);
+			buf=(char *)my_malloc(httpauth1->fill * 4);
 			if(!buf)
 			{
-				//error("malloc() failed for http auth, out of memory.");
+				//error("my_malloc() failed for http auth, out of memory.");
 				return FALSE;
 			}
 			encode64(httpauth1->p,buf);
 		} else {
 			if(strlen(httpauth) > SIZE_MAX / 4 - 4 ) return FALSE;
 
-			buf=(char *)malloc((strlen(httpauth) + 1) * 4);
+			buf=(char *)my_malloc((strlen(httpauth) + 1) * 4);
 			if(!buf)
 			{
-				//error("malloc() for http auth failed, out of memory.");
+				//error("my_malloc() for http auth failed, out of memory.");
 				return FALSE;
 			}
 			encode64(httpauth,buf);
@@ -371,7 +372,7 @@ int fill_request(mpg123_string *request, mpg123_string *host, mpg123_string *por
 		if( !mpg123_add_string(request, buf) || !mpg123_add_string(request, "\r\n"))
 		ret = FALSE;
 
-		free(buf); /* Watch out for leaking if you introduce returns before this line. */
+		my_free(buf); /* Watch out for leaking if you introduce returns before this line. */
 	}
 	if(ret) ret = mpg123_add_string(request, "\r\n");
 
@@ -453,7 +454,7 @@ int http_open( const char* url, struct httpdata *hd )
 	 * "\r\n"			 2
 	 * ... plus the other predefined header lines
 	 */
-	/* Just use this estimate as first guess to reduce malloc calls in string library. */
+	/* Just use this estimate as first guess to reduce my_malloc calls in string library. */
 	{
 		size_t length_estimate = 62 + accept_length() + strlen(CONN_HEAD) + strlen(icy_yes) + purl.fill;
 		if(    !mpg123_grow_string(&request, length_estimate)

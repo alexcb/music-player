@@ -1,6 +1,7 @@
 #include "circular_buffer.h"
 #include "log.h"
 #include "timing.h"
+#include "my_malloc.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -39,7 +40,7 @@ int init_circular_buffer( CircularBuffer *buffer, size_t buffer_size )
 	pthread_cond_init( &buffer->space_free, NULL );
 	pthread_cond_init( &buffer->data_avail, NULL );
 
-	buffer->p = (char*) malloc( buffer_size );
+	buffer->p = (char*) my_malloc( buffer_size );
 	if( buffer->p == NULL ) {
 		return 1;
 	}

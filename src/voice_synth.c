@@ -3,7 +3,9 @@
 #include <assert.h>
 #include <string.h>
 #include <stdint.h>
+
 #include "log.h"
+#include "my_malloc.h"
 
 static pico_System sys;
 static pico_Engine engine;
@@ -21,7 +23,7 @@ int init_pico() {
 	const char *ta_path = "/usr/share/pico/lang/en-US_ta.bin";
 	const char *sg_path = "/usr/share/pico/lang/en-US_lh0_sg.bin";
 
-	void *mem_space = (void*)malloc(MEM_SIZE);
+	void *mem_space = (void*)my_malloc(MEM_SIZE);
 	assert( pico_initialize( mem_space, MEM_SIZE, &sys ) == PICO_OK );
 	assert( pico_loadResource( sys, (const pico_Char *) ta_path, &ta_resource) == PICO_OK );
 	assert( pico_loadResource( sys, (const pico_Char *) sg_path, &sg_resource) == PICO_OK );
@@ -83,7 +85,7 @@ char *mono_buf = NULL;
 size_t synth_text( const char *s, char *buf, int max_samples )
 {
 	if( !mono_buf ) {
-		mono_buf = malloc(max_samples);
+		mono_buf = my_malloc(max_samples);
 	}
 
 	size_t n = synth_text_( s, mono_buf, max_samples );

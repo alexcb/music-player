@@ -4,6 +4,7 @@
 #include "log.h"
 #include "httpget.h"
 #include "library.h"
+#include "my_malloc.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -17,7 +18,7 @@ int playlist_id_next = 1;
 
 int playlist_new( Playlist **playlist, const char *name )
 {
-	*playlist = (Playlist*) malloc(sizeof(Playlist));
+	*playlist = (Playlist*) my_malloc(sizeof(Playlist));
 	if( *playlist == NULL ) {
 		return OUT_OF_MEMORY;
 	}
@@ -25,7 +26,7 @@ int playlist_new( Playlist **playlist, const char *name )
 
 	(*playlist)->name = sdsnew( name );
 	if( (*playlist)->name == NULL ) {
-		free( *playlist );
+		my_free( *playlist );
 		return OUT_OF_MEMORY;
 	}
 
@@ -50,7 +51,7 @@ int playlist_ref_down( Playlist *playlist )
 
 	playlist_clear( playlist );
 	sdsfree( playlist->name );
-	free( playlist );
+	my_free( playlist );
 	return 0;
 }
 
@@ -96,7 +97,7 @@ int read_metadata( const char *path, sds *artist, sds *title)
 int playlist_add_file( Playlist *playlist, const Track *track, int track_id )
 {
 	assert(0);
-//	PlaylistItem *item = (PlaylistItem*) malloc( sizeof(PlaylistItem) );
+//	PlaylistItem *item = (PlaylistItem*) my_malloc( sizeof(PlaylistItem) );
 //	item->track = track;
 //	item->ref_count = 1;
 //
