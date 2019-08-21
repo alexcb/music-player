@@ -7,5 +7,5 @@ typedef struct RotaryState
 	volatile long last_dedent;
 } RotaryState;
 
-void initRotaryState(RotaryState *state, int pin1, int pin2);
-int updateRotary(RotaryState *state, int pin1, int pin2);
+void initRotaryState( RotaryState* state, int pin1, int pin2 );
+int updateRotary( RotaryState* state, int pin1, int pin2 );

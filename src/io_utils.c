@@ -1,31 +1,32 @@
 #include "io_utils.h"
-#include "log.h"
 #include "httpget.h"
+#include "log.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-int open_file( const char *path, int *fd );
-int open_stream( const char *url, int *fd, long int *icy_interval, char **icy_name );
+int open_file( const char* path, int* fd );
+int open_stream( const char* url, int* fd, long int* icy_interval, char** icy_name );
 
-int open_fd( const char *path, int *fd, long int *icy_interval, char **icy_name )
+int open_fd( const char* path, int* fd, long int* icy_interval, char** icy_name )
 {
 	int res;
-	if( strstr(path, "http://") ) {
+	if( strstr( path, "http://" ) ) {
 		res = open_stream( path, fd, icy_interval, icy_name );
-	} else {
+	}
+	else {
 		res = open_file( path, fd );
 		*icy_interval = 0;
 	}
 	return res;
 }
 
-int open_file( const char *path, int *fd )
+int open_file( const char* path, int* fd )
 {
 	LOG_DEBUG( "path=s open_file", path );
 	*fd = open( path, O_RDONLY );
@@ -37,10 +38,10 @@ int open_file( const char *path, int *fd )
 
 // TODO does this need to be global? can it be in the player instead?
 struct httpdata hd;
-int open_stream( const char *url, int *fd, long int *icy_interval, char **icy_name )
+int open_stream( const char* url, int* fd, long int* icy_interval, char** icy_name )
 {
 	LOG_DEBUG( "url=s open_stream", url );
-	*fd = http_open(url, &hd);
+	*fd = http_open( url, &hd );
 	*icy_interval = hd.icy_interval;
 	*icy_name = hd.icy_name.p;
 

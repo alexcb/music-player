@@ -28,8 +28,8 @@
 
 //#include "mpg123app.h"
 #include "httpget.h"
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "resolver.h"
@@ -38,112 +38,105 @@
 
 #include <errno.h>
 
-#include <ctype.h>
-#include "true.h"
 #include "my_malloc.h"
+#include "true.h"
+#include <ctype.h>
 
 #define SIZE_MAX 1024 * 64
 
-void httpdata_init(struct httpdata *e)
+void httpdata_init( struct httpdata* e )
 {
-	mpg123_init_string(&e->content_type);
-	mpg123_init_string(&e->icy_url);
-	mpg123_init_string(&e->icy_name);
+	mpg123_init_string( &e->content_type );
+	mpg123_init_string( &e->icy_url );
+	mpg123_init_string( &e->icy_name );
 	e->icy_interval = 0;
 	e->proxystate = PROXY_UNKNOWN;
-	mpg123_init_string(&e->proxyhost);
-	mpg123_init_string(&e->proxyport);
+	mpg123_init_string( &e->proxyhost );
+	mpg123_init_string( &e->proxyport );
 }
 
-void httpdata_reset(struct httpdata *e)
+void httpdata_reset( struct httpdata* e )
 {
-	mpg123_free_string(&e->content_type);
-	mpg123_free_string(&e->icy_url);
-	mpg123_free_string(&e->icy_name);
+	mpg123_free_string( &e->content_type );
+	mpg123_free_string( &e->icy_url );
+	mpg123_free_string( &e->icy_name );
 	e->icy_interval = 0;
 	/* the other stuff shall persist */
 }
 
-void httpdata_free(struct httpdata *e)
+void httpdata_free( struct httpdata* e )
 {
-	httpdata_reset(e);
-	mpg123_free_string(&e->proxyhost);
-	mpg123_free_string(&e->proxyport);
+	httpdata_reset( e );
+	mpg123_free_string( &e->proxyhost );
+	mpg123_free_string( &e->proxyport );
 }
 
 /* mime type classes */
 #define M_FILE 0
-#define M_M3U  1
-#define M_PLS  2
-static const char* mime_file[] =
-{
-	"audio/mpeg",  "audio/x-mpeg",
-	"audio/mp3",   "audio/x-mp3", 
-	"audio/mpeg3", "audio/x-mpeg3",
-	"audio/mpg",   "audio/x-mpg",
+#define M_M3U 1
+#define M_PLS 2
+static const char* mime_file[] = {
+	"audio/mpeg",
+	"audio/x-mpeg",
+	"audio/mp3",
+	"audio/x-mp3",
+	"audio/mpeg3",
+	"audio/x-mpeg3",
+	"audio/mpg",
+	"audio/x-mpg",
 	"audio/x-mpegaudio",
 	"application/octet-stream", /* Assume raw binary data is some MPEG data. */
-	NULL
-};
-static const char* mime_m3u[] = { "audio/mpegurl", "audio/mpeg-url", "audio/x-mpegurl", NULL };
-static const char* mime_pls[]	=
-{
-	"audio/x-scpls"
-,	"audio/scpls"
-,	"application/pls"
-,	"application/x-scpls"
-,	"application/pls+xml"
-,	NULL
-};
-static const char** mimes[] = { mime_file, mime_m3u, mime_pls, NULL };
+	NULL};
+static const char* mime_m3u[] = {"audio/mpegurl", "audio/mpeg-url", "audio/x-mpegurl", NULL};
+static const char* mime_pls[] = {"audio/x-scpls",
+								 "audio/scpls",
+								 "application/pls",
+								 "application/x-scpls",
+								 "application/pls+xml",
+								 NULL};
+static const char** mimes[] = {mime_file, mime_m3u, mime_pls, NULL};
 
-static int writestring (int fd, mpg123_string *string)
+static int writestring( int fd, mpg123_string* string )
 {
 	size_t result, bytes;
-	char *ptr = string->p;
-	bytes = string->fill ? string->fill-1 : 0;
+	char* ptr = string->p;
+	bytes = string->fill ? string->fill - 1 : 0;
 
-	while(bytes)
-	{
-		result = write(fd, ptr, bytes);
-		if(result < 0 && errno != EINTR)
-		{
-			perror ("writing http string");
+	while( bytes ) {
+		result = write( fd, ptr, bytes );
+		if( result < 0 && errno != EINTR ) {
+			perror( "writing http string" );
 			return FALSE;
 		}
-		else if(result == 0)
-		{
+		else if( result == 0 ) {
 			//error("write: socket closed unexpectedly");
 			return FALSE;
 		}
-		ptr   += result;
+		ptr += result;
 		bytes -= result;
 	}
 	return TRUE;
 }
 
-static size_t readstring (mpg123_string *string, size_t maxlen, int fd)
+static size_t readstring( mpg123_string* string, size_t maxlen, int fd )
 {
 	int err;
 	string->fill = 0;
-	while(maxlen == 0 || string->fill < maxlen)
-	{
-		if(string->size-string->fill < 1)
-		if(!mpg123_grow_string(string, string->fill+4096))
-		{
-			//error("Cannot allocate memory for reading.");
-			string->fill = 0;
-			return 0;
-		}
-		err = read(fd,string->p+string->fill,1);
+	while( maxlen == 0 || string->fill < maxlen ) {
+		if( string->size - string->fill < 1 )
+			if( !mpg123_grow_string( string, string->fill + 4096 ) ) {
+				//error("Cannot allocate memory for reading.");
+				string->fill = 0;
+				return 0;
+			}
+		err = read( fd, string->p + string->fill, 1 );
 		/* Whoa... reading one byte at a time... one could ensure the line break in another way, but more work. */
-		if( err == 1)
-		{
+		if( err == 1 ) {
 			string->fill++;
-			if(string->p[string->fill-1] == '\n') break;
+			if( string->p[string->fill - 1] == '\n' )
+				break;
 		}
-		else if(errno != EINTR)
-		{
+		else if( errno != EINTR ) {
 			//error("Error reading from socket or unexpected EOF.");
 			string->fill = 0;
 			/* bail out to prevent endless loop */
@@ -151,64 +144,61 @@ static size_t readstring (mpg123_string *string, size_t maxlen, int fd)
 		}
 	}
 
-	if(!mpg123_grow_string(string, string->fill+1))
-	{
-		string->fill=0;
+	if( !mpg123_grow_string( string, string->fill + 1 ) ) {
+		string->fill = 0;
 	}
-	else
-	{
+	else {
 		string->p[string->fill] = 0;
 		string->fill++;
 	}
 	return string->fill;
 }
 
-void encode64 (char *source,char *destination)
+void encode64( char* source, char* destination )
 {
-  static char *Base64Digits =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  int n = 0;
-  int ssiz=strlen(source);
-  int i;
+	static char* Base64Digits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	int n = 0;
+	int ssiz = strlen( source );
+	int i;
 
-  for (i = 0 ; i < ssiz ; i += 3) {
-    unsigned int buf;
-    buf = ((unsigned char *)source)[i] << 16;
-    if (i+1 < ssiz)
-      buf |= ((unsigned char *)source)[i+1] << 8;
-    if (i+2 < ssiz)
-      buf |= ((unsigned char *)source)[i+2];
+	for( i = 0; i < ssiz; i += 3 ) {
+		unsigned int buf;
+		buf = ( (unsigned char*)source )[i] << 16;
+		if( i + 1 < ssiz )
+			buf |= ( (unsigned char*)source )[i + 1] << 8;
+		if( i + 2 < ssiz )
+			buf |= ( (unsigned char*)source )[i + 2];
 
-    destination[n++] = Base64Digits[(buf >> 18) % 64];
-    destination[n++] = Base64Digits[(buf >> 12) % 64];
-    if (i+1 < ssiz)
-      destination[n++] = Base64Digits[(buf >> 6) % 64];
-    else
-      destination[n++] = '=';
-    if (i+2 < ssiz)
-      destination[n++] = Base64Digits[buf % 64];
-    else
-      destination[n++] = '=';
-  }
-  destination[n++] = 0;
+		destination[n++] = Base64Digits[( buf >> 18 ) % 64];
+		destination[n++] = Base64Digits[( buf >> 12 ) % 64];
+		if( i + 1 < ssiz )
+			destination[n++] = Base64Digits[( buf >> 6 ) % 64];
+		else
+			destination[n++] = '=';
+		if( i + 2 < ssiz )
+			destination[n++] = Base64Digits[buf % 64];
+		else
+			destination[n++] = '=';
+	}
+	destination[n++] = 0;
 }
 
 /* Look out for HTTP header field to parse, construct C string with the value.
    Attention: Modifies argument, since it's so convenient... */
-char *get_header_val(const char *hname, mpg123_string *response)
+char* get_header_val( const char* hname, mpg123_string* response )
 {
-	char *tmp = NULL;
-	size_t prelen = strlen(hname);
+	char* tmp = NULL;
+	size_t prelen = strlen( hname );
 	/* if header name found, next char is at least something, so just check for : */
-	if(!strncasecmp(hname, response->p, prelen) && (response->p[prelen] == ':'))
-	{
+	if( !strncasecmp( hname, response->p, prelen ) && ( response->p[prelen] == ':' ) ) {
 		++prelen;
-		if((tmp = strchr(response->p, '\r')) != NULL ) tmp[0] = 0;
-		if((tmp = strchr(response->p, '\n')) != NULL ) tmp[0] = 0;
-		tmp = response->p+prelen;
+		if( ( tmp = strchr( response->p, '\r' ) ) != NULL )
+			tmp[0] = 0;
+		if( ( tmp = strchr( response->p, '\n' ) ) != NULL )
+			tmp[0] = 0;
+		tmp = response->p + prelen;
 		/* I _know_ that there is a terminating zero, so this loop is safe. */
-		while((tmp[0] == ' ') || (tmp[0] == '\t'))
-		{
+		while( ( tmp[0] == ' ' ) || ( tmp[0] == '\t' ) ) {
 			++tmp;
 		}
 	}
@@ -216,68 +206,71 @@ char *get_header_val(const char *hname, mpg123_string *response)
 }
 
 /* Iterate over header field names and storage locations, to possibly get those values. */
-void get_header_string(mpg123_string *response, const char *fieldname, mpg123_string *store)
+void get_header_string( mpg123_string* response, const char* fieldname, mpg123_string* store )
 {
-	char *tmp;
-	if((tmp = get_header_val(fieldname, response)))
-	{
-		if(mpg123_set_string(store, tmp)){ return; }
+	char* tmp;
+	if( ( tmp = get_header_val( fieldname, response ) ) ) {
+		if( mpg123_set_string( store, tmp ) ) {
+			return;
+		}
 	}
 }
 
 /* shoutcsast meta data: 1=on, 0=off */
 
-char *httpauth = NULL;
+char* httpauth = NULL;
 
-size_t accept_length(void)
+size_t accept_length( void )
 {
-	int i,j;
+	int i, j;
 	static size_t l = 0;
-	if(l) return l;
-	l += strlen("Accept: ");
-	for(i=0; mimes[i]    != NULL; ++i)
-	for(j=0; mimes[i][j] != NULL; ++j){ l += strlen(mimes[i][j]) + strlen(", "); }
-	l += strlen("*/*\r\n");
+	if( l )
+		return l;
+	l += strlen( "Accept: " );
+	for( i = 0; mimes[i] != NULL; ++i )
+		for( j = 0; mimes[i][j] != NULL; ++j ) {
+			l += strlen( mimes[i][j] ) + strlen( ", " );
+		}
+	l += strlen( "*/*\r\n" );
 	return l;
 }
 
-static int append_accept(mpg123_string *s)
+static int append_accept( mpg123_string* s )
 {
-	size_t i,j;
-	if(!mpg123_add_string(s, "Accept: ")) return FALSE;
+	size_t i, j;
+	if( !mpg123_add_string( s, "Accept: " ) )
+		return FALSE;
 
 	/* We prefer what we know. */
-	for(i=0; mimes[i]    != NULL; ++i)
-	for(j=0; mimes[i][j] != NULL; ++j)
-	{
-		if(   !mpg123_add_string(s, mimes[i][j])
-			 || !mpg123_add_string(s, ", ") )
-		return FALSE;
-	}
+	for( i = 0; mimes[i] != NULL; ++i )
+		for( j = 0; mimes[i][j] != NULL; ++j ) {
+			if( !mpg123_add_string( s, mimes[i][j] ) || !mpg123_add_string( s, ", " ) )
+				return FALSE;
+		}
 	/* Well... in the end, we accept everything, trying to make sense with reality. */
-	if(!mpg123_add_string(s, "*/*\r\n")) return FALSE;
+	if( !mpg123_add_string( s, "*/*\r\n" ) )
+		return FALSE;
 
 	return TRUE;
 }
-
 
 /*
 	Converts spaces to "%20" ... actually, I have to ask myself why.
 	What about converting them to "+" instead? Would make things a lot easier.
 	Or, on the other hand... what about avoiding HTML encoding at all?
 */
-int translate_url(const char *url, mpg123_string *purl)
+int translate_url( const char* url, mpg123_string* purl )
 {
-	const char *sptr;
+	const char* sptr;
 	/* The length of purl is upper bound by 3*strlen(url) + 1 if
 	 * everything in it is a space (%20) - or any encoded character */
-	if (strlen(url) >= SIZE_MAX/3)
-	{
+	if( strlen( url ) >= SIZE_MAX / 3 ) {
 		//error("URL too long. Skipping...");
 		return FALSE;
 	}
 	/* Prepare purl in one chunk, to minimize my_mallocs. */
-	if(!mpg123_resize_string(purl, strlen(url) + 31)) return FALSE;
+	if( !mpg123_resize_string( purl, strlen( url ) + 31 ) )
+		return FALSE;
 	/*
 	 * 2000-10-21:
 	 * We would like spaces to be automatically converted to %20's when
@@ -285,143 +278,162 @@ int translate_url(const char *url, mpg123_string *purl)
 	 * -- Martin Sjögren <md9ms@mdstud.chalmers.se>
 	 * Hm, why only spaces? Maybe one should do this http stuff more properly...
 	 */
-	if ((sptr = strchr(url, ' ')) == NULL)
-	mpg123_set_string(purl, url);
-	else
-	{ /* Note that sptr is set from the if to this else... */
-		const char *urlptr = url;
-		mpg123_set_string(purl, "");
+	if( ( sptr = strchr( url, ' ' ) ) == NULL )
+		mpg123_set_string( purl, url );
+	else { /* Note that sptr is set from the if to this else... */
+		const char* urlptr = url;
+		mpg123_set_string( purl, "" );
 		do {
-			if(! ( mpg123_add_substring(purl, urlptr, 0, sptr-urlptr)
-			       && mpg123_add_string(purl, "%20") ) )
-			return FALSE;
+			if( !( mpg123_add_substring( purl, urlptr, 0, sptr - urlptr ) &&
+				   mpg123_add_string( purl, "%20" ) ) )
+				return FALSE;
 			urlptr = sptr + 1;
-		} while ((sptr = strchr (urlptr, ' ')) != NULL);
-		if(!mpg123_add_string(purl, urlptr)) return FALSE;
+		} while( ( sptr = strchr( urlptr, ' ' ) ) != NULL );
+		if( !mpg123_add_string( purl, urlptr ) )
+			return FALSE;
 	}
 	/* now see if a terminating / may be needed */
-	if(strchr(purl->p+(strncmp("http://", purl->p, 7) ? 0 : 7), '/') == NULL
-	    && !mpg123_add_string(purl, "/"))
-	return FALSE;
+	if( strchr( purl->p + ( strncmp( "http://", purl->p, 7 ) ? 0 : 7 ), '/' ) == NULL &&
+		!mpg123_add_string( purl, "/" ) )
+		return FALSE;
 
 	return TRUE;
 }
 
-int fill_request(mpg123_string *request, mpg123_string *host, mpg123_string *port, mpg123_string *httpauth1, int *try_without_port)
+int fill_request( mpg123_string* request,
+				  mpg123_string* host,
+				  mpg123_string* port,
+				  mpg123_string* httpauth1,
+				  int* try_without_port )
 {
 	char* ttemp;
 	int ret = TRUE;
-	const char *icy = icy_yes;
+	const char* icy = icy_yes;
 
 	/* hm, my test redirection had troubles with line break before HTTP/1.0 */
-	if((ttemp = strchr(request->p,'\r')) != NULL){ *ttemp = 0; request->fill = ttemp-request->p+1; }
+	if( ( ttemp = strchr( request->p, '\r' ) ) != NULL ) {
+		*ttemp = 0;
+		request->fill = ttemp - request->p + 1;
+	}
 
-	if((ttemp = strchr(request->p,'\n')) != NULL){ *ttemp = 0; request->fill = ttemp-request->p+1; }
+	if( ( ttemp = strchr( request->p, '\n' ) ) != NULL ) {
+		*ttemp = 0;
+		request->fill = ttemp - request->p + 1;
+	}
 
 	/* Fill out the request further... */
-	if(   !mpg123_add_string(request, " HTTP/1.0\r\nUser-Agent: musicplayer-dev\r\nicy-metadata: 1\r\n")
-		 || !mpg123_add_string(request, "\r\n") )
-	return FALSE;
+	if( !mpg123_add_string( request,
+							" HTTP/1.0\r\nUser-Agent: musicplayer-dev\r\nicy-metadata: 1\r\n" ) ||
+		!mpg123_add_string( request, "\r\n" ) )
+		return FALSE;
 
-	if(host->fill)
-	{ /* Give virtual hosting a chance... adding the "Host: ... " line. */
-		if(    mpg123_add_string(request, "Host: ")
-			  && mpg123_add_string(request, host->p)
-			  && ( *try_without_port || (
-			         mpg123_add_string(request, ":")
-			      && mpg123_add_string(request, port->p) ))
-			  && mpg123_add_string(request, "\r\n") )
-		{
-			if(*try_without_port) *try_without_port = 0;
+	if( host->fill ) { /* Give virtual hosting a chance... adding the "Host: ... " line. */
+		if( mpg123_add_string( request, "Host: " ) && mpg123_add_string( request, host->p ) &&
+			( *try_without_port ||
+			  ( mpg123_add_string( request, ":" ) && mpg123_add_string( request, port->p ) ) ) &&
+			mpg123_add_string( request, "\r\n" ) ) {
+			if( *try_without_port )
+				*try_without_port = 0;
 		}
-		else return FALSE;
+		else
+			return FALSE;
 	}
 
 	/* Acceptance, stream setup. */
-	if(   !append_accept(request)
-		 || !mpg123_add_string(request, CONN_HEAD)
-		 || !mpg123_add_string(request, icy) )
-	return FALSE;
+	if( !append_accept( request ) || !mpg123_add_string( request, CONN_HEAD ) ||
+		!mpg123_add_string( request, icy ) )
+		return FALSE;
 
 	/* Authorization. */
-	if (httpauth1->fill || httpauth) {
-		char *buf;
-		if(!mpg123_add_string(request,"Authorization: Basic ")) return FALSE;
-		if(httpauth1->fill) {
-			if(httpauth1->fill > SIZE_MAX / 4) return FALSE;
+	if( httpauth1->fill || httpauth ) {
+		char* buf;
+		if( !mpg123_add_string( request, "Authorization: Basic " ) )
+			return FALSE;
+		if( httpauth1->fill ) {
+			if( httpauth1->fill > SIZE_MAX / 4 )
+				return FALSE;
 
-			buf=(char *)my_malloc(httpauth1->fill * 4);
-			if(!buf)
-			{
+			buf = (char*)my_malloc( httpauth1->fill * 4 );
+			if( !buf ) {
 				//error("my_malloc() failed for http auth, out of memory.");
 				return FALSE;
 			}
-			encode64(httpauth1->p,buf);
-		} else {
-			if(strlen(httpauth) > SIZE_MAX / 4 - 4 ) return FALSE;
+			encode64( httpauth1->p, buf );
+		}
+		else {
+			if( strlen( httpauth ) > SIZE_MAX / 4 - 4 )
+				return FALSE;
 
-			buf=(char *)my_malloc((strlen(httpauth) + 1) * 4);
-			if(!buf)
-			{
+			buf = (char*)my_malloc( ( strlen( httpauth ) + 1 ) * 4 );
+			if( !buf ) {
 				//error("my_malloc() for http auth failed, out of memory.");
 				return FALSE;
 			}
-			encode64(httpauth,buf);
+			encode64( httpauth, buf );
 		}
 
-		if( !mpg123_add_string(request, buf) || !mpg123_add_string(request, "\r\n"))
-		ret = FALSE;
+		if( !mpg123_add_string( request, buf ) || !mpg123_add_string( request, "\r\n" ) )
+			ret = FALSE;
 
-		my_free(buf); /* Watch out for leaking if you introduce returns before this line. */
+		my_free( buf ); /* Watch out for leaking if you introduce returns before this line. */
 	}
-	if(ret) ret = mpg123_add_string(request, "\r\n");
+	if( ret )
+		ret = mpg123_add_string( request, "\r\n" );
 
 	return ret;
 }
 
-static int resolve_redirect(mpg123_string *response, mpg123_string *request_url, mpg123_string *purl)
+static int
+resolve_redirect( mpg123_string* response, mpg123_string* request_url, mpg123_string* purl )
 {
 	/* initialized with full old url */
-	if(!mpg123_copy_string(request_url, purl)) return FALSE;
+	if( !mpg123_copy_string( request_url, purl ) )
+		return FALSE;
 
 	/* We may strip it down to a prefix ot totally. */
-	if(strncasecmp(response->p, "Location: http://", 17))
-	{ /* OK, only partial strip, need prefix for relative path. */
+	if( strncasecmp( response->p,
+					 "Location: http://",
+					 17 ) ) { /* OK, only partial strip, need prefix for relative path. */
 		char* ptmp = NULL;
 		/* though it's not RFC (?), accept relative URIs as wget does */
-		printf("NOTE: no complete URL in redirect, constructing one\n");
+		printf( "NOTE: no complete URL in redirect, constructing one\n" );
 		/* not absolute uri, could still be server-absolute */
 		/* I prepend a part of the request... out of the request */
-		if(response->p[10] == '/')
-		{
+		if( response->p[10] == '/' ) {
 			/* only prepend http://server/ */
 			/* I null the first / after http:// */
-			ptmp = strchr(purl->p+7,'/');
-			if(ptmp != NULL){ purl->fill = ptmp-purl->p+1; purl->p[purl->fill-1] = 0; }
+			ptmp = strchr( purl->p + 7, '/' );
+			if( ptmp != NULL ) {
+				purl->fill = ptmp - purl->p + 1;
+				purl->p[purl->fill - 1] = 0;
+			}
 		}
-		else
-		{
+		else {
 			/* prepend http://server/path/ */
 			/* now we want the last / */
-			ptmp = strrchr(purl->p+7, '/');
-			if(ptmp != NULL){ purl->fill = ptmp-purl->p+2; purl->p[purl->fill-1] = 0; }
+			ptmp = strrchr( purl->p + 7, '/' );
+			if( ptmp != NULL ) {
+				purl->fill = ptmp - purl->p + 2;
+				purl->p[purl->fill - 1] = 0;
+			}
 		}
 	}
-	else purl->fill = 0;
+	else
+		purl->fill = 0;
 
-	if(!mpg123_add_string(purl, response->p+10)) return FALSE;
-
+	if( !mpg123_add_string( purl, response->p + 10 ) )
+		return FALSE;
 
 	return TRUE;
 }
 
-int http_open( const char* url, struct httpdata *hd )
+int http_open( const char* url, struct httpdata* hd )
 {
 	mpg123_string purl, host, port, path;
 	mpg123_string request, response, request_url;
 	mpg123_string httpauth1;
 	int sock = -1;
-	int oom  = 0;
+	int oom = 0;
 	int relocate, numrelocs = 0;
 	int got_location = FALSE;
 	/*
@@ -430,21 +442,27 @@ int http_open( const char* url, struct httpdata *hd )
 		for the record: Apache/2.0.51 (Fedora)
 	*/
 	int try_without_port = 0;
-	mpg123_init_string(&purl);
-	mpg123_init_string(&host);
-	mpg123_init_string(&port);
-	mpg123_init_string(&path);
-	mpg123_init_string(&request);
-	mpg123_init_string(&response);
-	mpg123_init_string(&request_url);
-	mpg123_init_string(&httpauth1);
+	mpg123_init_string( &purl );
+	mpg123_init_string( &host );
+	mpg123_init_string( &port );
+	mpg123_init_string( &path );
+	mpg123_init_string( &request );
+	mpg123_init_string( &response );
+	mpg123_init_string( &request_url );
+	mpg123_init_string( &httpauth1 );
 
 	(void)oom;
 
-	if(!translate_url(url, &purl)){ oom=1; goto exit; }
+	if( !translate_url( url, &purl ) ) {
+		oom = 1;
+		goto exit;
+	}
 
 	/* Don't confuse the different auth strings... */
-	if(!split_url(&purl, &httpauth1, NULL, NULL, NULL) ){ oom=1; goto exit; }
+	if( !split_url( &purl, &httpauth1, NULL, NULL, NULL ) ) {
+		oom = 1;
+		goto exit;
+	}
 
 	/* "GET http://"		11
 	 * " HTTP/1.0\r\nUser-Agent: <PACKAGE_NAME>/<PACKAGE_VERSION>\r\n"
@@ -456,147 +474,149 @@ int http_open( const char* url, struct httpdata *hd )
 	 */
 	/* Just use this estimate as first guess to reduce my_malloc calls in string library. */
 	{
-		size_t length_estimate = 62 + accept_length() + strlen(CONN_HEAD) + strlen(icy_yes) + purl.fill;
-		if(    !mpg123_grow_string(&request, length_estimate)
-		    || !mpg123_grow_string(&response,4096) )
-		{
-			oom=1; goto exit;
+		size_t length_estimate =
+			62 + accept_length() + strlen( CONN_HEAD ) + strlen( icy_yes ) + purl.fill;
+		if( !mpg123_grow_string( &request, length_estimate ) ||
+			!mpg123_grow_string( &response, 4096 ) ) {
+			oom = 1;
+			goto exit;
 		}
 	}
 
-	do
-	{
+	do {
 		/* Storing the request url, with http:// prepended if needed. */
 		/* used to be url here... seemed wrong to me (when loop advanced...) */
-		if(strncasecmp(purl.p, "http://", 7) != 0) mpg123_set_string(&request_url, "http://");
-		else mpg123_set_string(&request_url, "");
+		if( strncasecmp( purl.p, "http://", 7 ) != 0 )
+			mpg123_set_string( &request_url, "http://" );
+		else
+			mpg123_set_string( &request_url, "" );
 
-		mpg123_chomp_string(&purl);
-		mpg123_add_string(&request_url, purl.p);
+		mpg123_chomp_string( &purl );
+		mpg123_add_string( &request_url, purl.p );
 
 		/* Always store the host and port from the URL for correct host header
 		   in the request. Proxy server is used for connection, but never in the
 		   host header! */
-		if(!split_url(&purl, NULL, &host, &port, &path)){ oom=1; goto exit; }
-		if (hd->proxystate >= PROXY_HOST)
-		{
+		if( !split_url( &purl, NULL, &host, &port, &path ) ) {
+			oom = 1;
+			goto exit;
+		}
+		if( hd->proxystate >= PROXY_HOST ) {
 			/* We will connect to proxy, full URL goes into the request. */
-			if(    !mpg123_set_string(&request, "GET ")
-			    || !mpg123_add_string(&request, request_url.p) )
-			{
-				oom=1; goto exit;
+			if( !mpg123_set_string( &request, "GET " ) ||
+				!mpg123_add_string( &request, request_url.p ) ) {
+				oom = 1;
+				goto exit;
 			}
 		}
-		else
-		{
+		else {
 			/* We will connect to the host from the URL and only the path goes into the request. */
-			if(    !mpg123_set_string(&request, "GET ")
-			    || !mpg123_add_string(&request, path.p) )
-			{
-				oom=1; goto exit;
+			if( !mpg123_set_string( &request, "GET " ) || !mpg123_add_string( &request, path.p ) ) {
+				oom = 1;
+				goto exit;
 			}
 		}
 
-		if(!fill_request(&request, &host, &port, &httpauth1, &try_without_port)){ oom=1; goto exit; }
+		if( !fill_request( &request, &host, &port, &httpauth1, &try_without_port ) ) {
+			oom = 1;
+			goto exit;
+		}
 
 		httpauth1.fill = 0; /* We use the auth data from the URL only once. */
-		if (hd->proxystate >= PROXY_HOST)
-		{
+		if( hd->proxystate >= PROXY_HOST ) {
 			/* Only the host:port used for actual connection is replaced by
 			   proxy. */
-			if(    !mpg123_copy_string(&hd->proxyhost, &host)
-			    || !mpg123_copy_string(&hd->proxyport, &port) )
-			{
-				oom=1; goto exit;
+			if( !mpg123_copy_string( &hd->proxyhost, &host ) ||
+				!mpg123_copy_string( &hd->proxyport, &port ) ) {
+				oom = 1;
+				goto exit;
 			}
 		}
-		sock = open_connection(&host, &port);
-		if(sock < 0)
-		{
+		sock = open_connection( &host, &port );
+		if( sock < 0 ) {
 			//error1("Unable to establish connection to %s", host.fill ? host.p : "");
 			goto exit;
 		}
-#define http_failure close(sock); sock=-1; goto exit;
-		
-		if(!writestring(sock, &request)){ http_failure; }
+#define http_failure                                                                               \
+	close( sock );                                                                                 \
+	sock = -1;                                                                                     \
+	goto exit;
+
+		if( !writestring( sock, &request ) ) {
+			http_failure;
+		}
 		relocate = FALSE;
 		/* Arbitrary length limit here... */
-#define safe_readstring \
-		readstring(&response, SIZE_MAX/16, sock); \
-		if(response.fill > SIZE_MAX/16) /* > because of appended zero. */ \
-		{ \
-			http_failure; \
-		} \
-		else if(response.fill == 0) \
-		{ \
-			http_failure; \
-		};
+#define safe_readstring                                                                            \
+	readstring( &response, SIZE_MAX / 16, sock );                                                  \
+	if( response.fill > SIZE_MAX / 16 ) /* > because of appended zero. */                          \
+	{                                                                                              \
+		http_failure;                                                                              \
+	}                                                                                              \
+	else if( response.fill == 0 ) {                                                                \
+		http_failure;                                                                              \
+	};
 		safe_readstring;
 
 		{
-			char *sptr;
-			if((sptr = strchr(response.p, ' ')))
-			{
-				if(response.fill > sptr-response.p+2)
-				switch (sptr[1])
-				{
+			char* sptr;
+			if( ( sptr = strchr( response.p, ' ' ) ) ) {
+				if( response.fill > sptr - response.p + 2 )
+					switch( sptr[1] ) {
 					case '3':
 						relocate = TRUE;
 					case '2':
 						break;
 					default:
-						printf ("HTTP request failed: %s", sptr+1); /* '\n' is included */
+						printf( "HTTP request failed: %s", sptr + 1 ); /* '\n' is included */
 						http_failure;
+					}
+				else {
+					http_failure;
 				}
-				else{ http_failure; }
 			}
 		}
 
 		/* If we are relocated, we need to look out for a Location header. */
 		got_location = FALSE;
 
-		do
-		{
+		do {
 			safe_readstring; /* Think about that: Should we really error out when we get nothing? Could be that the server forgot the trailing empty line... */
-			if (!strncasecmp(response.p, "Location: ", 10))
-			{ /* It is a redirection! */
-				if(!resolve_redirect(&response, &request_url, &purl)){ oom=1, http_failure; }
+			if( !strncasecmp( response.p, "Location: ", 10 ) ) { /* It is a redirection! */
+				if( !resolve_redirect( &response, &request_url, &purl ) ) {
+					oom = 1, http_failure;
+				}
 
-				if(!strcmp(purl.p, request_url.p))
-				{
+				if( !strcmp( purl.p, request_url.p ) ) {
 					//warning("relocated to very same place! trying request again without host port");
 					try_without_port = 1;
 				}
 				got_location = TRUE;
 			}
-			else
-			{ /* We got a header line (or the closing empty line). */
-				char *tmp;
+			else { /* We got a header line (or the closing empty line). */
+				char* tmp;
 				/* Not sure if I want to bail out on error here. */
 				/* Also: What text encoding are these strings in? Doesn't need to be plain ASCII... */
-				get_header_string(&response, "content-type", &hd->content_type);
-				get_header_string(&response, "icy-name",     &hd->icy_name);
-				get_header_string(&response, "icy-url",      &hd->icy_url);
+				get_header_string( &response, "content-type", &hd->content_type );
+				get_header_string( &response, "icy-name", &hd->icy_name );
+				get_header_string( &response, "icy-url", &hd->icy_url );
 
 				/* watch out for icy-metaint */
-				if((tmp = get_header_val("icy-metaint", &response)))
-				{
-					hd->icy_interval = (off_t) atol(tmp); /* atoll ? */
+				if( ( tmp = get_header_val( "icy-metaint", &response ) ) ) {
+					hd->icy_interval = (off_t)atol( tmp ); /* atoll ? */
 				}
 			}
-		} while(response.p[0] != '\r' && response.p[0] != '\n');
-		if(relocate)
-		{
-			close(sock);
+		} while( response.p[0] != '\r' && response.p[0] != '\n' );
+		if( relocate ) {
+			close( sock );
 			sock = -1;
 			/* Forget content type, might just relate to a displayed error page,
 			   not the resource being redirected to. */
-			mpg123_free_string(&hd->content_type);
-			mpg123_init_string(&hd->content_type);
+			mpg123_free_string( &hd->content_type );
+			mpg123_init_string( &hd->content_type );
 		}
-	} while(relocate && got_location && purl.fill && numrelocs++ < HTTP_MAX_RELOCATIONS);
-	if(relocate)
-	{
+	} while( relocate && got_location && purl.fill && numrelocs++ < HTTP_MAX_RELOCATIONS );
+	if( relocate ) {
 		//if(!got_location)
 		//error("Server meant to redirect but failed to provide a location!");
 		//else
@@ -608,16 +628,15 @@ int http_open( const char* url, struct httpdata *hd )
 exit: /* The end as well as the exception handling point... */
 	//if(oom) error("Apparently, I ran out of memory or had some bad input data...");
 
-	mpg123_free_string(&purl);
-	mpg123_free_string(&host);
-	mpg123_free_string(&port);
-	mpg123_free_string(&path);
-	mpg123_free_string(&request);
-	mpg123_free_string(&response);
-	mpg123_free_string(&request_url);
-	mpg123_free_string(&httpauth1);
+	mpg123_free_string( &purl );
+	mpg123_free_string( &host );
+	mpg123_free_string( &port );
+	mpg123_free_string( &path );
+	mpg123_free_string( &request );
+	mpg123_free_string( &response );
+	mpg123_free_string( &request_url );
+	mpg123_free_string( &httpauth1 );
 	return sock;
 }
 
 /* EOF */
-

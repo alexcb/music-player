@@ -1,8 +1,8 @@
 #pragma once
 
-#include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #include "playlist.h"
 
@@ -10,10 +10,9 @@
 
 typedef struct PlayQueueItem
 {
-	char *buf_start;
-	PlaylistItem *playlist_item;
+	char* buf_start;
+	PlaylistItem* playlist_item;
 } PlayQueueItem;
-
 
 typedef struct PlayQueue
 {
@@ -21,9 +20,9 @@ typedef struct PlayQueue
 	PlayQueueItem queue[PLAY_QUEUE_CAP];
 } PlayQueue;
 
-int play_queue_init( PlayQueue *pq );
-int play_queue_add( PlayQueue *pq, PlayQueueItem **item );
-int play_queue_head( PlayQueue *pq, PlayQueueItem **item );
-int play_queue_pop( PlayQueue *pq );
-int play_queue_size( PlayQueue *pq );
-void play_queue_clear( PlayQueue *pq );
+int play_queue_init( PlayQueue* pq );
+int play_queue_add( PlayQueue* pq, PlayQueueItem** item );
+int play_queue_head( PlayQueue* pq, PlayQueueItem** item );
+int play_queue_pop( PlayQueue* pq );
+int play_queue_size( PlayQueue* pq );
+void play_queue_clear( PlayQueue* pq );

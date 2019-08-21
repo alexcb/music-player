@@ -17,23 +17,25 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#include <stdio.h>
 #include "testRunner.h"
+#include <stdio.h>
 
 static unsigned int counter;
 
-int testRunner(TEST_FUNCTION testFunction) {
-    int err;
-    counter = 0;
-    err = (testFunction)();
-    if (err) {
-        printf("NG (now %d ok...)\n",counter);
-        return 1;
-    }
-    printf("OK (%d tests)\n",counter);
-    return 0;
+int testRunner( TEST_FUNCTION testFunction )
+{
+	int err;
+	counter = 0;
+	err = ( testFunction )();
+	if( err ) {
+		printf( "NG (now %d ok...)\n", counter );
+		return 1;
+	}
+	printf( "OK (%d tests)\n", counter );
+	return 0;
 }
 
-void doTestCountUp(void) {
-    counter++;
+void doTestCountUp( void )
+{
+	counter++;
 }

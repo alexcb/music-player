@@ -1,23 +1,21 @@
 #pragma once
 
 #include <mpg123.h>
-#include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #ifdef USE_RASP_PI
-	#include <alsa/asoundlib.h>
+#	include <alsa/asoundlib.h>
 #else
-	#include <pulse/simple.h>
-	#include <pulse/error.h>
+#	include <pulse/simple.h>
+#	include <pulse/error.h>
 #endif
 
-
-
 #include "circular_buffer.h"
+#include "httpget.h"
 #include "play_queue.h"
 #include "playlist_manager.h"
-#include "httpget.h"
 
 #define PLAYER_ARTIST_LEN 1024
 #define PLAYER_TITLE_LEN 1024
@@ -36,20 +34,22 @@
 struct Player;
 typedef struct Player Player;
 
-
-typedef void (*MetadataObserver)( bool playing, const PlaylistItem *playlist_item, int playlist_version, void *data );
-typedef int (*AudioConsumer)( Player *player, const char *p, size_t n );
-typedef void (*LoadItem)( Player *player, PlaylistItem *item );
+typedef void ( *MetadataObserver )( bool playing,
+									const PlaylistItem* playlist_item,
+									int playlist_version,
+									void* data );
+typedef int ( *AudioConsumer )( Player* player, const char* p, size_t n );
+typedef void ( *LoadItem )( Player* player, PlaylistItem* item );
 
 struct Player
 {
 #ifdef USE_RASP_PI
-	snd_pcm_t *alsa_handle;
+	snd_pcm_t* alsa_handle;
 #else
-	pa_simple *pa_handle;
+	pa_simple* pa_handle;
 #endif
 
-	mpg123_handle *mh;
+	mpg123_handle* mh;
 
 	pthread_t audio_thread;
 	pthread_t reader_thread;
@@ -59,21 +59,21 @@ struct Player
 	PlayQueue play_queue;
 	pthread_mutex_t the_lock;
 
-	PlaylistManager *playlist_manager;
+	PlaylistManager* playlist_manager;
 
 	int metadata_observers_num;
 	int metadata_observers_cap;
-	MetadataObserver *metadata_observers;
-	void **metadata_observers_data;
+	MetadataObserver* metadata_observers;
+	void** metadata_observers_data;
 
 	pthread_cond_t done_track_cond;
 
-	PlaylistItem *current_track;
+	PlaylistItem* current_track;
 
-	PlaylistItem *playlist_item_to_buffer;
-	PlaylistItem *playlist_item_to_buffer_override;
+	PlaylistItem* playlist_item_to_buffer;
+	PlaylistItem* playlist_item_to_buffer_override;
 
-	const char *library_path;
+	const char* library_path;
 
 	// when true play, when false, pause / stop
 	//bool playing;
@@ -83,7 +83,7 @@ struct Player
 
 	size_t meta_audio_max;
 	size_t meta_audio_n;
-	char *meta_audio;
+	char* meta_audio;
 	bool say_track_info;
 
 	// control over changing tracks
@@ -91,46 +91,46 @@ struct Player
 	bool load_in_progress;
 	bool load_abort_requested;
 	pthread_cond_t load_cond;
-	
+
 	size_t max_payload_size;
 
 	size_t decode_buffer_size;
-	char *decode_buffer;
+	char* decode_buffer;
 
 	AudioConsumer audio_consumer;
 	LoadItem load_item;
 };
 
 #ifdef USE_RASP_PI
-	void init_alsa( Player *player );
-	int consume_alsa( Player *player, const char *p, size_t n );
+void init_alsa( Player* player );
+int consume_alsa( Player* player, const char* p, size_t n );
 #else
-	void init_pa( Player *player );
-	int consume_pa( Player *player, const char *p, size_t n );
+void init_pa( Player* player );
+int consume_pa( Player* player, const char* p, size_t n );
 #endif
 
-int init_player( Player *player, const char *library_path );
-int start_player( Player *player );
-int stop_player( Player *player );
+int init_player( Player* player, const char* library_path );
+int start_player( Player* player );
+int stop_player( Player* player );
 
-void stop_loader( Player *player );
-void start_loader( Player *player );
+void stop_loader( Player* player );
+void start_loader( Player* player );
 
-void player_lock( Player *player );
-void player_unlock( Player *player );
+void player_lock( Player* player );
+void player_unlock( Player* player );
 
-int player_add_metadata_observer( Player *player, MetadataObserver observer, void *data );
+int player_add_metadata_observer( Player* player, MetadataObserver observer, void* data );
 
-int player_change_track( Player *player, PlaylistItem *playlist_item, int when );
-int player_change_next_album( Player *player, int when );
-int player_change_prev_track( Player *player, int when );
-int player_change_next_track( Player *player, int when );
-int player_change_next_playlist( Player *player, int when );
+int player_change_track( Player* player, PlaylistItem* playlist_item, int when );
+int player_change_next_album( Player* player, int when );
+int player_change_prev_track( Player* player, int when );
+int player_change_next_track( Player* player, int when );
+int player_change_next_playlist( Player* player, int when );
 
-int player_notify_item_change( Player *player, PlaylistItem *playlist_item );
+int player_notify_item_change( Player* player, PlaylistItem* playlist_item );
 
-void player_set_playing( Player *player, bool playing );
-void player_pause( Player *player );
-void player_say_what( Player *player );
+void player_set_playing( Player* player, bool playing );
+void player_pause( Player* player );
+void player_say_what( Player* player );
 
-int player_get_control( Player *player );
+int player_get_control( Player* player );

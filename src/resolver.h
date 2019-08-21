@@ -14,10 +14,13 @@
 	The URL string is supposed to be stripped of all \r and \n.
 	Return code 1 (TRUE) is fine, 0 (FALSE) is bad.
 */
-int split_url(mpg123_string *url, mpg123_string *auth, mpg123_string *host, mpg123_string *port, mpg123_string *path);
+int split_url( mpg123_string* url,
+			   mpg123_string* auth,
+			   mpg123_string* host,
+			   mpg123_string* port,
+			   mpg123_string* path );
 /*
 	Open a connection to specified server and port.
 	The arguments are plain strings (hostname or IP, port number as string); any network specific data types are hidden.
 */
-int open_connection(mpg123_string *host, mpg123_string *port);
-
+int open_connection( mpg123_string* host, mpg123_string* port );

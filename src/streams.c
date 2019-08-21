@@ -1,47 +1,49 @@
 #include "streams.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#include "string_utils.h"
 #include "log.h"
 #include "my_malloc.h"
+#include "string_utils.h"
 
-int parse_streams(const char *path, StreamList *sl)
+int parse_streams( const char* path, StreamList* sl )
 {
-	FILE *fp = fopen( path, "r" );
+	FILE* fp = fopen( path, "r" );
 	if( !fp ) {
 		LOG_ERROR( "path=s failed to open streams list for reading", path );
 		return 1;
 	}
-	LOG_INFO("path=s loading streams", path);
+	LOG_INFO( "path=s loading streams", path );
 	assert( sl->p == NULL );
 
 	char *s, *key, *val;
-	char *line = NULL;
-	Stream *entry;
+	char* line = NULL;
+	Stream* entry;
 	size_t len = 0;
 	while( getline( &line, &len, fp ) != -1 ) {
 		trim_suffix( line, "\n" );
-		LOG_DEBUG("line=s got line", line);
+		LOG_DEBUG( "line=s got line", line );
 		if( !line[0] )
 			continue;
-		entry = my_malloc(sizeof(Stream));
+		entry = my_malloc( sizeof( Stream ) );
 		s = strstr( line, " " );
 		entry->url = sdsnewlen( line, s - line );
 		entry->volume = 1.0f;
 
 		s++;
 		bool keep_going = true;
-		while(keep_going) {
+		while( keep_going ) {
 			key = s;
 			s = strstr( s, "=" );
-			if( !s ) { break; }
+			if( !s ) {
+				break;
+			}
 			*s = '\0';
 			s++;
 			val = s;
@@ -49,16 +51,20 @@ int parse_streams(const char *path, StreamList *sl)
 			if( s ) {
 				*s = '\0';
 				s++;
-			} else {
+			}
+			else {
 				keep_going = false;
 			}
-			LOG_DEBUG("key=s val=s got val", key, val);
-			if( strcmp(key, "title") == 0 ) {
+			LOG_DEBUG( "key=s val=s got val", key, val );
+			if( strcmp( key, "title" ) == 0 ) {
 				entry->name = sdsnew( val );
-			} else if( strcmp(key, "volume") == 0 ) {
+			}
+			else if( strcmp( key, "volume" ) == 0 ) {
 				entry->volume = atof( val );
 				if( entry->volume == 0 ) {
-					LOG_ERROR("vol=s failed to parse volume (or value is actually 0, which is not supported)", entry->volume);
+					LOG_ERROR( "vol=s failed to parse volume (or value is actually 0, which is not "
+							   "supported)",
+							   entry->volume );
 					return 1;
 				}
 			}
@@ -70,11 +76,11 @@ int parse_streams(const char *path, StreamList *sl)
 	return 0;
 }
 
-int get_stream(StreamList *sl, const char *name, Stream **stream )
+int get_stream( StreamList* sl, const char* name, Stream** stream )
 {
-	Stream *p = sl->p;
+	Stream* p = sl->p;
 	while( p ) {
-		if (strcmp(p->name, name) == 0 ) {
+		if( strcmp( p->name, name ) == 0 ) {
 			*stream = p;
 			return 0;
 		}

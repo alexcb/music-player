@@ -22,60 +22,75 @@
 #include <stdio.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /** Assert single */
-#define TEST_ASSERT(_a) \
-    {\
-        int assertErrorA = (_a);\
-        if (! assertErrorA) {\
-            fprintf(stdout,"%s:%d: error: TestCaseError(0x%08x)\n",\
-                __FILE__,__LINE__,(assertErrorA));\
-            return 0xffffffffu;\
-        } else {\
-            doTestCountUp();\
-        }\
-    }
+#define TEST_ASSERT( _a )                                                                          \
+	{                                                                                              \
+		int assertErrorA = ( _a );                                                                 \
+		if( !assertErrorA ) {                                                                      \
+			fprintf( stdout,                                                                       \
+					 "%s:%d: error: TestCaseError(0x%08x)\n",                                      \
+					 __FILE__,                                                                     \
+					 __LINE__,                                                                     \
+					 ( assertErrorA ) );                                                           \
+			return 0xffffffffu;                                                                    \
+		}                                                                                          \
+		else {                                                                                     \
+			doTestCountUp();                                                                       \
+		}                                                                                          \
+	}
 
 /** Assert equals */
-#define TEST_ASSERT_EQUALS(_a,_b) \
-    {\
-        int assertErrorA = (_a);\
-        int assertErrorB = (_b);\
-        if ((assertErrorA) != (assertErrorB)) {\
-            fprintf(stdout,"%s:%d: error: TestCaseError<0x%08x><0x%08x>\n",\
-                __FILE__,__LINE__,(assertErrorA),(assertErrorB));\
-            return 0xffffffffu;\
-        } else {\
-            doTestCountUp();\
-        }\
-    }
+#define TEST_ASSERT_EQUALS( _a, _b )                                                               \
+	{                                                                                              \
+		int assertErrorA = ( _a );                                                                 \
+		int assertErrorB = ( _b );                                                                 \
+		if( ( assertErrorA ) != ( assertErrorB ) ) {                                               \
+			fprintf( stdout,                                                                       \
+					 "%s:%d: error: TestCaseError<0x%08x><0x%08x>\n",                              \
+					 __FILE__,                                                                     \
+					 __LINE__,                                                                     \
+					 ( assertErrorA ),                                                             \
+					 ( assertErrorB ) );                                                           \
+			return 0xffffffffu;                                                                    \
+		}                                                                                          \
+		else {                                                                                     \
+			doTestCountUp();                                                                       \
+		}                                                                                          \
+	}
 
 /** Assert equals */
-#define TEST_ASSERT_NOT_EQUALS(_a,_b) \
-    {\
-        int assertErrorA = (_a);\
-        int assertErrorB = (_b);\
-        if ((assertErrorA) == (assertErrorB)) {\
-            fprintf(stdout,"%s:%d: error: TestCaseError<0x%08x><0x%08x>\n",\
-                __FILE__,__LINE__,(assertErrorA),(assertErrorB));\
-            return 0xffffffffu;\
-        } else {\
-            doTestCountUp();\
-        }\
-    }
+#define TEST_ASSERT_NOT_EQUALS( _a, _b )                                                           \
+	{                                                                                              \
+		int assertErrorA = ( _a );                                                                 \
+		int assertErrorB = ( _b );                                                                 \
+		if( ( assertErrorA ) == ( assertErrorB ) ) {                                               \
+			fprintf( stdout,                                                                       \
+					 "%s:%d: error: TestCaseError<0x%08x><0x%08x>\n",                              \
+					 __FILE__,                                                                     \
+					 __LINE__,                                                                     \
+					 ( assertErrorA ),                                                             \
+					 ( assertErrorB ) );                                                           \
+			return 0xffffffffu;                                                                    \
+		}                                                                                          \
+		else {                                                                                     \
+			doTestCountUp();                                                                       \
+		}                                                                                          \
+	}
 
-/** File pointer define */
-typedef unsigned int (*TEST_FUNCTION)(void);
+	/** File pointer define */
+	typedef unsigned int ( *TEST_FUNCTION )( void );
 
-/** Test runner. */
-int testRunner(TEST_FUNCTION testFunction);
+	/** Test runner. */
+	int testRunner( TEST_FUNCTION testFunction );
 
-/** Test counter */
-void doTestCountUp(void);
+	/** Test counter */
+	void doTestCountUp( void );
 
 #ifdef __cplusplus
 }
 #endif
-#endif 
+#endif

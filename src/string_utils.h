@@ -1,13 +1,13 @@
 #include <stdbool.h>
 
-bool has_suffix(const char *s, const char *suffix);
+bool has_suffix( const char* s, const char* suffix );
 
-bool has_prefix(const char *s, const char *prefix);
+bool has_prefix( const char* s, const char* prefix );
 
-const char* trim_prefix(const char *s, const char *prefix);
+const char* trim_prefix( const char* s, const char* prefix );
 
-bool trim_suffix(char *s, const char *suffix);
+bool trim_suffix( char* s, const char* suffix );
 
-const char* null_to_empty(char *s);
+const char* null_to_empty( char* s );
 
-void str_to_upper(char *s);
+void str_to_upper( char* s );

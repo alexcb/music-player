@@ -2,7 +2,8 @@
 
 #define MAX_ERROR_STR_SIZE 1024
 
-typedef enum {
+typedef enum
+{
 	OK = 0,
 	UNKNOWN_ERROR,
 	OUT_OF_MEMORY,

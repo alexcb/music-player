@@ -9,15 +9,15 @@
 
 long get_current_time_ms()
 {
-	long            ms; // Milliseconds
-	time_t          s;  // Seconds
+	long ms; // Milliseconds
+	time_t s; // Seconds
 	struct timespec spec;
 
-	clock_gettime(CLOCK_REALTIME, &spec);
+	clock_gettime( CLOCK_REALTIME, &spec );
 
-	s  = spec.tv_sec;
-	ms = round(spec.tv_nsec / 1.0e6); // Convert nanoseconds to milliseconds
-	if (ms > 999) {
+	s = spec.tv_sec;
+	ms = round( spec.tv_nsec / 1.0e6 ); // Convert nanoseconds to milliseconds
+	if( ms > 999 ) {
 		s++;
 		ms = 0;
 	}

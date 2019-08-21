@@ -1,48 +1,48 @@
 #include "playlist.h"
 
 #include "errors.h"
-#include "log.h"
 #include "httpget.h"
 #include "library.h"
+#include "log.h"
 #include "my_malloc.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 int playlist_id_next = 1;
 
-int playlist_new( Playlist **playlist, const char *name )
+int playlist_new( Playlist** playlist, const char* name )
 {
-	*playlist = (Playlist*) my_malloc(sizeof(Playlist));
+	*playlist = (Playlist*)my_malloc( sizeof( Playlist ) );
 	if( *playlist == NULL ) {
 		return OUT_OF_MEMORY;
 	}
-	(*playlist)->ref_count = 1;
+	( *playlist )->ref_count = 1;
 
-	(*playlist)->name = sdsnew( name );
-	if( (*playlist)->name == NULL ) {
+	( *playlist )->name = sdsnew( name );
+	if( ( *playlist )->name == NULL ) {
 		my_free( *playlist );
 		return OUT_OF_MEMORY;
 	}
 
-	(*playlist)->root = NULL;
-	(*playlist)->current = NULL;
-	(*playlist)->id = playlist_id_next++;
+	( *playlist )->root = NULL;
+	( *playlist )->current = NULL;
+	( *playlist )->id = playlist_id_next++;
 
 	return OK;
 }
 
-int playlist_ref_up( Playlist *playlist )
+int playlist_ref_up( Playlist* playlist )
 {
 	playlist->ref_count++;
 	return 0;
 }
-int playlist_ref_down( Playlist *playlist )
+int playlist_ref_down( Playlist* playlist )
 {
 	playlist->ref_count--;
 	if( playlist->ref_count > 0 ) {
@@ -55,7 +55,7 @@ int playlist_ref_down( Playlist *playlist )
 	return 0;
 }
 
-int playlist_rename( Playlist *playlist, const char *name )
+int playlist_rename( Playlist* playlist, const char* name )
 {
 	playlist->name = sdscpy( playlist->name, name );
 	if( playlist->name == NULL ) {
@@ -65,11 +65,11 @@ int playlist_rename( Playlist *playlist, const char *name )
 	return OK;
 }
 
-mpg123_handle *metadata_reader = NULL;
-int read_metadata( const char *path, sds *artist, sds *title)
+mpg123_handle* metadata_reader = NULL;
+int read_metadata( const char* path, sds* artist, sds* title )
 {
-	mpg123_id3v1 *v1;
-	mpg123_id3v2 *v2;
+	mpg123_id3v1* v1;
+	mpg123_id3v2* v2;
 
 	if( metadata_reader == NULL ) {
 		metadata_reader = mpg123_new( NULL, NULL );
@@ -94,34 +94,34 @@ int read_metadata( const char *path, sds *artist, sds *title)
 	return OK;
 }
 
-int playlist_add_file( Playlist *playlist, const Track *track, int track_id )
+int playlist_add_file( Playlist* playlist, const Track* track, int track_id )
 {
-	assert(0);
-//	PlaylistItem *item = (PlaylistItem*) my_malloc( sizeof(PlaylistItem) );
-//	item->track = track;
-//	item->ref_count = 1;
-//
-//	item->next = NULL;
-//	item->parent = playlist;
-//
-//	PlaylistItem **p = &(playlist->root);
-//	while( *p != NULL ) {
-//		p = &((*p)->next);
-//	}
-//
-//	*p = item;
-//	if( track_id > 0 ) {
-//		item->id = track_id;
-//	} else {
-//		item->id = playlist_id_next++;
-//	}
-//
+	assert( 0 );
+	//	PlaylistItem *item = (PlaylistItem*) my_malloc( sizeof(PlaylistItem) );
+	//	item->track = track;
+	//	item->ref_count = 1;
+	//
+	//	item->next = NULL;
+	//	item->parent = playlist;
+	//
+	//	PlaylistItem **p = &(playlist->root);
+	//	while( *p != NULL ) {
+	//		p = &((*p)->next);
+	//	}
+	//
+	//	*p = item;
+	//	if( track_id > 0 ) {
+	//		item->id = track_id;
+	//	} else {
+	//		item->id = playlist_id_next++;
+	//	}
+	//
 	return OK;
 }
 
-int playlist_remove_item( Playlist *playlist, PlaylistItem *item )
+int playlist_remove_item( Playlist* playlist, PlaylistItem* item )
 {
-	assert(0);
+	assert( 0 );
 	//if( item->prev ) {
 	//	item->prev->next = item->next;
 	//}
@@ -132,17 +132,17 @@ int playlist_remove_item( Playlist *playlist, PlaylistItem *item )
 	return 0;
 }
 
-int playlist_item_ref_up( PlaylistItem *item )
+int playlist_item_ref_up( PlaylistItem* item )
 {
 	item->ref_count++;
 	//LOG_DEBUG("path=s count=d playlist_item_ref_up", item->track->path, item->ref_count);
 	return 0;
 }
 
-int playlist_item_ref_down( PlaylistItem *item )
+int playlist_item_ref_down( PlaylistItem* item )
 {
 	assert( item );
-	assert( item->ref_count>0 );
+	assert( item->ref_count > 0 );
 	item->ref_count--;
 	//LOG_DEBUG("path=s count=d playlist_item_ref_down", item->track->path, item->ref_count);
 	if( item->ref_count > 0 ) {
@@ -153,51 +153,51 @@ int playlist_item_ref_down( PlaylistItem *item )
 	return 0;
 }
 
-int playlist_clear( Playlist *playlist )
+int playlist_clear( Playlist* playlist )
 {
-	PlaylistItem *next;
-	PlaylistItem *x = playlist->root;
+	PlaylistItem* next;
+	PlaylistItem* x = playlist->root;
 	while( x ) {
 		next = x->next;
 		playlist_item_ref_down( x );
 		x = next;
 	}
-	
+
 	playlist->root = NULL;
 	return 0;
 }
 
-PlaylistItem* pop_item_with_track_id( PlaylistItem **root, int track_id )
+PlaylistItem* pop_item_with_track_id( PlaylistItem** root, int track_id )
 {
-	PlaylistItem *x = *root;
-	PlaylistItem **prev = root;
+	PlaylistItem* x = *root;
+	PlaylistItem** prev = root;
 	while( x ) {
 		if( x->id == track_id ) {
 			*prev = x->next;
 			return x;
 		}
-		prev = &(x->next);
+		prev = &( x->next );
 		x = x->next;
 	}
 	return NULL;
 }
 
 // this function will steal the ref counts
-int playlist_update( Playlist *playlist, PlaylistItem *item )
+int playlist_update( Playlist* playlist, PlaylistItem* item )
 {
-	PlaylistItem *old_root = playlist->root;
-	PlaylistItem *last = NULL;
-	PlaylistItem *p = NULL;
-	PlaylistItem *n = NULL;
+	PlaylistItem* old_root = playlist->root;
+	PlaylistItem* last = NULL;
+	PlaylistItem* p = NULL;
+	PlaylistItem* n = NULL;
 
-	LOG_DEBUG("playlist_update start");
+	LOG_DEBUG( "playlist_update start" );
 	//p = old_root;
 	//while( p ) {
 	//	LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
 	//	p = p->next;
 	//}
 
-	PlaylistItem *x = item;
+	PlaylistItem* x = item;
 	while( x ) {
 		n = x->next;
 
@@ -208,7 +208,8 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 		if( p == NULL ) {
 			p = x; // steal the ref counter
 			p->id = playlist_id_next++;
-		} else {
+		}
+		else {
 			//discard x; and keep the original track item (p)
 			playlist_item_ref_down( x );
 		}
@@ -218,7 +219,8 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 		if( last == NULL ) {
 			//LOG_DEBUG("p=p path=s id=d adding root", p, p->track->path, p->id);
 			playlist->root = p;
-		} else {
+		}
+		else {
 			last->next = p;
 			//LOG_DEBUG("p=p path=s id=d adding next", p, p->track->path, p->id);
 		}
@@ -251,8 +253,8 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 	//	//LOG_DEBUG("p=p path=s ref=d ref count", p, p->track->path, p->ref_count);
 	//	p = p->next;
 	//}
-	
-	LOG_DEBUG("playlist_update done");
+
+	LOG_DEBUG( "playlist_update done" );
 	return 0;
 }
 
@@ -263,8 +265,7 @@ int playlist_update( Playlist *playlist, PlaylistItem *item )
 //	return strcmp( aa->path, bb->path );
 //}
 
-void playlist_sort_by_path( Playlist *playlist )
+void playlist_sort_by_path( Playlist* playlist )
 {
 	//qsort( playlist->list, playlist->len, sizeof(PlaylistItem), playlist_item_cmp);
 }
-

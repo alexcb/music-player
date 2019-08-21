@@ -1,67 +1,64 @@
 #include "library_fetcher.h"
 #include "json_helpers.h"
 
+#include <assert.h>
 #include <curl/curl.h>
 #include <json-c/json.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
-
-
-
-
-int compare_artist(const void *s1, const void *s2)
+int compare_artist( const void* s1, const void* s2 )
 {
-  Artist *a1 = (Artist *)s1;
-  Artist *a2 = (Artist *)s2;
-  return g_strcmp0( a1->artist->str, a2->artist->str );
+	Artist* a1 = (Artist*)s1;
+	Artist* a2 = (Artist*)s2;
+	return g_strcmp0( a1->artist->str, a2->artist->str );
 }
 
-int compare_album(const void *s1, const void *s2)
+int compare_album( const void* s1, const void* s2 )
 {
-  Album *a1 = (Album *)s1;
-  Album *a2 = (Album *)s2;
-  return a1->year - a2->year;
+	Album* a1 = (Album*)s1;
+	Album* a2 = (Album*)s2;
+	return a1->year - a2->year;
 }
 
-int parse_library( const char *s, Library **library )
+int parse_library( const char* s, Library** library )
 {
 	int i, j, k;
 	struct json_object *root_obj, *album_obj, *artist_obj, *tracks_obj, *track_obj;
 	int num_albums, num_tracks;
 
-	Artist *artist;
+	Artist* artist;
 
 	GString *path, *title;
 
-	*library = malloc(sizeof(Library));
-	(**library).path_lookup = g_hash_table_new( g_str_hash, g_str_equal );
+	*library = malloc( sizeof( Library ) );
+	( **library ).path_lookup = g_hash_table_new( g_str_hash, g_str_equal );
 
 	root_obj = json_tokener_parse( s );
 
 	json_object *albums, *json_artists;
-	assert( get_json_object(root_obj, "artists", json_type_array, &json_artists) );
+	assert( get_json_object( root_obj, "artists", json_type_array, &json_artists ) );
 
 	int num_artists = json_object_array_length( json_artists );
-	(**library).artists = malloc(sizeof(Artist)*num_artists);
-	(**library).num_artists = num_artists;
+	( **library ).artists = malloc( sizeof( Artist ) * num_artists );
+	( **library ).num_artists = num_artists;
 	for( i = 0; i < num_artists; i++ ) {
-		artist = &((**library).artists[i]);
+		artist = &( ( **library ).artists[i] );
 		artist_obj = json_object_array_get_idx( json_artists, i );
 
 		artist->artist = get_json_object_string_default( artist_obj, "artist", "unknown artist" );
 		//printf("adding artist %d %s\n", i, artist->artist->str);
 
-		assert( json_object_object_get_ex(artist_obj, "albums", &albums) );
+		assert( json_object_object_get_ex( artist_obj, "albums", &albums ) );
 
 		num_albums = json_object_array_length( albums );
-		artist->albums = (Album*) malloc(sizeof(Album)*num_albums);
+		artist->albums = (Album*)malloc( sizeof( Album ) * num_albums );
 		artist->num_albums = num_albums;
 		for( j = 0; j < num_albums; j++ ) {
 			album_obj = json_object_array_get_idx( albums, j );
 
-			artist->albums[j].title = get_json_object_string_default( album_obj, "album", "unknown album" );
+			artist->albums[j].title =
+				get_json_object_string_default( album_obj, "album", "unknown album" );
 			artist->albums[j].year = get_json_object_int_default( album_obj, "year", 0 );
 			//printf("adding album %d.%d %s\n", i, j, artist->albums[j].title->str );
 
@@ -70,15 +67,16 @@ int parse_library( const char *s, Library **library )
 			num_tracks = json_object_array_length( tracks_obj );
 			artist->albums[j].num_tracks = num_tracks;
 
-			Track *tracks = malloc(sizeof(Track)*num_tracks);
+			Track* tracks = malloc( sizeof( Track ) * num_tracks );
 			for( k = 0; k < num_tracks; k++ ) {
 				track_obj = json_object_array_get_idx( tracks_obj, k );
 
 				assert( get_json_object_string( track_obj, "path", &path ) );
 
 				tracks[k].number = get_json_object_int_default( track_obj, "track_number", 0 );
-				tracks[k].duration = (int) get_json_object_double_default( track_obj, "length", 0.f );
-				tracks[k].album = &(artist->albums[j]);
+				tracks[k].duration =
+					(int)get_json_object_double_default( track_obj, "length", 0.f );
+				tracks[k].album = &( artist->albums[j] );
 
 				assert( get_json_object_string( track_obj, "title", &title ) );
 				tracks[k].title = title;
@@ -86,26 +84,26 @@ int parse_library( const char *s, Library **library )
 
 				//printf("adding track %d.%d.%d artist=%s album=%s track=%s path=%s\n", i, j, k, artist->artist->str, tracks[k].album->title->str, tracks[k].title->str, path->str );
 
-				g_hash_table_insert( (**library).path_lookup, path->str, &tracks[k] );
+				g_hash_table_insert( ( **library ).path_lookup, path->str, &tracks[k] );
 			}
 			artist->albums[j].tracks = tracks;
 			artist->albums[j].artist = artist;
 		}
 	}
 
-	printf("sorting\n");
-	
+	printf( "sorting\n" );
+
 	// CAREFUL! once this gets sorted, the album->artist pointers have to be fixed, otherwise they will point to the incorrect artist.
-	qsort((**library).artists, (**library).num_artists, sizeof(Artist), compare_artist);
+	qsort( ( **library ).artists, ( **library ).num_artists, sizeof( Artist ), compare_artist );
 
-	for( i = 0; i < (**library).num_artists; i++ ) {
-		artist = &((**library).artists[i]);
+	for( i = 0; i < ( **library ).num_artists; i++ ) {
+		artist = &( ( **library ).artists[i] );
 
-		qsort(artist->albums, artist->num_albums, sizeof(Album), compare_album);
+		qsort( artist->albums, artist->num_albums, sizeof( Album ), compare_album );
 		for( j = 0; j < artist->num_albums; j++ ) {
 			artist->albums[j].artist = artist;
 			for( k = 0; k < artist->albums[j].num_tracks; k++ ) {
-				artist->albums[j].tracks[k].album = &(artist->albums[j]);
+				artist->albums[j].tracks[k].album = &( artist->albums[j] );
 			}
 		}
 	}
@@ -113,31 +111,31 @@ int parse_library( const char *s, Library **library )
 	return 0;
 }
 
-int fetch_library( const char *endpoint, Library **library )
+int fetch_library( const char* endpoint, Library** library )
 {
 	int err = 0;
-	CURL *curl;
+	CURL* curl;
 	CURLcode res;
 
 	char url[1024];
 	snprintf( url, 1024, "%s/library", endpoint );
-	printf("http get %s\n", url);
+	printf( "http get %s\n", url );
 
 	curl = curl_easy_init();
-	if(curl) {
-		GString *payload = g_string_sized_new(1024*1024);
+	if( curl ) {
+		GString* payload = g_string_sized_new( 1024 * 1024 );
 
-		curl_easy_setopt(curl, CURLOPT_URL, url);
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, payload);
+		curl_easy_setopt( curl, CURLOPT_URL, url );
+		curl_easy_setopt( curl, CURLOPT_FOLLOWLOCATION, 1L );
+		curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, write_data );
+		curl_easy_setopt( curl, CURLOPT_WRITEDATA, payload );
 
-		res = curl_easy_perform(curl);
-		if(res != CURLE_OK) {
-			fprintf(stderr, "curl_easy_perform() failed: %s\n",
-					curl_easy_strerror(res));
+		res = curl_easy_perform( curl );
+		if( res != CURLE_OK ) {
+			fprintf( stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror( res ) );
 			err = 1;
-		} else {
+		}
+		else {
 			parse_library( payload->str, library );
 		}
 
@@ -147,7 +145,7 @@ int fetch_library( const char *endpoint, Library **library )
 	return err;
 }
 
-int library_lookup_by_path( Library *library, const char *path, Track **track )
+int library_lookup_by_path( Library* library, const char* path, Track** track )
 {
 	//printf("looking up %s\n", path);
 	gpointer p = g_hash_table_lookup( library->path_lookup, path );
@@ -155,7 +153,7 @@ int library_lookup_by_path( Library *library, const char *path, Track **track )
 		return 1;
 	}
 
-	*track = (Track *) p;
+	*track = (Track*)p;
 
 	return 0;
 }
