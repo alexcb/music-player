@@ -1,0 +1,9 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Version=1.0
+Type=Application
+Terminal=false
+Exec=/home/alex/gh/alexcb/music-player/tools/gtk-interface/hello localhost:4000
+Name=Music-UI
+Comment=Music-UI
+Icon=/usr/share/icons/gnome/256x256/actions/stock_last.png
