@@ -1,5 +1,5 @@
 CC=gcc
-CCFLAGS=-std=gnu11 -Wall -Werror -I./src `./use-pi-def.sh`
+CCFLAGS=-std=gnu11 -Wall -Werror -I./src `./use-pi-def.sh` -DDEBUG_BUILD=1
 LDFLAGS=-lmpg123 -lmicrohttpd -lpthread -lm -ljson-c -lttspico -lssl -lcrypto `./use-pi-lib.sh`
 
 SRC=$(wildcard src/**/*.c src/*.c)
