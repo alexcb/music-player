@@ -103,6 +103,7 @@ void my_malloc_assert_free()
 
 void* my_malloc( size_t n )
 {
+	LOG_TRACE( "n=d my_malloc", n );
 #ifdef DEBUG_BUILD
 	// ensure these hold, but deliberately define them separately in case the compiler
 	// didn't pre-compute it.
@@ -167,6 +168,7 @@ void* my_malloc( size_t n )
 
 void* my_realloc( void* p, size_t n )
 {
+	LOG_TRACE( "p=p n=d my_realloc", p, n );
 	assert( p );
 	void* q;
 
