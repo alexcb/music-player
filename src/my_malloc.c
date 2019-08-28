@@ -167,6 +167,7 @@ void* my_malloc( size_t n )
 
 void* my_realloc( void* p, size_t n )
 {
+	assert( p );
 	void* q;
 
 	void* pp = p - sizeof( uint64_t );
