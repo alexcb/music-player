@@ -61,10 +61,10 @@ int main( int argc, char** argv, char** env )
 
 	char* log_level = (char*)sdsnew( getenv( "LOG_LEVEL" ) );
 	str_to_upper( log_level );
-	set_log_level_from_env_variables( (const char**) env );
-	LOG_INFO("here-info");
-	LOG_DEBUG("here-debug");
-	LOG_TRACE("here-trace");
+	set_log_level_from_env_variables( (const char**)env );
+	LOG_INFO( "here-info" );
+	LOG_DEBUG( "here-debug" );
+	LOG_TRACE( "here-trace" );
 
 	bool auto_play = false;
 	char* auto_start = (char*)sdsnew( getenv( "MUSIC_AUTO_PLAY" ) );
