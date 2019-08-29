@@ -1,5 +1,7 @@
 #include "my_malloc.h"
 
+#ifndef USE_RASP_PI
+
 #include "log.h"
 
 #include <assert.h>
@@ -220,3 +222,5 @@ void my_free( void* p )
 	items_currently_in_pool[i]++;
 #endif // DEBUG_BUILD
 }
+
+#endif // NOT USE_RASP_PI
