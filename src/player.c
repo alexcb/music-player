@@ -275,11 +275,12 @@ int player_change_next_playlist( Player* player, int when )
 		p = pl->root;
 	}
 	if( p == NULL ) {
-		LOG_WARN( "unable to change playlist" );
+		LOG_WARN( "unable to change playlist; no playlists contain any tracks" );
 		res = 1;
 		goto error;
 	}
 
+	LOG_INFO( "playlist=s root=p setting next playlist", pl->name, pl->root );
 	res = player_change_track_unsafe( player, p, when );
 
 error:
