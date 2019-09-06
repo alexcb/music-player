@@ -248,9 +248,9 @@ int player_change_next_playlist( Player* player, int when )
 	}
 	else {
 		LOG_WARN( "no current track; setting default playlist as active playlist" );
-		res = playlist_manager_get_playlist( player->playlist_manager, "default", &pl );
-		if( res ) {
-			LOG_ERROR( "no default playlist" );
+		pl = player->playlist_manager->root;
+		if( pl == NULL ) {
+			LOG_ERROR( "no playlists" );
 			goto error;
 		}
 	}
