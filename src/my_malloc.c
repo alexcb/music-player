@@ -42,7 +42,7 @@ void my_malloc_init()
 	assert( pools == NULL );
 
 	// only designed for 64bit systems
-	assert( sizeof(void*) == 8 );
+	assert( sizeof( void* ) == 8 );
 
 #	ifdef DEBUG_BUILD
 	init_mem_trackers();

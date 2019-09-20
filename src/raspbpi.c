@@ -224,4 +224,14 @@ int init_rasp_pi( Player* player )
 	return 0;
 }
 
+void rpi_set_status( bool playing )
+{
+	if( playing ) {
+		digitalWrite( 21, HIGH );
+	}
+	else {
+		digitalWrite( 21, LOW );
+	}
+}
+
 #endif

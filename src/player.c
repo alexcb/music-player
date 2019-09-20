@@ -876,6 +876,10 @@ void* player_audio_thread_run( void* data )
 
 void player_set_playing( Player* player, bool playing )
 {
+#ifdef USE_RASP_PI
+	rpi_set_status( playing );
+#endif
+
 	pthread_mutex_lock( &player->the_lock );
 	if( playing ) {
 		player->control |= PLAYER_CONTROL_PLAYING;
