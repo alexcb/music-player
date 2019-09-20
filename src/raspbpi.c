@@ -8,9 +8,8 @@
 #	include <pthread.h>
 #	include <wiringPi.h>
 
-
 // see http://wiringpi.com/pins/ for mappings
-#define PLAYING_OUTPUT_PIN 11
+#	define PLAYING_OUTPUT_PIN 3
 
 struct gpio_switch
 {
@@ -64,7 +63,7 @@ void do_pause( Player* player )
 }
 
 struct gpio_switch switches[] = {
-	// see http://wiringpi.com/pins/ for pinouts
+// see http://wiringpi.com/pins/ for pinouts
 #	ifdef KITCHEN
 	// switch
 	{2, 0, 0, 0, 0, &do_pause, &do_play, 0},
