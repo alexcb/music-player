@@ -8,6 +8,10 @@
 #	include <pthread.h>
 #	include <wiringPi.h>
 
+
+// see http://wiringpi.com/pins/ for mappings
+#define PLAYING_OUTPUT_PIN 11
+
 struct gpio_switch
 {
 	int gpio_pin;
@@ -60,6 +64,7 @@ void do_pause( Player* player )
 }
 
 struct gpio_switch switches[] = {
+	// see http://wiringpi.com/pins/ for pinouts
 #	ifdef KITCHEN
 	// switch
 	{2, 0, 0, 0, 0, &do_pause, &do_play, 0},
@@ -217,8 +222,8 @@ int init_rasp_pi( Player* player )
 #	ifdef KITCHEN
 #	else
 	// stereo relay
-	pinMode( 21, OUTPUT );
-	digitalWrite( 21, LOW );
+	pinMode( PLAYING_OUTPUT_PIN, OUTPUT );
+	digitalWrite( PLAYING_OUTPUT_PIN, LOW );
 #	endif
 
 	return 0;
@@ -227,10 +232,10 @@ int init_rasp_pi( Player* player )
 void rpi_set_status( bool playing )
 {
 	if( playing ) {
-		digitalWrite( 21, HIGH );
+		digitalWrite( PLAYING_OUTPUT_PIN, HIGH );
 	}
 	else {
-		digitalWrite( 21, LOW );
+		digitalWrite( PLAYING_OUTPUT_PIN, LOW );
 	}
 }
 
