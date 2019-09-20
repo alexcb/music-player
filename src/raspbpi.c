@@ -223,7 +223,7 @@ int init_rasp_pi( Player* player )
 	// stereo relay
 	LOG_INFO("set low");
 	pinMode( PLAYING_OUTPUT_PIN, OUTPUT );
-	digitalWrite( PLAYING_OUTPUT_PIN, LOW );
+	digitalWrite( PLAYING_OUTPUT_PIN, HIGH );
 #	endif
 
 	return 0;
@@ -233,11 +233,11 @@ void rpi_set_status( bool playing )
 {
 	if( playing ) {
 		LOG_INFO("set high");
-		digitalWrite( PLAYING_OUTPUT_PIN, HIGH );
+		digitalWrite( PLAYING_OUTPUT_PIN, LOW ); // low = ground, which toggles the relay
 	}
 	else {
 		LOG_INFO("set low");
-		digitalWrite( PLAYING_OUTPUT_PIN, LOW );
+		digitalWrite( PLAYING_OUTPUT_PIN, HIGH );
 	}
 }
 
