@@ -896,9 +896,12 @@ void player_set_playing( Player* player, bool playing )
 
 void player_pause( Player* player )
 {
+	bool is_playing;
 	pthread_mutex_lock( &player->the_lock );
 	player->control ^= PLAYER_CONTROL_PLAYING;
+	is_playing = player->control & PLAYER_CONTROL_PLAYING;
 	pthread_mutex_unlock( &player->the_lock );
+	rpi_set_status( is_playing );
 }
 
 int stop_player( Player* player )
