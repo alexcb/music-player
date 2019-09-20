@@ -221,7 +221,7 @@ int init_rasp_pi( Player* player )
 #	ifdef KITCHEN
 #	else
 	// stereo relay
-	LOG_INFO("set low")
+	LOG_INFO("set low");
 	pinMode( PLAYING_OUTPUT_PIN, OUTPUT );
 	digitalWrite( PLAYING_OUTPUT_PIN, LOW );
 #	endif
@@ -232,11 +232,11 @@ int init_rasp_pi( Player* player )
 void rpi_set_status( bool playing )
 {
 	if( playing ) {
-		LOG_INFO("set high")
+		LOG_INFO("set high");
 		digitalWrite( PLAYING_OUTPUT_PIN, HIGH );
 	}
 	else {
-		LOG_INFO("set low")
+		LOG_INFO("set low");
 		digitalWrite( PLAYING_OUTPUT_PIN, LOW );
 	}
 }
