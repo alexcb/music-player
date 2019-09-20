@@ -214,6 +214,13 @@ int init_rasp_pi( Player* player )
 		LOG_INFO( "switch=d state=d init state", i, switches[i].last_state );
 	}
 
+#	ifdef KITCHEN
+#	else
+	// stereo relay
+	pinMode( 21, OUTPUT );
+	digitalWrite( 21, LOW );
+#	endif
+
 	return 0;
 }
 
