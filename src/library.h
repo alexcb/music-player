@@ -10,12 +10,15 @@
 typedef struct ID3Cache ID3Cache;
 typedef struct StreamList StreamList;
 
+struct Artist;
+struct Album;
+struct Track;
+
 typedef struct Track
 {
-	sds artist;
-	sds title;
 	sds path;
-	sds album;
+	sds title;
+	struct Album *album;
 	uint32_t track;
 	float length;
 
@@ -34,7 +37,7 @@ SGLIB_DEFINE_RBTREE_PROTOTYPES( Track, left, right, color_field, TRACK_PATH_COMP
 
 typedef struct Album
 {
-	sds artist;
+	struct Artist *artist;
 	sds album;
 	sds path;
 	uint32_t year;

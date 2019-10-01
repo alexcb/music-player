@@ -8,12 +8,15 @@ OBJ=$(SRC:%.c=%.o)
 TESTSRC=$(wildcard tests/**/*.c tests/*.c)
 TESTOBJ=$(TESTSRC:%.c=%.o)
 
-OBJWITHOUTMAIN := $(filter-out src/main.o,$(OBJ))
+OBJWITHOUTMAIN := $(filter-out src/main.o src/check.o,$(OBJ))
 
-build: my123 test
+build: music-server music-check test
 
-my123: $(OBJ)
-	$(CC) $(CCFLAGS) -o my123 $^ $(LDFLAGS)
+music-server: $(OBJWITHOUTMAIN) src/main.o
+	$(CC) $(CCFLAGS) -o music-server $^ $(LDFLAGS)
+
+music-check: $(OBJWITHOUTMAIN) src/check.o
+	$(CC) $(CCFLAGS) -o music-check $^ $(LDFLAGS)
 
 test: $(OBJWITHOUTMAIN) $(TESTOBJ)
 	$(CC) $(CCFLAGS) -o test $^ $(LDFLAGS)
@@ -27,4 +30,4 @@ reformat:
 	$(CC) -c $(CCFLAGS) $< -o $@
 
 clean:
-	rm -f my123 test $(OBJ) $(TESTOBJ)
+	rm -f music-server music-check test $(OBJ) $(TESTOBJ)

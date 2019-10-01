@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include <mpg123.h>
 
@@ -32,8 +33,9 @@ int id3_get( ID3Cache* cache, const char* library_path, const char* path, ID3Cac
 	LOG_DEBUG( "path=s reading id3 tags", full_path );
 	res = mpg123_open( cache->mh, full_path );
 	if( res != MPG123_OK ) {
-		LOG_ERROR( "err=d open error", res );
+		LOG_ERROR( "err=d errstr=s path=s open error", res, strerror(errno), full_path );
 		res = 1;
+		assert(0);
 		goto error;
 	}
 

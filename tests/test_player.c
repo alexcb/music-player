@@ -107,13 +107,14 @@ Playlist* setupTestPlaylist()
 	playlist->id = 1, playlist->ref_count = 1, playlist->name = sdsnew( "playlist" ),
 	playlist->next = playlist->prev = playlist;
 
+	Album* album = (Album*)malloc( sizeof( Album ) );
+
 	PlaylistItem* last_item = NULL;
 	for( int i = 10; i > 0; i-- ) {
 		Track* track = (Track*)malloc( sizeof( Track ) );
-		track->artist = sdsnew( "artist" );
 		track->title = sdscatprintf( sdsempty(), "title %d", i );
 		track->path = sdsnew( "path" );
-		track->album = sdsnew( "album" );
+		track->album = album;
 		track->track = i;
 		track->length = 1.23;
 		track->next_ptr = NULL;

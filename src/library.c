@@ -17,6 +17,8 @@
 #include "log.h"
 #include "my_malloc.h"
 
+void library_fix_artist_album_info( Library* library );
+
 SGLIB_DEFINE_RBTREE_FUNCTIONS( Album, left, right, color_field, ALBUM_CMPARATOR )
 SGLIB_DEFINE_RBTREE_FUNCTIONS( Track, left, right, color_field, TRACK_PATH_COMPARATOR )
 SGLIB_DEFINE_RBTREE_FUNCTIONS( Artist, left, right, color_field, ARTIST_PATH_CMPARATOR )
@@ -39,14 +41,11 @@ int library_init( Library* library, ID3Cache* cache, const char* library_path )
 }
 
 int library_add_track( Library* library,
-					   Artist* artist,
 					   Album* album,
 					   const char* relative_track_path )
 {
 	int res;
 	int error_code = 0;
-
-	sds s = sdsnew( "" );
 
 	Track* track = NULL;
 	Track track_to_find;
@@ -55,8 +54,6 @@ int library_add_track( Library* library,
 	if( !track ) {
 		LOG_INFO( "path=s adding new track", relative_track_path );
 		track = my_malloc( sizeof( Track ) );
-		track->artist = artist->artist;
-		track->album = album->album;
 		safe_basename( relative_track_path, &( track->title ) );
 		track->path = sdsnew( relative_track_path );
 
@@ -71,19 +68,19 @@ int library_add_track( Library* library,
 		LOG_INFO( "path=s checking track for changes", relative_track_path );
 	}
 
+	track->album = album;
+
 	ID3CacheItem* id3_item;
 	res =
 		id3_cache_get( library->id3_cache, library->library_path, relative_track_path, &id3_item );
 	if( res ) {
-		LOG_ERROR( "path=s err=s failed getting id3 tags", s, res );
+		LOG_ERROR( "path=s err=d failed getting id3 tags", relative_track_path, res );
 		error_code = 1;
 		goto error;
 	}
 
-	track->artist = id3_item->artist;
 	track->title = id3_item->title;
 	track->track = id3_item->track;
-	track->album = id3_item->album;
 	track->length = id3_item->length;
 
 error:
@@ -103,7 +100,7 @@ int library_add_album( Library* library, Artist* artist, const char* relative_al
 	if( !album ) {
 		LOG_INFO( "path=s adding new album", relative_album_path );
 		album = (Album*)my_malloc( sizeof( Album ) );
-		album->artist = artist->artist;
+		album->artist = artist;
 		safe_basename( relative_album_path, &( album->album ) );
 		album->path = sdsnew( relative_album_path );
 		album->year = 0;
@@ -139,7 +136,7 @@ int library_add_album( Library* library, Artist* artist, const char* relative_al
 		sdsclear( s );
 		s = sdscatfmt( s, "%s/%s", relative_album_path, de->d_name );
 		LOG_DEBUG( "path=s calling", s );
-		library_add_track( library, artist, album, s );
+		library_add_track( library, album, s );
 	}
 	closedir( album_dir );
 
@@ -235,8 +232,41 @@ int library_load( Library* library )
 		library_add_artist( library, artist_dirent->d_name );
 	}
 	closedir( artist_dir );
+	library_fix_artist_album_info( library );
 error:
 	return error_code;
+}
+
+void library_fix_artist_album_info( Library* library )
+{
+	int res;
+	ID3CacheItem* id3_item;
+	Artist *artist;
+	Album *album;
+	struct sglib_Artist_iterator artist_it;
+	struct sglib_Album_iterator album_it;
+	for( artist = sglib_Artist_it_init_inorder( &artist_it, library->artists ); artist != NULL;
+		 artist = sglib_Artist_it_next( &artist_it ) ) {
+		for( album = sglib_Album_it_init_inorder( &album_it, artist->albums ); album != NULL;
+			 album = sglib_Album_it_next( &album_it ) ) {
+			if( album->tracks == NULL ) {
+				LOG_ERROR("path=s album has no tracks (likely an empty dir)", album->path);
+				continue;
+			}
+			if( album->tracks->track != 1 ) {
+				LOG_WARN("path=s track=d first album track is not 1", album->tracks->path, album->tracks->track);
+			}
+
+			res = id3_cache_get( library->id3_cache, library->library_path, album->tracks->path, &id3_item );
+			if( res ) {
+				LOG_ERROR( "path=s err=d failed getting id3 tags", album->tracks->path, res );
+			} else {
+				artist->artist = id3_item->artist;
+				album->album = id3_item->album;
+				album->year = id3_item->year;
+			}
+		}
+	}
 }
 
 int library_get_track( Library* library, const char* relative_path, Track** track )

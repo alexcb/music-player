@@ -62,6 +62,11 @@ int init_player( Player* player, const char* library_path )
 
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
+	if( player->mh == NULL ) {
+		LOG_ERROR("failed to create new mpg123 handler");
+		res = 1;
+		goto error;
+	}
 	mpg123_format_none( player->mh );
 	mpg123_format( player->mh, RATE, MPG123_STEREO, MPG123_ENC_SIGNED_16 );
 
@@ -173,7 +178,7 @@ int player_change_next_album( Player* player, int when )
 			if( player->current_track->track == NULL || p->track == NULL ) {
 				break;
 			}
-			if( strcmp( player->current_track->track->album, p->track->album ) != 0 ) {
+			if( player->current_track->track->album != p->track->album ) {
 				break;
 			}
 		}
@@ -799,8 +804,8 @@ void* player_audio_thread_run( void* data )
 				if( player->current_track && player->current_track->track ) {
 					sprintf( audio_text,
 							 "the artist is %s. the album is %s'. the track is %s",
-							 player->current_track->track->artist,
-							 player->current_track->track->album,
+							 player->current_track->track->album->artist->artist,
+							 player->current_track->track->album->album,
 							 player->current_track->track->title );
 				}
 				else {

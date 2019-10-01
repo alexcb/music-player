@@ -120,9 +120,9 @@ void update_metadata_web_clients( bool playing,
 		if( item->track ) {
 			json_object_object_add( state, "path", json_object_new_string( item->track->path ) );
 			json_object_object_add(
-				state, "artist", json_object_new_string( item->track->artist ) );
+				state, "artist", json_object_new_string( item->track->album->artist->artist ) );
 			json_object_object_add( state, "length", json_object_new_int( item->track->length ) );
-			json_object_object_add( state, "album", json_object_new_string( item->track->album ) );
+			json_object_object_add( state, "album", json_object_new_string( item->track->album->album ) );
 			json_object_object_add( state, "track", json_object_new_int( item->track->track ) );
 			json_object_object_add( state, "title", json_object_new_string( item->track->title ) );
 		}
@@ -1188,7 +1188,7 @@ int get_library_json( StreamList* stream_list, Library* library, sds* output )
 			}
 			json_object* album = json_object_new_object();
 			json_object_object_add( album, "path", json_object_new_string( q->path ) );
-			json_object_object_add( album, "artist", json_object_new_string( q->artist ) );
+			json_object_object_add( album, "artist", json_object_new_string( q->artist->artist ) );
 			json_object_object_add( album, "album", json_object_new_string( q->album ) );
 			json_object_object_add( album, "year", json_object_new_int( q->year ) );
 
