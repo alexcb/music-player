@@ -901,12 +901,22 @@ void player_set_playing( Player* player, bool playing )
 
 void player_pause( Player* player )
 {
+#ifdef USE_RASP_PI
 	bool is_playing;
+#endif
+
 	pthread_mutex_lock( &player->the_lock );
 	player->control ^= PLAYER_CONTROL_PLAYING;
+
+#ifdef USE_RASP_PI
 	is_playing = player->control & PLAYER_CONTROL_PLAYING;
+#endif
+
 	pthread_mutex_unlock( &player->the_lock );
+
+#ifdef USE_RASP_PI
 	rpi_set_status( is_playing );
+#endif
 }
 
 int stop_player( Player* player )

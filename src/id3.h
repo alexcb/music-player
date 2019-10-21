@@ -18,8 +18,9 @@ typedef struct ID3CacheItem
 	sds artist;
 	sds album;
 	sds title;
+	int32_t release_date; //days since 1970
+
 	uint32_t track;
-	uint32_t year;
 	float length;
 
 	// Fields for rbtree

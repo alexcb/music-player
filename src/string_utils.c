@@ -1,4 +1,12 @@
+#define _XOPEN_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <assert.h>
+
 #include "string_utils.h"
+#include "log.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -57,4 +65,30 @@ void str_to_upper( char* s )
 		*s = toupper( (unsigned char)*s );
 		s++;
 	}
+}
+
+int32_t parse_date_to_epoch_days( const char *s )
+{
+	struct tm tm = {0};
+
+	if( strptime(s, "%Y-%m-%d", &tm) != NULL ) {
+		// pass
+	}
+	else if( strptime(s, "%Y-%m", &tm) != NULL ) {
+		// pass
+	}
+	else if( strptime(s, "%Y", &tm) != NULL ) {
+		// pass
+	}
+	else {
+		printf("failed to parse %s\n", s);
+		assert(0);
+	}
+	time_t t = mktime(&tm);
+	time_t days = t / (60*60*24);
+
+	//LOG_INFO("t=d year=d month=d day=d hour=d min=d sec=d tm", t, tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+	//LOG_INFO("date=s days=d", s, days);
+	
+	return (int32_t) days;
 }

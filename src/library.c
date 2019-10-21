@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <string.h>
 
 #include "id3.h"
 #include "log.h"
@@ -80,7 +81,7 @@ int library_add_track( Library* library,
 	}
 
 	track->title = id3_item->title;
-	track->track = id3_item->track;
+	//track->track = id3_item->track;
 	track->length = id3_item->length;
 
 error:
@@ -103,7 +104,7 @@ int library_add_album( Library* library, Artist* artist, const char* relative_al
 		album->artist = artist;
 		safe_basename( relative_album_path, &( album->album ) );
 		album->path = sdsnew( relative_album_path );
-		album->year = 0;
+		album->release_date = 0;
 		album->tracks = NULL;
 		album->color_field = '\0';
 		album->left = NULL;
@@ -253,9 +254,9 @@ void library_fix_artist_album_info( Library* library )
 				LOG_ERROR("path=s album has no tracks (likely an empty dir)", album->path);
 				continue;
 			}
-			if( album->tracks->track != 1 ) {
-				LOG_WARN("path=s track=d first album track is not 1", album->tracks->path, album->tracks->track);
-			}
+			//if( album->tracks->track != 1 ) {
+			//	LOG_WARN("path=s track=d first album track is not 1", album->tracks->path, album->tracks->track);
+			//}
 
 			res = id3_cache_get( library->id3_cache, library->library_path, album->tracks->path, &id3_item );
 			if( res ) {
@@ -263,7 +264,7 @@ void library_fix_artist_album_info( Library* library )
 			} else {
 				artist->artist = id3_item->artist;
 				album->album = id3_item->album;
-				album->year = id3_item->year;
+				album->release_date = id3_item->release_date;
 			}
 		}
 	}

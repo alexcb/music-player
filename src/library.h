@@ -19,7 +19,7 @@ typedef struct Track
 	sds path;
 	sds title;
 	struct Album *album;
-	uint32_t track;
+	//uint32_t track;
 	float length;
 
 	// used to order tracks in an album
@@ -40,7 +40,7 @@ typedef struct Album
 	struct Artist *artist;
 	sds album;
 	sds path;
-	uint32_t year;
+	int32_t release_date; // days since 1970
 
 	Track* tracks;
 

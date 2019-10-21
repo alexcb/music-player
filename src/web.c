@@ -123,7 +123,7 @@ void update_metadata_web_clients( bool playing,
 				state, "artist", json_object_new_string( item->track->album->artist->artist ) );
 			json_object_object_add( state, "length", json_object_new_int( item->track->length ) );
 			json_object_object_add( state, "album", json_object_new_string( item->track->album->album ) );
-			json_object_object_add( state, "track", json_object_new_int( item->track->track ) );
+			//json_object_object_add( state, "track", json_object_new_int( item->track->track ) );
 			json_object_object_add( state, "title", json_object_new_string( item->track->title ) );
 		}
 		else if( item->stream ) {
@@ -1190,7 +1190,7 @@ int get_library_json( StreamList* stream_list, Library* library, sds* output )
 			json_object_object_add( album, "path", json_object_new_string( q->path ) );
 			json_object_object_add( album, "artist", json_object_new_string( q->artist->artist ) );
 			json_object_object_add( album, "album", json_object_new_string( q->album ) );
-			json_object_object_add( album, "year", json_object_new_int( q->year ) );
+			json_object_object_add( album, "release_date", json_object_new_int( (int) q->release_date ) );
 
 			json_object* tracks = json_object_new_array();
 			for( Track* t = q->tracks; t != NULL; t = t->next_ptr ) {
@@ -1200,7 +1200,7 @@ int get_library_json( StreamList* stream_list, Library* library, sds* output )
 				}
 				json_object* track = json_object_new_object();
 				json_object_object_add( track, "title", json_object_new_string( t->title ) );
-				json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
+				//json_object_object_add( track, "track_number", json_object_new_int( t->track ) );
 				json_object_object_add( track, "length", json_object_new_double( t->length ) );
 				json_object_object_add( track, "path", json_object_new_string( t->path ) );
 				json_object_array_add( tracks, track );

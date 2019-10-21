@@ -115,7 +115,7 @@ Playlist* setupTestPlaylist()
 		track->title = sdscatprintf( sdsempty(), "title %d", i );
 		track->path = sdsnew( "path" );
 		track->album = album;
-		track->track = i;
+		//track->track = i;
 		track->length = 1.23;
 		track->next_ptr = NULL;
 		track->color_field = '\0';
@@ -149,7 +149,8 @@ void test_feeder_item( Player* player, PlaylistItem* playlist_item )
 	size_t buffer_free;
 	PlayQueueItem* pqi;
 	int chunk_size = 500;
-	int track_num = playlist_item->track->track;
+	//int track_num = playlist_item->track->track;
+	int track_num = 0;
 
 	pthread_mutex_lock( &player->the_lock );
 	LOG_DEBUG( "adding pqi" );

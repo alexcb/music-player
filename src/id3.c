@@ -64,15 +64,18 @@ int id3_get( ID3Cache* cache, const char* library_path, const char* path, ID3Cac
 		if( mpg123_id3( cache->mh, &v1, &v2 ) == MPG123_OK ) {
 			res = 0;
 			// first load values from v1
-			if( v1 != NULL ) {
-				item->artist = sdscpy( item->artist, v1->artist );
-				item->title = sdscpy( item->title, v1->title );
-				item->album = sdscpy( item->album, v1->album );
-				item->year = atoi( v1->year );
-				if( v1->comment[28] == 0 && v1->comment[29] != 0 ) {
-					item->track = (unsigned char)v1->comment[29];
-				}
-			}
+			//if( v1 != NULL ) {
+			//	item->artist = sdscpy( item->artist, v1->artist );
+			//	item->title = sdscpy( item->title, v1->title );
+			//	item->album = sdscpy( item->album, v1->album );
+			//	item->year = atoi( v1->year );
+			//	LOG_DEBUG( "year=s year", v1->year );
+			//	if( v1->comment[28] == 0 && v1->comment[29] != 0 ) {
+			//		item->track = (unsigned char)v1->comment[29];
+			//	}
+			//} else {
+			//	LOG_WARN("path=s missing id3v1 tags", full_path);
+			//}
 
 			// override values with v2
 			if( v2 != NULL ) {
@@ -82,10 +85,15 @@ int id3_get( ID3Cache* cache, const char* library_path, const char* path, ID3Cac
 					item->album = sdscpy( item->album, v2->album->p );
 				if( v2->title && v2->title->p )
 					item->title = sdscpy( item->title, v2->title->p );
-				if( v2->year && v2->year->p )
-					LOG_DEBUG( "year=s year", v2->year->p );
 
 				for( int i = 0; i < v2->texts; i++ ) {
+					if( v2->text[i].id && v2->text[i].text.p ) {
+						if( strcmp(v2->text[i].id, "TDRC") == 0 ) {
+							LOG_DEBUG("date=s setting release date", v2->text[i].text.p);
+							item->release_date = parse_date_to_epoch_days( v2->text[i].text.p );
+						}
+					}
+
 					LOG_DEBUG( "lang=*s id=*s desc=s value=s text",
 							   3,
 							   null_to_empty( v2->text[i].lang ),
@@ -114,6 +122,9 @@ int id3_get( ID3Cache* cache, const char* library_path, const char* path, ID3Cac
 							   null_to_empty( v2->extra[i].description.p ),
 							   null_to_empty( v2->extra[i].text.p ) );
 				}
+				LOG_INFO("release=d release date", item->release_date);
+			} else {
+				LOG_WARN("path=s missing id3v2 tags", full_path);
 			}
 		}
 	}
@@ -135,6 +146,21 @@ int read_float( FILE* fp, float* x )
 	if( res != 1 ) {
 		return 1;
 	}
+	return 0;
+}
+
+int read_int32( FILE* fp, int32_t* x )
+{
+	int res;
+	res = fread( x, sizeof( int32_t ), 1, fp );
+	if( res != 1 ) {
+		return 1;
+	}
+
+	if( !is_little_endian() ) {
+		bswap_32( *x );
+	}
+
 	return 0;
 }
 
@@ -221,7 +247,7 @@ int id3_cache_load( ID3Cache* cache )
 			LOG_ERROR( "unable to read complete record" );
 			break;
 		}
-		res = read_uint32( fp, &item->year );
+		res = read_int32( fp, &item->release_date );
 		if( res ) {
 			LOG_ERROR( "unable to read complete record" );
 			break;
@@ -312,6 +338,14 @@ void write_float( FILE* fp, float x )
 	fwrite( &x, sizeof( float ), 1, fp );
 }
 
+void write_int32( FILE* fp, int32_t x )
+{
+	if( !is_little_endian() ) {
+		bswap_32( x );
+	}
+	fwrite( &x, sizeof( int32_t ), 1, fp );
+}
+
 void write_uint32( FILE* fp, uint32_t x )
 {
 	if( !is_little_endian() ) {
@@ -350,7 +384,7 @@ int id3_cache_save( ID3Cache* cache )
 		write_str( fp, te->album );
 		write_str( fp, te->artist );
 		write_str( fp, te->title );
-		write_uint32( fp, te->year );
+		write_int32( fp, te->release_date );
 		write_uint32( fp, te->track );
 		write_float( fp, te->length );
 	}
