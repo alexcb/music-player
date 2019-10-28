@@ -63,7 +63,7 @@ int init_player( Player* player, const char* library_path )
 	mpg123_init();
 	player->mh = mpg123_new( NULL, NULL );
 	if( player->mh == NULL ) {
-		LOG_ERROR("failed to create new mpg123 handler");
+		LOG_ERROR( "failed to create new mpg123 handler" );
 		res = 1;
 		goto error;
 	}

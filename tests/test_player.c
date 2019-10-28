@@ -3,6 +3,7 @@
 #include "testRunner.h"
 
 #include "log.h"
+#include "my_malloc.h"
 #include "player.h"
 
 void* player_reader_thread_run( void* data );
@@ -208,6 +209,7 @@ void test_feeder_item( Player* player, PlaylistItem* playlist_item )
 
 unsigned int testPlayerSkip()
 {
+	my_malloc_init();
 	Player* player = setupTestPlayer();
 	Playlist* playlist = setupTestPlaylist();
 	player->load_item = &test_feeder_item;

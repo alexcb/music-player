@@ -12,7 +12,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <string.h>
 
 #include "id3.h"
 #include "log.h"
@@ -41,9 +40,7 @@ int library_init( Library* library, ID3Cache* cache, const char* library_path )
 	return 0;
 }
 
-int library_add_track( Library* library,
-					   Album* album,
-					   const char* relative_track_path )
+int library_add_track( Library* library, Album* album, const char* relative_track_path )
 {
 	int res;
 	int error_code = 0;
@@ -242,8 +239,8 @@ void library_fix_artist_album_info( Library* library )
 {
 	int res;
 	ID3CacheItem* id3_item;
-	Artist *artist;
-	Album *album;
+	Artist* artist;
+	Album* album;
 	struct sglib_Artist_iterator artist_it;
 	struct sglib_Album_iterator album_it;
 	for( artist = sglib_Artist_it_init_inorder( &artist_it, library->artists ); artist != NULL;
@@ -251,17 +248,19 @@ void library_fix_artist_album_info( Library* library )
 		for( album = sglib_Album_it_init_inorder( &album_it, artist->albums ); album != NULL;
 			 album = sglib_Album_it_next( &album_it ) ) {
 			if( album->tracks == NULL ) {
-				LOG_ERROR("path=s album has no tracks (likely an empty dir)", album->path);
+				LOG_ERROR( "path=s album has no tracks (likely an empty dir)", album->path );
 				continue;
 			}
 			//if( album->tracks->track != 1 ) {
 			//	LOG_WARN("path=s track=d first album track is not 1", album->tracks->path, album->tracks->track);
 			//}
 
-			res = id3_cache_get( library->id3_cache, library->library_path, album->tracks->path, &id3_item );
+			res = id3_cache_get(
+				library->id3_cache, library->library_path, album->tracks->path, &id3_item );
 			if( res ) {
 				LOG_ERROR( "path=s err=d failed getting id3 tags", album->tracks->path, res );
-			} else {
+			}
+			else {
 				artist->artist = id3_item->artist;
 				album->album = id3_item->album;
 				album->release_date = id3_item->release_date;

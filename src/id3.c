@@ -10,10 +10,10 @@
 #include "string_utils.h"
 
 #include <byteswap.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <errno.h>
 
 #include <mpg123.h>
 
@@ -33,9 +33,9 @@ int id3_get( ID3Cache* cache, const char* library_path, const char* path, ID3Cac
 	LOG_DEBUG( "path=s reading id3 tags", full_path );
 	res = mpg123_open( cache->mh, full_path );
 	if( res != MPG123_OK ) {
-		LOG_ERROR( "err=d errstr=s path=s open error", res, strerror(errno), full_path );
+		LOG_ERROR( "err=d errstr=s path=s open error", res, strerror( errno ), full_path );
 		res = 1;
-		assert(0);
+		assert( 0 );
 		goto error;
 	}
 
@@ -88,8 +88,8 @@ int id3_get( ID3Cache* cache, const char* library_path, const char* path, ID3Cac
 
 				for( int i = 0; i < v2->texts; i++ ) {
 					if( v2->text[i].id && v2->text[i].text.p ) {
-						if( strcmp(v2->text[i].id, "TDRC") == 0 ) {
-							LOG_DEBUG("date=s setting release date", v2->text[i].text.p);
+						if( strcmp( v2->text[i].id, "TDRC" ) == 0 ) {
+							LOG_DEBUG( "date=s setting release date", v2->text[i].text.p );
 							item->release_date = parse_date_to_epoch_days( v2->text[i].text.p );
 						}
 					}
@@ -122,9 +122,10 @@ int id3_get( ID3Cache* cache, const char* library_path, const char* path, ID3Cac
 							   null_to_empty( v2->extra[i].description.p ),
 							   null_to_empty( v2->extra[i].text.p ) );
 				}
-				LOG_INFO("release=d release date", item->release_date);
-			} else {
-				LOG_WARN("path=s missing id3v2 tags", full_path);
+				LOG_INFO( "release=d release date", item->release_date );
+			}
+			else {
+				LOG_WARN( "path=s missing id3v2 tags", full_path );
 			}
 		}
 	}

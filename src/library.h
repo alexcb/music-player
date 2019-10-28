@@ -18,7 +18,7 @@ typedef struct Track
 {
 	sds path;
 	sds title;
-	struct Album *album;
+	struct Album* album;
 	//uint32_t track;
 	float length;
 
@@ -37,7 +37,7 @@ SGLIB_DEFINE_RBTREE_PROTOTYPES( Track, left, right, color_field, TRACK_PATH_COMP
 
 typedef struct Album
 {
-	struct Artist *artist;
+	struct Artist* artist;
 	sds album;
 	sds path;
 	int32_t release_date; // days since 1970
