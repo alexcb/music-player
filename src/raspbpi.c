@@ -14,7 +14,7 @@
 // switch must remain in this state for at least this many ms
 #	define MIN_CONSTANT_STATE_MS 10
 
-#define HOLD_TIME_MS 800
+#define HOLD_TIME_MS 400
 
 struct gpio_switch
 {
