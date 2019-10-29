@@ -263,7 +263,11 @@ int _slog_args( char* buf, size_t buf_size, const char* fmt, va_list arguments )
 		}
 		else if( val_fmt_n == 1 && val_fmt[0] == 'l' ) {
 			int64_t val = va_arg( arguments, int64_t );
+#ifdef USE_RASP_PI
 			snprintf( buf + buf_i, buf_size - buf_i, "%lld", val );
+#else
+			snprintf( buf + buf_i, buf_size - buf_i, "%ld", val );
+#endif
 			buf_i += strlen( buf + buf_i );
 		}
 		else if( val_fmt_n == 1 && val_fmt[0] == 'd' ) {
