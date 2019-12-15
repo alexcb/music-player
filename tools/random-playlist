@@ -6,10 +6,15 @@ import json
 import itertools
 import time
 import sys
+import os.path
 
 from acbutils.path_utils import mkdir_p
 
-blacklist = [line.rstrip('\n') for line in open(os.path.expandpath('~/.music-blacklist'))]
+blacklist = []
+for l in open(os.path.expanduser('~/.music-blacklist')):
+    l = l.rstrip('\n')
+    if l:
+        blacklist.append(l)
 
 def is_blacklisted(x):
     for xx in blacklist:
@@ -21,7 +26,7 @@ def parse_release_date(x):
     epoch = x * 24 * 60 * 60
     return time.gmtime(epoch)
 
-def prompt(question, choices=('Yes', 'no', 'cancel')):
+def prompt(question, choices=('Yes', 'no', 'done')):
     prompt = ' '.join('[' + x[0] + ']' + x[1:] for x in choices) + ': '
     while True:
         sys.stdout.write(question + '? ' + prompt)
@@ -82,7 +87,7 @@ else:
     for a in albums[:args.n]:
         if args.interactive:
             choice = prompt(f'Add {a["artist"]} - {a["album"]}')
-            if choice == 'cancel':
+            if choice == 'done':
                 break
             if choice == 'no':
                 continue
