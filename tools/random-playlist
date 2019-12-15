@@ -1,0 +1,108 @@
+#!/usr/bin/python3
+import random
+import argparse
+import requests
+import json
+import itertools
+import time
+import sys
+
+from acbutils.path_utils import mkdir_p
+
+blacklist = [line.rstrip('\n') for line in open(os.path.expandpath('~/.music-blacklist'))]
+
+def is_blacklisted(x):
+    for xx in blacklist:
+        if x.startswith(xx):
+            return True
+    return False
+
+def parse_release_date(x):
+    epoch = x * 24 * 60 * 60
+    return time.gmtime(epoch)
+
+def prompt(question, choices=('Yes', 'no', 'cancel')):
+    prompt = ' '.join('[' + x[0] + ']' + x[1:] for x in choices) + ': '
+    while True:
+        sys.stdout.write(question + '? ' + prompt)
+        choice = input().lower()
+        if len(choice) == 0:
+            for x in choices:
+                if x[0].isupper():
+                    return x
+        else:
+            for x in choices:
+                if x[0].lower() == choice[0] or x.lower() == choice:
+                    return x
+        sys.stdout.write('invalid choice\n')
+
+
+parser = argparse.ArgumentParser(description='random albums.')
+parser.add_argument('--host', default="localhost:8080", type=str)
+parser.add_argument('--min-year', default=None, type=int)
+parser.add_argument('--max-year', default=None, type=int)
+parser.add_argument('--tracks', action='store_true')
+parser.add_argument('-i', '--interactive', action='store_true')
+parser.add_argument('--filter', default='', type=str)
+parser.add_argument('-n', default=1000, type=int)
+
+args = parser.parse_args()
+
+playlist_name = 'random-albums'
+
+r = requests.get('http://%s/library' % args.host)
+r.raise_for_status()
+library = r.json()
+albums = []
+for artist in library['artists']:
+    for album in artist['albums']:
+        if is_blacklisted(album['path']):
+            continue
+        if album['release_date'] == 0:
+            print(f'skipping {album["artist"]} - {album["album"]} (no release_date)')
+            continue
+        if args.min_year and parse_release_date(album['release_date']).tm_year < args.min_year:
+            continue
+        if args.max_year and parse_release_date(album['release_date']).tm_year > args.max_year:
+            continue
+        albums.append(album)
+
+filter_i = args.filter.lower()
+if args.tracks:
+    tracks = []
+    for a in albums[:args.n]:
+        for t in a['tracks']:
+            if filter_i in t['path'].lower():
+                tracks.append(t['path'])
+    random.shuffle(tracks)
+    tracks = tracks[:1000]
+else:
+    random.shuffle(albums)
+    tracks = []
+    for a in albums[:args.n]:
+        if args.interactive:
+            choice = prompt(f'Add {a["artist"]} - {a["album"]}')
+            if choice == 'cancel':
+                break
+            if choice == 'no':
+                continue
+        else:
+            print('-'.join((a['artist'], a['album'])))
+        for t in a['tracks']:
+            if filter_i in t['path'].lower():
+                tracks.append(t['path'])
+
+if not tracks:
+    print('no tracks to load')
+    sys.exit(1)
+
+r = requests.post('http://%s/playlists' % args.host, data=json.dumps({
+    'name': playlist_name,
+    'playlist': [(t, None) for t in tracks],
+    }))
+r.raise_for_status()
+
+
+url = 'http://%s/play?playlist=%s&track=%s&when=%s' % (args.host, playlist_name, 0, 'immediate')
+r = requests.post(url)
+r.raise_for_status()
