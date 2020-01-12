@@ -150,6 +150,15 @@ apt update
 apt upgrade
 apt install git wiringpi libasound2-dev libmpg123-dev libjson-c-dev libssl-dev
 
+apt install libttspico-dev
+
+or if it's not available and you're on a raspberry pi v1 try:
+
+wget http://archive.raspberrypi.org/debian/pool/main/s/svox/libttspico-dev_1.0+git20130326-3+rpi1_armhf.deb
+wget http://archive.raspberrypi.org/debian/pool/main/s/svox/libttspico-data_1.0+git20130326-3+rpi1_all.deb
+wget http://archive.raspberrypi.org/debian/pool/main/s/svox/libttspico0_1.0+git20130326-3+rpi1_armhf.deb
+dpkg -i libttspico*.deb
+
 # install special version of libmicrohttpd
 # ( the libmicrohttpd-dev version has MHD_create_response_for_upgrade wrapped by an #if 0 guard ) 
 libmicrohttpd:
@@ -165,8 +174,10 @@ cd
 git clone git@github.com:alexcb/music-player.git
 cd music-player
 make
-touch streams
 sudo cp init.d-music /etc/init.d/music
+
+cd
+touch streams
 
 scp 192.168.0.10:id3_cache 192.168.0.11:id3_cache
 
