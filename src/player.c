@@ -549,8 +549,9 @@ void player_load_into_buffer( Player* player, PlaylistItem* item )
 				}
 				*p = y;
 			}
-			if( clipped ) {
+			if( clipped && volume > 1.0f ) {
 				LOG_WARN( "clipped audio, volume is too high" );
+				volume *= 0.99f;
 			}
 		}
 
