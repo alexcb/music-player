@@ -25,6 +25,15 @@ test: $(OBJWITHOUTMAIN) $(TESTOBJ)
 reformat:
 	find -regex '.*/.*\.\(c\|h\)$$' -exec clang-format-7 -i {} \;
 
+.PHONY: run
+run: music-server
+	HTTP_PORT=7777 ./music-server ~/music ~/streams ~/playlists ~/music-id3-cache
+	#./music-server /media/nugget_share/music/alex-beet ~/streams ~/playlists ~/music-id3-cache
+
+.PHONY: random
+random:
+	./random-playlist --host localhost:7777
+
 # To obtain object files
 %.o: %.c
 	$(CC) -c $(CCFLAGS) $< -o $@
