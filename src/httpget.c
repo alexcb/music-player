@@ -32,6 +32,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "log.h"
+
 #include "resolver.h"
 
 //#include "resolver.h"
@@ -323,7 +325,7 @@ int fill_request( mpg123_string* request,
 
 	/* Fill out the request further... */
 	if( !mpg123_add_string( request,
-							" HTTP/1.0\r\nUser-Agent: musicplayer-dev\r\nicy-metadata: 1\r\n" ) ||
+							" HTTP/1.0\r\nUser-Agent: github.com/alexcb/music-player\r\nicy-metadata: 1\r\n" ) ||
 		!mpg123_add_string( request, "\r\n" ) )
 		return FALSE;
 
@@ -627,6 +629,8 @@ int http_open( const char* url, struct httpdata* hd )
 
 exit: /* The end as well as the exception handling point... */
 	//if(oom) error("Apparently, I ran out of memory or had some bad input data...");
+
+	LOG_INFO("sock=d http_open returning", sock);
 
 	mpg123_free_string( &purl );
 	mpg123_free_string( &host );
