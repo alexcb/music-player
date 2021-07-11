@@ -38,8 +38,14 @@ int open_file( const char* path, int* fd )
 
 // TODO does this need to be global? can it be in the player instead?
 struct httpdata hd;
+int hd_needs_init = 1;
 int open_stream( const char* url, int* fd, long int* icy_interval, char** icy_name )
 {
+	if( hd_needs_init ) {
+		httpdata_init( &hd );
+	} else {
+		httpdata_reset( &hd );
+	}
 	LOG_DEBUG( "url=s open_stream", url );
 	*fd = http_open( url, &hd );
 	*icy_interval = hd.icy_interval;

@@ -31,8 +31,6 @@
 #include "id3.h"
 #include "my_malloc.h"
 
-struct httpdata hd;
-
 void ignore_singal_init()
 {
 	// Ignore these signals
