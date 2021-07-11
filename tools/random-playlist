@@ -63,7 +63,7 @@ for artist in library['artists']:
     for album in artist['albums']:
         if is_blacklisted(album['path']):
             continue
-        if album['release_date'] == 0:
+        if (args.min_year or args.max_year) and album['release_date'] == 0:
             print(f'skipping {album["artist"]} - {album["album"]} (no release_date)')
             continue
         if args.min_year and parse_release_date(album['release_date']).tm_year < args.min_year:
@@ -84,7 +84,10 @@ if args.tracks:
 else:
     random.shuffle(albums)
     tracks = []
-    for a in albums[:args.n]:
+    num_added = 0
+    for a in albums:
+        if filter_i and filter_i not in a['artist'].lower() and filter_i not in a['album'].lower():
+            continue
         if args.interactive:
             choice = prompt(f'Add {a["artist"]} - {a["album"]}')
             if choice == 'done':
@@ -94,8 +97,10 @@ else:
         else:
             print('-'.join((a['artist'], a['album'])))
         for t in a['tracks']:
-            if filter_i in t['path'].lower():
-                tracks.append(t['path'])
+            tracks.append(t['path'])
+        num_added += 1
+        if num_added >= args.n:
+            break
 
 if not tracks:
     print('no tracks to load')

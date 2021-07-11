@@ -50,7 +50,9 @@ int init_circular_buffer( CircularBuffer* buffer, size_t buffer_size )
 void wake_up_get_buffer_write( CircularBuffer* buffer )
 {
 	//LOG_DEBUG("setting wake_up_get_buffer_write true");
-	pthread_mutex_lock( &buffer->lock );
+	buffer_lock_with_warning( buffer, "wake_up_get_buffer_write lock timedout" );
+	//pthread_mutex_lock( &buffer->lock );
+	
 	buffer->wake_up_get_buffer_write = true;
 	pthread_mutex_unlock( &buffer->lock );
 	pthread_cond_signal( &buffer->space_free );
@@ -61,7 +63,8 @@ void wake_up_get_buffer_write( CircularBuffer* buffer )
 void wake_up_get_buffer_read( CircularBuffer* buffer )
 {
 	//LOG_DEBUG("setting wake_up_get_buffer_read true");
-	pthread_mutex_lock( &buffer->lock );
+	buffer_lock_with_warning( buffer, "wake_up_get_buffer_read lock timedout" );
+	//pthread_mutex_lock( &buffer->lock );
 	buffer->wake_up_get_buffer_read = true;
 	pthread_mutex_unlock( &buffer->lock );
 	pthread_cond_signal( &buffer->data_avail );
@@ -72,7 +75,8 @@ void buffer_clear( CircularBuffer* buffer )
 {
 	//long start = get_current_time_ms();
 
-	pthread_mutex_lock( &buffer->lock );
+	buffer_lock_with_warning( buffer, "buffer_clear lock timedout" );
+	//pthread_mutex_lock( &buffer->lock );
 
 	buffer->read = 0;
 	buffer->write = 0;
@@ -139,8 +143,10 @@ int get_buffer_write( CircularBuffer* buffer,
 					  size_t* reserved_size )
 {
 	int res;
-	res = pthread_mutex_lock( &buffer->lock );
-	assert( !res );
+
+	buffer_lock_with_warning( buffer, "get_buffer_write lock timedout" );
+	//res = pthread_mutex_lock( &buffer->lock );
+	//assert( !res );
 	for( ;; ) {
 		res = get_buffer_write_unsafe( buffer, min_buffer_size, p, reserved_size );
 		if( res == 0 ) {
@@ -186,8 +192,9 @@ int get_buffer_read_unsafe( CircularBuffer* buffer, char** p, size_t* reserved_s
 int get_buffer_read( CircularBuffer* buffer, char** p, size_t* reserved_size )
 {
 	int res;
-	res = pthread_mutex_lock( &buffer->lock );
-	assert( !res );
+	buffer_lock_with_warning( buffer, "get_buffer_read lock timedout" );
+	//res = pthread_mutex_lock( &buffer->lock );
+	//assert( !res );
 	for( ;; ) {
 		res = get_buffer_read_unsafe( buffer, p, reserved_size );
 		if( res == 0 ) {
@@ -211,7 +218,8 @@ void buffer_mark_written( CircularBuffer* buffer, size_t n )
 {
 	//long start = get_current_time_ms();
 
-	pthread_mutex_lock( &buffer->lock );
+	buffer_lock_with_warning( buffer, "buffer_mark_written lock timedout" );
+	//pthread_mutex_lock( &buffer->lock );
 	buffer->write += n;
 	pthread_mutex_unlock( &buffer->lock );
 	pthread_cond_signal( &buffer->data_avail );
@@ -224,7 +232,8 @@ void buffer_mark_read( CircularBuffer* buffer, size_t n )
 {
 	//long start = get_current_time_ms();
 
-	pthread_mutex_lock( &buffer->lock );
+	buffer_lock_with_warning( buffer, "buffer_mark_read lock timedout" );
+	//pthread_mutex_lock( &buffer->lock );
 	buffer->read += n;
 	pthread_mutex_unlock( &buffer->lock );
 	pthread_cond_signal( &buffer->space_free );
@@ -237,7 +246,8 @@ void buffer_mark_read_upto( CircularBuffer* buffer, char* p )
 {
 	//long start = get_current_time_ms();
 
-	pthread_mutex_lock( &buffer->lock );
+	buffer_lock_with_warning( buffer, "buffer_mark_read_upto lock timedout" );
+	//pthread_mutex_lock( &buffer->lock );
 	size_t n = p - buffer->p;
 	//LOG_DEBUG("p=p bufp=p n=d marking up to", p, buffer->p, n);
 	if( n >= buffer->read ) {
@@ -345,9 +355,26 @@ int buffer_lock( CircularBuffer* buffer )
 int buffer_timedlock( CircularBuffer* buffer )
 {
 	struct timespec tspec;
-	tspec.tv_sec = 0;
-	tspec.tv_nsec = 100;
+	clock_gettime(CLOCK_REALTIME, &tspec);
+	tspec.tv_sec += 1;
+	//tspec.tv_nsec = 100;
 	return pthread_mutex_timedlock( &buffer->lock, &tspec );
+}
+
+void buffer_lock_with_warning( CircularBuffer* buffer, const char *msg )
+{
+	int res;
+	int warned = 0;
+	for(;;) {
+		res = buffer_timedlock( buffer );
+		if( res == 0 ) {
+			return;
+		}
+		if( !warned ) {
+			warned = 1;
+			LOG_WARN( "msg=s lock timedout", msg );
+		}
+	}
 }
 
 int buffer_unlock( CircularBuffer* buffer )

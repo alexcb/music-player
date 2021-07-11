@@ -49,3 +49,5 @@ void buffer_mark_read_unsafe( CircularBuffer* buffer, size_t n );
 int buffer_timedlock( CircularBuffer* buffer );
 int buffer_unlock( CircularBuffer* buffer );
 int buffer_lock( CircularBuffer* buffer );
+
+void buffer_lock_with_warning( CircularBuffer* buffer, const char *msg );

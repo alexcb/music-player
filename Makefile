@@ -27,12 +27,25 @@ reformat:
 
 .PHONY: run
 run: music-server
-	HTTP_PORT=7777 ./music-server ~/music ~/streams ~/playlists ~/music-id3-cache
+	sudo mount -a
+	LOG_LEVEL=DEBUG HTTP_PORT=7777 ./music-server /media/nugget_share/music/alex-beet ~/streams ~/playlists ~/music-id3-cache
 	#./music-server /media/nugget_share/music/alex-beet ~/streams ~/playlists ~/music-id3-cache
 
 .PHONY: random
 random:
-	./random-playlist --host localhost:7777
+	tools/random-playlist --host localhost:7777
+
+.PHONY: pause
+pause:
+	curl -XPOST localhost:7777/pause
+
+.PHONY: next-track
+next-track:
+	curl -XPOST localhost:7777/next-track
+
+.PHONY: prev-track
+prev-track:
+	curl -XPOST localhost:7777/prev-track
 
 # To obtain object files
 %.o: %.c
