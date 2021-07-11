@@ -455,6 +455,8 @@ int http_open( const char* url, struct httpdata* hd )
 
 	(void)oom;
 
+	LOG_INFO("url=s http_open starting", url);
+
 	if( !translate_url( url, &purl ) ) {
 		oom = 1;
 		goto exit;
