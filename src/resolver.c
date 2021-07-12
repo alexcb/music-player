@@ -285,6 +285,14 @@ int open_connection( mpg123_string* host, mpg123_string* port )
 
 	freeaddrinfo( addrlist );
 #endif
+
+
+	// set a tight(er) timeout
+	struct timeval tv;
+	tv.tv_sec = 5; // timeout after 5 second
+	tv.tv_usec = 0;
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+
 	return sock; /* Hopefully, that's an open socket to talk with. */
 }
 
