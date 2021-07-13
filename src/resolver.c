@@ -289,7 +289,7 @@ int open_connection( mpg123_string* host, mpg123_string* port )
 
 	// set a tight(er) timeout
 	struct timeval tv;
-	tv.tv_sec = 30; // timeout after 30 second (5 was too tight)
+	tv.tv_sec = 60; // timeout after 60 second (5 was too tight)
 	tv.tv_usec = 0;
 	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 

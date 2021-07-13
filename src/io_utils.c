@@ -10,22 +10,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-int open_file( const char* path, int* fd );
-int open_stream( const char* url, int* fd, long int* icy_interval, char** icy_name );
-
-int open_fd( const char* path, int* fd, long int* icy_interval, char** icy_name )
-{
-	int res;
-	if( strstr( path, "http://" ) ) {
-		res = open_stream( path, fd, icy_interval, icy_name );
-	}
-	else {
-		res = open_file( path, fd );
-		*icy_interval = 0;
-	}
-	return res;
-}
-
 int open_file( const char* path, int* fd )
 {
 	LOG_DEBUG( "path=s open_file", path );
@@ -50,6 +34,9 @@ int open_stream( const char* url, int* fd, long int* icy_interval, char** icy_na
 	*fd = http_open( url, &hd );
 	*icy_interval = hd.icy_interval;
 	*icy_name = hd.icy_name.p;
+
+	LOG_INFO( "url=s buffering stream", url );
+	sleep(5);
 
 	return 0;
 }
