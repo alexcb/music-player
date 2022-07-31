@@ -142,7 +142,7 @@ echo $UID # and make note that it is 1000 (or update the below fstab command)
 
 # setup nas
 mkdir -p /media/nugget_share/music
-echo '//192.168.0.3/music /media/nugget_share/music cifs uid=1000,username=alex,password=mypasswordgoeshere,iocharset=utf8,ro,nounix,file_mode=0777,dir_mode=0777,sec=ntlm,vers=1.0 0 0' >> /etc/fstab
+echo '//192.168.0.3/music /media/nugget_share/music cifs uid=1000,username=alex,password=mypasswordgoeshere,iocharset=utf8,ro,nounix,file_mode=0777,dir_mode=0777 0 0' >> /etc/fstab
 mount -a
 
 # install tools
